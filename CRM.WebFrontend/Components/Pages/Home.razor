@@ -1,7 +1,35 @@
-﻿@page "/"
+@page "/"
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
 
-<h1>Hello, world!</h1>
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
 
-Welcome to your new app.
+        var authState = await AuthStateTask;
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            if (user.IsInRole("SUPERVISOR"))
+            {
+                Navigation.NavigateTo("/supervisor");
+            }
+            else
+            {
+                Navigation.NavigateTo("/asesor");
+            }
+        }
+        else
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+}

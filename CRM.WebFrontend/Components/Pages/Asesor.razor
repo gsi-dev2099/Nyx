@@ -1,0 +1,802 @@
+@page "/asesor"
+@attribute [Authorize(Roles = "ASESOR")]
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Navigation
+@using System.Security.Claims
+@using System.Text.Json
+@using System.Text
+@using System.Net.Http.Headers
+
+<PageTitle>Panel de Asesor — Nyx CRM</PageTitle>
+
+<div class="advisor-dashboard">
+    <!-- Header -->
+    <header class="dashboard-header">
+        <div class="header-left">
+            <span class="user-badge">ASESOR</span>
+            <h1>Hola, @AdvisorName</h1>
+            <p class="campaign-info">Campaña Asignada: <strong>@(string.IsNullOrEmpty(CampaignName) ? "Ninguna" : CampaignName)</strong></p>
+        </div>
+        <div class="header-right">
+            <a href="/logout-endpoint" class="btn btn-outline">Cerrar sesión</a>
+        </div>
+    </header>
+
+    <!-- Content Grid -->
+    <div class="dashboard-grid">
+        <!-- Left Column: Pre-Sales List -->
+        <div class="dashboard-column">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Mis Pre-Ventas Asignadas</h2>
+                    <span class="count-badge">@PreSales.Count</span>
+                </div>
+                <div class="card-body">
+                    @if (LoadingPreSales)
+                    {
+                        <div class="loader">Cargando pre-ventas...</div>
+                    }
+                    else if (!PreSales.Any())
+                    {
+                        <p class="empty-text">No tienes pre-ventas asignadas actualmente.</p>
+                    }
+                    else
+                    {
+                        <div class="presales-list">
+                            @foreach (var ps in PreSales)
+                            {
+                                <div class="presale-item @(SelectedPreSale?.IdPreSale == ps.IdPreSale ? "active" : "")" @onclick="() => SelectPreSale(ps)">
+                                    <div class="item-header">
+                                        <span class="item-id">#@ps.IdPreSale</span>
+                                        <span class="status-chip">Estado: @ps.State</span>
+                                    </div>
+                                    <div class="item-body">
+                                        <p><strong>Lead ID:</strong> @ps.IdLead</p>
+                                        <p><strong>Fecha Asig:</strong> @ps.AssignmentDate?.ToString("g")</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Action Panel: Pre-Sale Call Log -->
+            @if (SelectedPreSale != null)
+            {
+                <div class="card action-card">
+                    <div class="card-header">
+                        <h2>Registrar Llamada (Pre-Venta #@SelectedPreSale.IdPreSale)</h2>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(PreSaleMessage))
+                        {
+                            <div class="alert @(PreSaleSuccess ? "alert-success" : "alert-danger")">
+                                @PreSaleMessage
+                            </div>
+                        }
+                        <div class="form-group">
+                            <label for="callLog">Detalle/Resultado de la llamada</label>
+                            <textarea id="callLog" @bind="NewCallLog" placeholder="ej. Cliente interesado, solicita volver a llamar por la tarde..." rows="3"></textarea>
+                        </div>
+                        <button class="btn btn-primary" @onclick="SubmitCallLog" disabled="@(string.IsNullOrEmpty(NewCallLog) || SubmittingCall)">
+                            @(SubmittingCall ? "Registrando..." : "Registrar Log")
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Right Column: Leads Search & Status Update -->
+        <div class="dashboard-column">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Buscador Global de Leads</h2>
+                </div>
+                <div class="card-body">
+                    <div class="search-bar">
+                        <input type="text" @bind="SearchTerm" placeholder="Buscar por nombre, teléfono..." @onkeyup="HandleSearchKeyUp" />
+                        <button class="btn btn-primary" @onclick="SearchLeads">Buscar</button>
+                    </div>
+
+                    @if (LoadingLeads)
+                    {
+                        <div class="loader">Buscando leads...</div>
+                    }
+                    else if (!Leads.Any())
+                    {
+                        <p class="empty-text">No se encontraron leads. Ingresa un término y presiona Buscar.</p>
+                    }
+                    else
+                    {
+                        <div class="table-container">
+                            <table class="leads-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nombre</th>
+                                        <th>Teléfono</th>
+                                        <th>Estado</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var lead in Leads)
+                                    {
+                                        <tr>
+                                            <td>@lead.IdLead</td>
+                                            <td>@lead.FirstName @lead.LastName</td>
+                                            <td>@lead.Phone</td>
+                                            <td>
+                                                <span class="status-badge status-@lead.StatusId">@GetStatusName(lead.StatusId)</span>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline" @onclick="() => SelectLead(lead)">Gestionar</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Action Panel: Update Lead Status (Custody Validation) -->
+            @if (SelectedLead != null)
+            {
+                <div class="card action-card">
+                    <div class="card-header">
+                        <h2>Gestionar Lead: @SelectedLead.FirstName @SelectedLead.LastName</h2>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(LeadMessage))
+                        {
+                            <div class="alert @(LeadSuccess ? "alert-success" : "alert-danger")">
+                                @LeadMessage
+                            </div>
+                        }
+
+                        <div class="lead-details">
+                            <p><strong>ID:</strong> @SelectedLead.IdLead</p>
+                            <p><strong>Email:</strong> @SelectedLead.Email</p>
+                            <p><strong>Campaña:</strong> @SelectedLead.IdCmpg</p>
+                            <p><strong>Estado Actual:</strong> <span class="status-badge status-@SelectedLead.StatusId">@GetStatusName(SelectedLead.StatusId)</span></p>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="newStatus">Nuevo Estado</label>
+                            <select id="newStatus" @bind="NewStatusId">
+                                <option value="1">Nuevo (Pendiente)</option>
+                                <option value="2">En Proceso</option>
+                                <option value="3">Convertido a Pre-Venta</option>
+                                <option value="4">Descartado</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="leadComment">Comentario del Asesor</label>
+                            <input type="text" id="leadComment" @bind="LeadComment" placeholder="ej. Cliente solicita presupuesto..." />
+                        </div>
+
+                        <button class="btn btn-primary" @onclick="SubmitLeadStatus" disabled="@SubmittingLead">
+                            @(SubmittingLead ? "Guardando..." : "Actualizar Estado & Validar Custodia")
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private string AdvisorName = "Asesor";
+    private string CampaignName = "Ninguna";
+    private string UserId = "0";
+    private string UserToken = "";
+
+    // Pre-Sales state
+    private bool LoadingPreSales = true;
+    private List<PreSaleDto> PreSales = new();
+    private PreSaleDto? SelectedPreSale;
+    private string NewCallLog = "";
+    private bool SubmittingCall = false;
+    private string? PreSaleMessage;
+    private bool PreSaleSuccess = false;
+
+    // Leads state
+    private string SearchTerm = "";
+    private bool LoadingLeads = false;
+    private List<LeadDto> Leads = new();
+    private LeadDto? SelectedLead;
+    private int NewStatusId = 2;
+    private string LeadComment = "";
+    private bool SubmittingLead = false;
+    private string? LeadMessage;
+    private bool LeadSuccess = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask == null) return;
+        var authState = await AuthStateTask;
+        var user = authState.User;
+
+        AdvisorName = user.Identity?.Name ?? "Asesor";
+        CampaignName = user.FindFirst("campaign")?.Value ?? "Ninguna";
+        UserId = user.FindFirst("id_user")?.Value ?? "0";
+        UserToken = user.FindFirst("access_token")?.Value ?? "";
+
+        await FetchPreSales();
+    }
+
+    private async Task FetchPreSales()
+    {
+        LoadingPreSales = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", UserToken);
+
+            var response = await client.GetAsync($"/presales?userId={UserId}");
+            if (response.IsSuccessStatusCode)
+            {
+                var jsonBytes = await response.Content.ReadAsByteArrayAsync();
+                var json = Encoding.UTF8.GetString(jsonBytes);
+                PreSales = JsonSerializer.Deserialize<List<PreSaleDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            }
+        }
+        catch
+        {
+            PreSales = new();
+        }
+        finally
+        {
+            LoadingPreSales = false;
+        }
+    }
+
+    private void SelectPreSale(PreSaleDto ps)
+    {
+        SelectedPreSale = ps;
+        NewCallLog = "";
+        PreSaleMessage = null;
+    }
+
+    private async Task SubmitCallLog()
+    {
+        if (SelectedPreSale == null || string.IsNullOrEmpty(NewCallLog)) return;
+        SubmittingCall = true;
+        PreSaleMessage = null;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", UserToken);
+
+            var payload = JsonSerializer.Serialize(NewCallLog);
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync($"/presales/{SelectedPreSale.IdPreSale}/calls", content);
+            if (response.IsSuccessStatusCode)
+            {
+                PreSaleSuccess = true;
+                PreSaleMessage = "Log de llamada registrado correctamente.";
+                NewCallLog = "";
+            }
+            else
+            {
+                var errBytes = await response.Content.ReadAsByteArrayAsync();
+                var errJson = Encoding.UTF8.GetString(errBytes);
+                PreSaleSuccess = false;
+                PreSaleMessage = $"Error: {response.StatusCode}. No se pudo registrar.";
+            }
+        }
+        catch (Exception ex)
+        {
+            PreSaleSuccess = false;
+            PreSaleMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            SubmittingCall = false;
+        }
+    }
+
+    private async Task SearchLeads()
+    {
+        LoadingLeads = true;
+        SelectedLead = null;
+        LeadMessage = null;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", UserToken);
+
+            var response = await client.GetAsync($"/api/leads?searchTerm={Uri.EscapeDataString(SearchTerm)}&limit=10");
+            if (response.IsSuccessStatusCode)
+            {
+                var jsonBytes = await response.Content.ReadAsByteArrayAsync();
+                var json = Encoding.UTF8.GetString(jsonBytes);
+                Leads = JsonSerializer.Deserialize<List<LeadDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            }
+            else
+            {
+                Leads = new();
+            }
+        }
+        catch
+        {
+            Leads = new();
+        }
+        finally
+        {
+            LoadingLeads = false;
+        }
+    }
+
+    private void HandleSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            _ = SearchLeads();
+        }
+    }
+
+    private void SelectLead(LeadDto lead)
+    {
+        SelectedLead = lead;
+        NewStatusId = lead.StatusId;
+        LeadComment = "";
+        LeadMessage = null;
+    }
+
+    private async Task SubmitLeadStatus()
+    {
+        if (SelectedLead == null) return;
+        SubmittingLead = true;
+        LeadMessage = null;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", UserToken);
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                statusId = NewStatusId,
+                comment = LeadComment
+            });
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+            // We must pass statusId as query parameter so that RequiresPermissionAttribute can extract it!
+            var response = await client.PatchAsync($"/api/leads/{SelectedLead.IdLead}/status?statusId={NewStatusId}", content);
+            if (response.IsSuccessStatusCode)
+            {
+                LeadSuccess = true;
+                LeadMessage = "Estado del lead actualizado con éxito.";
+                SelectedLead.StatusId = NewStatusId;
+                // Refresh list
+                await SearchLeads();
+            }
+            else
+            {
+                var errBytes = await response.Content.ReadAsByteArrayAsync();
+                var errBody = Encoding.UTF8.GetString(errBytes);
+                string detail = response.StatusCode.ToString();
+                try
+                {
+                    using var errDoc = JsonDocument.Parse(errBody);
+                    if (errDoc.RootElement.TryGetProperty("message", out var msgProp))
+                    {
+                        detail = msgProp.GetString() ?? detail;
+                    }
+                }
+                catch {}
+                LeadSuccess = false;
+                LeadMessage = $"Acceso Denegado: {detail}";
+            }
+        }
+        catch (Exception ex)
+        {
+            LeadSuccess = false;
+            LeadMessage = $"Error del sistema: {ex.Message}";
+        }
+        finally
+        {
+            SubmittingLead = false;
+        }
+    }
+
+    private string GetStatusName(int statusId) => statusId switch
+    {
+        1 => "Nuevo",
+        2 => "En Proceso",
+        3 => "Pre-Venta",
+        4 => "Descartado",
+        _ => "Desconocido"
+    };
+
+    // Subclasses / DTOs
+    public class PreSaleDto
+    {
+        public int IdPreSale { get; set; }
+        public int IdLead { get; set; }
+        public int AssignedUserId { get; set; }
+        public string? State { get; set; }
+        public DateTime? AssignmentDate { get; set; }
+    }
+
+    public class LeadDto
+    {
+        public int IdLead { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+        public int StatusId { get; set; }
+        public int IdCmpg { get; set; }
+    }
+}
+
+<style>
+    :root {
+        --color-bg: #f8fafc;
+        --color-card: #ffffff;
+        --color-text-primary: #0f172a;
+        --color-text-secondary: #475569;
+        --color-border: #e2e8f0;
+        --color-primary: #1e293b;
+        --color-primary-hover: #0f172a;
+        --color-danger: #ef4444;
+        --color-success: #10b981;
+    }
+
+    .advisor-dashboard {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+        font-family: 'Outfit', sans-serif;
+        color: #0f172a;
+    }
+
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 24px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .user-badge {
+        background-color: #eff6ff;
+        color: #1b61c9;
+        padding: 4px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: inline-block;
+        margin-bottom: 8px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 28px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+    }
+
+    .campaign-info {
+        font-size: 14px;
+        color: #64748b;
+        margin-top: 4px;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+    }
+
+    @@media (max-width: 900px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .dashboard-column {
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+    }
+
+    .card {
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.02);
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+
+    .card-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #fafafa;
+    }
+
+    .card-header h2 {
+        font-size: 16px;
+        font-weight: 500;
+        color: #0f172a;
+    }
+
+    .count-badge {
+        background-color: #f1f5f9;
+        color: #475569;
+        padding: 2px 10px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    .empty-text {
+        font-size: 14px;
+        color: #94a3b8;
+        text-align: center;
+        padding: 20px 0;
+    }
+
+    .loader {
+        font-size: 14px;
+        color: #64748b;
+        text-align: center;
+        padding: 20px 0;
+    }
+
+    /* Pre-sales list */
+    .presales-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 350px;
+        overflow-y: auto;
+    }
+
+    .presale-item {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .presale-item:hover {
+        background-color: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+
+    .presale-item.active {
+        background-color: #eff6ff;
+        border-color: #1b61c9;
+        box-shadow: 0 0 0 1px #1b61c9;
+    }
+
+    .item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .item-id {
+        font-weight: 500;
+        font-size: 14px;
+        color: #0f172a;
+    }
+
+    .status-chip {
+        font-size: 11px;
+        background-color: #e2e8f0;
+        color: #475569;
+        padding: 2px 8px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        font-weight: 500;
+    }
+
+    .item-body {
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.4;
+    }
+
+    /* Search bar */
+    .search-bar {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .search-bar input {
+        flex: 1;
+        padding: 10px 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: inherit;
+        background-color: #f8fafc;
+    }
+
+    .search-bar input:focus {
+        outline: none;
+        border-color: #1b61c9;
+        background-color: #ffffff;
+    }
+
+    /* Leads Table */
+    .table-container {
+        overflow-x: auto;
+    }
+
+    .leads-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 13px;
+    }
+
+    .leads-table th {
+        color: #64748b;
+        font-weight: 500;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        text-transform: uppercase;
+        font-size: 11px;
+    }
+
+    .leads-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #0f172a;
+    }
+
+    .leads-table tr:hover td {
+        background-color: #f8fafc;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .status-1 { background-color: #fef3c7; color: #d97706; } /* Nuevo */
+    .status-2 { background-color: #dbeafe; color: #2563eb; } /* En Proceso */
+    .status-3 { background-color: #d1fae5; color: #059669; } /* Pre-Venta */
+    .status-4 { background-color: #fee2e2; color: #dc2626; } /* Descartado */
+
+    /* Lead details info block */
+    .lead-details {
+        background-color: #f8fafc;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+        border: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font-size: 13px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #475569;
+    }
+
+    .form-group textarea, .form-group input, .form-group select {
+        padding: 10px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: inherit;
+        background-color: #f8fafc;
+        color: #0f172a;
+    }
+
+    .form-group textarea:focus, .form-group input:focus, .form-group select:focus {
+        outline: none;
+        border-color: #1b61c9;
+        background-color: #ffffff;
+    }
+
+    /* Buttons */
+    .btn {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-family: inherit;
+        text-align: center;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+        border-radius: 4px;
+    }
+
+    .btn-primary {
+        background-color: #1e293b;
+        color: #ffffff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: #0f172a;
+    }
+
+    .btn-primary:disabled {
+        background-color: #cbd5e1;
+        color: #94a3b8;
+        cursor: not-allowed;
+    }
+
+    .btn-outline {
+        border: 1px solid #cbd5e1;
+        background-color: #ffffff;
+        color: #475569;
+    }
+
+    .btn-outline:hover {
+        background-color: #f8fafc;
+        color: #0f172a;
+    }
+
+    .alert {
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .alert-success {
+        background-color: #d1fae5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+
+    .alert-danger {
+        background-color: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fca5a5;
+    }
+</style>

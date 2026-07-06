@@ -1,0 +1,591 @@
+@page "/supervisor"
+@attribute [Authorize(Roles = "SUPERVISOR")]
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Navigation
+@using System.Security.Claims
+@using System.Text.Json
+@using System.Text
+@using System.Net.Http.Headers
+
+<PageTitle>Panel de Supervisor — Nyx CRM</PageTitle>
+
+<div class="supervisor-dashboard">
+    <!-- Header -->
+    <header class="dashboard-header">
+        <div class="header-left">
+            <span class="user-badge">SUPERVISOR</span>
+            <h1>Panel de Control del Supervisor</h1>
+            <p class="user-info">Usuario: <strong>@SupervisorName</strong></p>
+        </div>
+        <div class="header-right">
+            <a href="/logout-endpoint" class="btn btn-outline">Cerrar sesión</a>
+        </div>
+    </header>
+
+    <!-- Top Action Cards Grid -->
+    <div class="dashboard-grid">
+        <!-- Reassignment Panel -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Reasignar Pre-Venta de CallCenter</h2>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(AssignMessage))
+                {
+                    <div class="alert @(AssignSuccess ? "alert-success" : "alert-danger")">
+                        @AssignMessage
+                    </div>
+                }
+
+                <div class="form-group">
+                    <label for="presaleId">ID de Pre-Venta</label>
+                    <input type="number" id="presaleId" @bind="AssignPreSaleId" placeholder="ej. 12" />
+                </div>
+
+                <div class="form-group">
+                    <label for="toAdvisor">Asesor de Destino</label>
+                    <select id="toAdvisor" @bind="ToAdvisorId">
+                        <option value="69">mfarfan (ID: 69)</option>
+                        <option value="389">jsayago (ID: 389)</option>
+                        <option value="1">jotamendi (ID: 1)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="assignContext">Contexto / Justificación del Cambio</label>
+                    <input type="text" id="assignContext" @bind="AssignContext" placeholder="ej. Reasignación por carga de trabajo..." />
+                </div>
+
+                <button class="btn btn-primary" @onclick="SubmitReassignment" disabled="@(AssignPreSaleId <= 0 || SubmittingAssign)">
+                    @(SubmittingAssign ? "Procesando..." : "Ejecutar Reasignación")
+                </button>
+            </div>
+        </div>
+
+        <!-- Conversion Panel -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Conversión de Pre-Venta a Cliente</h2>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(ConvertMessage))
+                {
+                    <div class="alert @(ConvertSuccess ? "alert-success" : "alert-danger")">
+                        @ConvertMessage
+                    </div>
+                }
+
+                <div class="form-group">
+                    <label for="convertPresaleId">ID de Pre-Venta</label>
+                    <input type="number" id="convertPresaleId" @bind="ConvertPreSaleId" placeholder="ej. 12" />
+                </div>
+
+                <div class="form-group">
+                    <label for="clientType">Tipo de Contrato Comercial</label>
+                    <select id="clientType" @bind="ClientType">
+                        <option value="Fijo">Fijo (Corporativo)</option>
+                        <option value="Variable">Variable (Comercial)</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-primary" @onclick="SubmitConversion" disabled="@(ConvertPreSaleId <= 0 || SubmittingConvert)">
+                    @(SubmittingConvert ? "Convirtiendo..." : "Convertir Pre-Venta a Cliente")
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Section: Advisor Monitoring -->
+    <div class="card section-card">
+        <div class="card-header">
+            <h2>Monitoreo de Leads por Asesor (Búsqueda en Base de Datos)</h2>
+        </div>
+        <div class="card-body">
+            <div class="search-bar">
+                <input type="text" @bind="SearchTerm" placeholder="Buscar leads en base de datos por nombre, teléfono..." @onkeyup="HandleSearchKeyUp" />
+                <button class="btn btn-primary" @onclick="SearchLeads">Buscar Leads</button>
+            </div>
+
+            @if (LoadingLeads)
+            {
+                <div class="loader">Consultando base de datos...</div>
+            }
+            else if (!Leads.Any())
+            {
+                <p class="empty-text">No se han realizado búsquedas o no hay resultados.</p>
+            }
+            else
+            {
+                <div class="table-container">
+                    <table class="leads-table">
+                        <thead>
+                            <tr>
+                                <th>ID Lead</th>
+                                <th>Nombre Completo</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var lead in Leads)
+                            {
+                                <tr>
+                                    <td>@lead.IdLead</td>
+                                    <td>@lead.FirstName @lead.LastName</td>
+                                    <td>@lead.Email</td>
+                                    <td>@lead.Phone</td>
+                                    <td>
+                                        <span class="status-badge status-@lead.StatusId">@GetStatusName(lead.StatusId)</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private string SupervisorName = "Supervisor";
+    private string UserToken = "";
+
+    // Reassignment state
+    private int AssignPreSaleId = 0;
+    private int ToAdvisorId = 69;
+    private string AssignContext = "";
+    private bool SubmittingAssign = false;
+    private string? AssignMessage;
+    private bool AssignSuccess = false;
+
+    // Conversion state
+    private int ConvertPreSaleId = 0;
+    private string ClientType = "Fijo";
+    private bool SubmittingConvert = false;
+    private string? ConvertMessage;
+    private bool ConvertSuccess = false;
+
+    // Leads search state
+    private string SearchTerm = "";
+    private bool LoadingLeads = false;
+    private List<LeadDto> Leads = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask == null) return;
+        var authState = await AuthStateTask;
+        var user = authState.User;
+
+        SupervisorName = user.Identity?.Name ?? "Supervisor";
+        UserToken = user.FindFirst("access_token")?.Value ?? "";
+    }
+
+    private async Task SubmitReassignment()
+    {
+        if (AssignPreSaleId <= 0) return;
+        SubmittingAssign = true;
+        AssignMessage = null;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", UserToken);
+
+            var content = new StringContent(JsonSerializer.Serialize(AssignContext), Encoding.UTF8, "application/json");
+            var url = $"/presales/{AssignPreSaleId}/assign?toUserId={ToAdvisorId}";
+
+            var response = await client.PostAsync(url, content);
+            if (response.IsSuccessStatusCode)
+            {
+                AssignSuccess = true;
+                AssignMessage = $"Pre-venta #{AssignPreSaleId} reasignada con éxito al asesor ID {ToAdvisorId}.";
+                AssignPreSaleId = 0;
+                AssignContext = "";
+            }
+            else
+            {
+                AssignSuccess = false;
+                AssignMessage = $"Error ({response.StatusCode}): No se pudo realizar la reasignación.";
+            }
+        }
+        catch (Exception ex)
+        {
+            AssignSuccess = false;
+            AssignMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            SubmittingAssign = false;
+        }
+    }
+
+    private async Task SubmitConversion()
+    {
+        if (ConvertPreSaleId <= 0) return;
+        SubmittingConvert = true;
+        ConvertMessage = null;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", UserToken);
+
+            var payload = JsonSerializer.Serialize(new { contract_type = ClientType });
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync($"/presales/{ConvertPreSaleId}/convert", content);
+            if (response.IsSuccessStatusCode)
+            {
+                ConvertSuccess = true;
+                ConvertMessage = $"Pre-venta #{ConvertPreSaleId} convertida a cliente final de forma exitosa.";
+                ConvertPreSaleId = 0;
+            }
+            else
+            {
+                ConvertSuccess = false;
+                ConvertMessage = $"Error ({response.StatusCode}): Falló la conversión a cliente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ConvertSuccess = false;
+            ConvertMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            SubmittingConvert = false;
+        }
+    }
+
+    private async Task SearchLeads()
+    {
+        if (string.IsNullOrEmpty(SearchTerm)) return;
+        LoadingLeads = true;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", UserToken);
+
+            var response = await client.GetAsync($"/api/leads?searchTerm={Uri.EscapeDataString(SearchTerm)}&limit=15");
+            if (response.IsSuccessStatusCode)
+            {
+                var jsonBytes = await response.Content.ReadAsByteArrayAsync();
+                var json = Encoding.UTF8.GetString(jsonBytes);
+                Leads = JsonSerializer.Deserialize<List<LeadDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            }
+            else
+            {
+                Leads = new();
+            }
+        }
+        catch
+        {
+            Leads = new();
+        }
+        finally
+        {
+            LoadingLeads = false;
+        }
+    }
+
+    private void HandleSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            _ = SearchLeads();
+        }
+    }
+
+    private string GetStatusName(int statusId) => statusId switch
+    {
+        1 => "Nuevo",
+        2 => "En Proceso",
+        3 => "Pre-Venta",
+        4 => "Descartado",
+        _ => "Desconocido"
+    };
+
+    // Subclasses
+    public class LeadDto
+    {
+        public int IdLead { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+        public int StatusId { get; set; }
+    }
+}
+
+<style>
+    :root {
+        --color-bg: #f8fafc;
+        --color-card: #ffffff;
+        --color-text-primary: #0f172a;
+        --color-text-secondary: #475569;
+        --color-border: #e2e8f0;
+        --color-primary: #1e293b;
+        --color-primary-hover: #0f172a;
+        --color-danger: #ef4444;
+        --color-success: #10b981;
+    }
+
+    .supervisor-dashboard {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+        font-family: 'Outfit', sans-serif;
+        color: #0f172a;
+    }
+
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 24px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .user-badge {
+        background-color: #fef3c7;
+        color: #d97706;
+        padding: 4px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: inline-block;
+        margin-bottom: 8px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 28px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+    }
+
+    .user-info {
+        font-size: 14px;
+        color: #64748b;
+        margin-top: 4px;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+    }
+
+    @@media (max-width: 900px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .card {
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.02);
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+
+    .card-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #fafafa;
+    }
+
+    .card-header h2 {
+        font-size: 16px;
+        font-weight: 500;
+        color: #0f172a;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    .empty-text {
+        font-size: 14px;
+        color: #94a3b8;
+        text-align: center;
+        padding: 20px 0;
+    }
+
+    .loader {
+        font-size: 14px;
+        color: #64748b;
+        text-align: center;
+        padding: 20px 0;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #475569;
+    }
+
+    .form-group input, .form-group select {
+        padding: 10px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: inherit;
+        background-color: #f8fafc;
+        color: #0f172a;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+        outline: none;
+        border-color: #1b61c9;
+        background-color: #ffffff;
+    }
+
+    /* Search bar */
+    .search-bar {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .search-bar input {
+        flex: 1;
+        padding: 10px 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: inherit;
+        background-color: #f8fafc;
+    }
+
+    .search-bar input:focus {
+        outline: none;
+        border-color: #1b61c9;
+        background-color: #ffffff;
+    }
+
+    /* Table */
+    .table-container {
+        overflow-x: auto;
+    }
+
+    .leads-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 13px;
+    }
+
+    .leads-table th {
+        color: #64748b;
+        font-weight: 500;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        text-transform: uppercase;
+        font-size: 11px;
+    }
+
+    .leads-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #0f172a;
+    }
+
+    .leads-table tr:hover td {
+        background-color: #f8fafc;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .status-1 { background-color: #fef3c7; color: #d97706; }
+    .status-2 { background-color: #dbeafe; color: #2563eb; }
+    .status-3 { background-color: #d1fae5; color: #059669; }
+    .status-4 { background-color: #fee2e2; color: #dc2626; }
+
+    /* Buttons */
+    .btn {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-family: inherit;
+        text-align: center;
+    }
+
+    .btn-primary {
+        background-color: #1e293b;
+        color: #ffffff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: #0f172a;
+    }
+
+    .btn-primary:disabled {
+        background-color: #cbd5e1;
+        color: #94a3b8;
+        cursor: not-allowed;
+    }
+
+    .btn-outline {
+        border: 1px solid #cbd5e1;
+        background-color: #ffffff;
+        color: #475569;
+    }
+
+    .btn-outline:hover {
+        background-color: #f8fafc;
+        color: #0f172a;
+    }
+
+    .alert {
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .alert-success {
+        background-color: #d1fae5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+
+    .alert-danger {
+        background-color: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fca5a5;
+    }
+</style>

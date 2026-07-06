@@ -1,4 +1,9 @@
 using System.Text;
+using CRM.ApiHub.Application.Interfaces;
+using CRM.ApiHub.Application.UseCases.Auth;
+using CRM.ApiHub.Application.UseCases.Leads;
+using CRM.ApiHub.Domain.Repositories;
+using CRM.ApiHub.Infrastructure.Authentication;
 using CRM.ApiHub.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
@@ -13,13 +18,34 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration config)
     {
+        // Configuración de Dapper para mapear snake_case (db) a PascalCase (C#)
+        Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
+
         // DB
         services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
 
-        // Repositories (TODO: Registrar repositorios concretos en fases posteriores)
-        // services.AddScoped<ICustomerRepository, CustomerRepository>();
+        // Repositories
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ICampaignRepository, CampaignRepository>();
+        services.AddScoped<ICatalogRepository, CatalogRepository>();
+        services.AddScoped<IPreSaleRepository, PreSaleRepository>();
+        services.AddScoped<IPermissionService, PermissionService>();
+        services.AddScoped<ILeadRepository, LeadRepository>();
 
-        // JWT
+        // Services & Stores
+        services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+        services.AddSingleton<IRefreshTokenStore, InMemoryRefreshTokenStore>();
+        
+        // Use Cases
+        services.AddScoped<LoginUseCase>();
+        services.AddScoped<MeUseCase>();
+        services.AddScoped<RefreshTokenUseCase>();
+        services.AddScoped<GetLeadsUseCase>();
+        services.AddScoped<GetLeadByIdUseCase>();
+        services.AddScoped<CreateLeadUseCase>();
+        services.AddScoped<UpdateLeadStatusUseCase>();
+
+        // JWT Authentication
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options => {
                 options.TokenValidationParameters = new TokenValidationParameters 

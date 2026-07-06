@@ -17,3 +17,13 @@ secrets.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Documentation
+optional/
+design_ideas/
+
+# Agent configuration and data
+.agent/
+.agents/
+
+
