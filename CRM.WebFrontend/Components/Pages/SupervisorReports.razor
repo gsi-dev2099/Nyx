@@ -1,6 +1,6 @@
 @page "/supervisor/reports"
 @rendermode InteractiveServer
-@attribute [Authorize(Roles = "SUPERVISOR,ADMIN,BACKOFFICE")]
+@attribute [Authorize(Roles = "SUPERVISOR,ADMIN_CRM,BACKOFFICE")]
 @using CRM.WebFrontend.Services
 @inject IReportService ReportService
 @inject IJSRuntime JSRuntime
