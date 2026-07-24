@@ -126,7 +126,19 @@ public class BackofficeRepository : IBackofficeRepository
             long? fromStatusId = current.id_status != null ? (long?)current.id_status : null;
             long? fromSubstatusId = current.id_substatus != null ? (long?)current.id_substatus : null;
 
-            // 3. Actualizar el estado y subestado en la orden (disparará el trigger fn_log_order_status_change)
+            // 3. Validar si el usuario analista cuenta con el permiso sales.order.edit.backoffice para el estado actual
+            const string checkPermissionSql = "SELECT access_control.can_user_action(@ActorId, 'sales.order.edit.backoffice', @StatusId);";
+            var hasPermission = await connection.ExecuteScalarAsync<bool>(
+                new CommandDefinition(checkPermissionSql, new { ActorId = actorId, StatusId = fromStatusId }, transaction: transaction, cancellationToken: ct)
+            );
+
+            if (!hasPermission)
+            {
+                transaction.Rollback();
+                return false;
+            }
+
+            // 4. Actualizar el estado y subestado en la orden (disparará el trigger fn_log_order_status_change)
             const string updateSql = @"
                 UPDATE sales_service.sales_order 
                 SET id_status = @ToStatusId, id_substatus = @ToSubstatusId, last_update = NOW()

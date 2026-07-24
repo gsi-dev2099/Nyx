@@ -59,7 +59,6 @@ public class MaintenanceController : ControllerBase
     }
 
     [HttpGet("testschema")]
-    [AllowAnonymous]
     public async Task<IActionResult> TestSchema()
     {
         using var connection = _connectionFactory.CreateConnection();
