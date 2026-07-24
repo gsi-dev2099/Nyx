@@ -50,12 +50,12 @@ public class BackofficeRepository : IBackofficeRepository
         }
         if (dateFrom.HasValue)
         {
-            sql.Append(" AND sales_date >= @DateFrom");
+            sql.Append(" AND sales_date >= @DateFrom AND register >= @DateFrom");
             parameters.Add("DateFrom", dateFrom.Value);
         }
         if (dateTo.HasValue)
         {
-            sql.Append(" AND sales_date <= @DateTo");
+            sql.Append(" AND sales_date <= @DateTo AND register <= @DateTo");
             parameters.Add("DateTo", dateTo.Value);
         }
 

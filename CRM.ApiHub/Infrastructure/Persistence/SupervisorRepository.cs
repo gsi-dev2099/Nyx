@@ -93,12 +93,12 @@ public class SupervisorRepository : ISupervisorRepository
         }
         if (dateFrom.HasValue)
         {
-            sql.Append(" AND o.sales_date >= @DateFrom");
+            sql.Append(" AND o.sales_date >= @DateFrom AND o.register >= @DateFrom");
             parameters.Add("DateFrom", dateFrom.Value);
         }
         if (dateTo.HasValue)
         {
-            sql.Append(" AND o.sales_date <= @DateTo");
+            sql.Append(" AND o.sales_date <= @DateTo AND o.register <= @DateTo");
             parameters.Add("DateTo", dateTo.Value);
         }
 
