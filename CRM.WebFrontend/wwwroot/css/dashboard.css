@@ -40,6 +40,7 @@ body {
 /* Sidebar Styling: Contracted (74px) by Default, Expanded (240px) ONLY when .expanded */
 .custom-sidebar {
     width: 74px !important;
+    flex-shrink: 0;
     background-color: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
     display: flex;
