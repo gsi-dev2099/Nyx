@@ -1,6 +1,6 @@
 @page "/backoffice/activations"
 @rendermode InteractiveServer
-@attribute [Authorize(Roles = "BACKOFFICE,SUPERVISOR,ADMIN")]
+@attribute [Authorize(Roles = "BACKOFFICE,SUPERVISOR,ADMIN_CRM")]
 @using CRM.WebFrontend.Services
 @inject IActivationService ActivationService
 @inject ISnackbar Snackbar

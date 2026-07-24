@@ -35,7 +35,10 @@
             {
                 Navigation.NavigateTo("/backoffice/dashboard");
             }
-
+            else if (user.IsInRole("ADMIN_CRM") || user.IsInRole("COORDINADOR"))
+            {
+                Navigation.NavigateTo("/admin");
+            }
             else
             {
                 Navigation.NavigateTo("/asesor");

@@ -420,7 +420,7 @@
         isLoading = true;
         try
         {
-            var client = HttpClientFactory.CreateClient("BackendApi");
+            var client = await GetAuthenticatedClient();
 
             // Load global advisors list
             try
@@ -466,7 +466,7 @@
     {
         try
         {
-            var client = HttpClientFactory.CreateClient("BackendApi");
+            var client = await GetAuthenticatedClient();
             var result = await client.GetFromJsonAsync<List<StatusDto>>($"/api/campaigns/{campaignId}/statuses");
             if (result != null) statuses = result;
         }
@@ -483,7 +483,7 @@
                 await LoadStatusesAsync(selectedCampaignId);
             }
 
-            var client = HttpClientFactory.CreateClient("BackendApi");
+            var client = await GetAuthenticatedClient();
 
             var query = "/api/supervisor/orders?";
             if (selectedCampaignId > 0) query += $"campaignId={selectedCampaignId}&";
@@ -622,6 +622,18 @@
         draggedOrder = null;
     }
 
+    private async Task<HttpClient> GetAuthenticatedClient()
+    {
+        var client = HttpClientFactory.CreateClient("BackendApi");
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var token = authState.User.FindFirst("access_token")?.Value;
+        if (!string.IsNullOrEmpty(token))
+        {
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        }
+        return client;
+    }
+
     private async Task ChangeOrderStatus(TeamOrderDto order, long targetStatusId)
     {
         isUpdatingStatus = true;
@@ -630,7 +642,7 @@
 
         try
         {
-            var client = HttpClientFactory.CreateClient("BackendApi");
+            var client = await GetAuthenticatedClient();
             var payload = new { toStatusId = targetStatusId, comment = $"Movido desde Kanban Supervisor" };
             var response = await client.PatchAsJsonAsync($"/api/orders/{order.IdOrder}/status", payload);
 
