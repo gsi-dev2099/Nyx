@@ -9,16 +9,29 @@ namespace CRM.WebFrontend.Services;
 public class ActivationService : IActivationService
 {
     private readonly HttpClient _httpClient;
+    private readonly Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider _authStateProvider;
 
-    public ActivationService(IHttpClientFactory httpClientFactory)
+    public ActivationService(IHttpClientFactory httpClientFactory, Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider authStateProvider)
     {
         _httpClient = httpClientFactory.CreateClient("BackendApi");
+        _authStateProvider = authStateProvider;
+    }
+
+    private async Task AttachTokenAsync()
+    {
+        var authState = await _authStateProvider.GetAuthenticationStateAsync();
+        var token = authState.User.FindFirst("access_token")?.Value;
+        if (!string.IsNullOrEmpty(token))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        }
     }
 
     public async Task<List<ProductActivationViewModel>> GetPendingActivationsAsync(long idProvider)
     {
         try
         {
+            await AttachTokenAsync();
             var url = idProvider > 0 ? $"api/activations/pending?idProvider={idProvider}" : "api/activations/pending";
             var result = await _httpClient.GetFromJsonAsync<List<ProductActivationViewModel>>(url);
             return result ?? GetFallbackActivations();
@@ -34,6 +47,7 @@ public class ActivationService : IActivationService
     {
         try
         {
+            await AttachTokenAsync();
             var result = await _httpClient.GetFromJsonAsync<List<ProductActivationViewModel>>("api/activations/delayed");
             return result ?? GetFallbackActivations().FindAll(a => a.IsDelayed);
         }
@@ -48,6 +62,7 @@ public class ActivationService : IActivationService
     {
         try
         {
+            await AttachTokenAsync();
             var result = await _httpClient.GetFromJsonAsync<List<ProductActivationViewModel>>($"api/orders/{idOrder}/activations");
             return result ?? GetFallbackActivations().FindAll(a => a.IdOrder == idOrder);
         }
@@ -62,6 +77,7 @@ public class ActivationService : IActivationService
     {
         try
         {
+            await AttachTokenAsync();
             var payload = new
             {
                 Status = status,
