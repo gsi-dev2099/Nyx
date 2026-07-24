@@ -253,7 +253,7 @@ public class MaintenanceController : ControllerBase
         using var connection = _connectionFactory.CreateConnection();
 
         // Close previous rate for the same currency pair
-        const string checkSql = "SELECT valid_from FROM sales_service.exchange_rate WHERE from_currency = @FromCurrency AND to_currency = @ToCurrency AND valid_to IS NULL;";
+        const string checkSql = "SELECT valid_from::timestamp FROM sales_service.exchange_rate WHERE from_currency = @FromCurrency AND to_currency = @ToCurrency AND valid_to IS NULL;";
         var currentValidFrom = await connection.QuerySingleOrDefaultAsync<DateTime?>(checkSql, new { request.FromCurrency, request.ToCurrency });
         
         if (currentValidFrom.HasValue && request.ValidFrom <= currentValidFrom.Value)

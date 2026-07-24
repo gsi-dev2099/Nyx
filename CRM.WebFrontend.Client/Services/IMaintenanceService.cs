@@ -20,7 +20,7 @@ public interface IMaintenanceService
 
     // Exchange Rates
     Task<List<ExchangeRateMaintenanceDto>> GetExchangeRatesAsync();
-    Task<bool> CreateExchangeRateAsync(CreateExchangeRateDto dto);
+    Task<(bool Success, string Message)> CreateExchangeRateAsync(CreateExchangeRateDto dto);
 
     // Campaigns (aux)
     Task<List<CampaignSimpleDto>> GetCampaignsAsync();
