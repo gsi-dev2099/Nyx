@@ -165,19 +165,31 @@ public class MaintenanceService : IMaintenanceService
         }
     }
 
-    public async Task<bool> CreateExchangeRateAsync(CreateExchangeRateDto dto)
+    public async Task<(bool Success, string Message)> CreateExchangeRateAsync(CreateExchangeRateDto dto)
     {
         try
         {
             await SetAuthHeaderAsync();
             var response = await _httpClient.PostAsJsonAsync("api/maintenance/exchange-rates", dto);
-            return response.IsSuccessStatusCode;
+            
+            if (response.IsSuccessStatusCode)
+            {
+                return (true, "Tipo de cambio registrado correctamente");
+            }
+            
+            var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponseDto>();
+            return (false, errorResponse?.Message ?? "Error desconocido al registrar el tipo de cambio.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[MaintenanceService] Error creating exchange rate: {ex.Message}");
-            return false;
+            return (false, "Error interno del servidor o de conexión.");
         }
+    }
+    
+    private class ErrorResponseDto
+    {
+        public string Message { get; set; }
     }
 
     // ===== CAMPAIGNS (aux) =====

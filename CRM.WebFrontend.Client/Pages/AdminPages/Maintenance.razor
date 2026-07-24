@@ -701,18 +701,18 @@
         }
 
         isSubmitting = true;
-        var success = await MaintenanceService.CreateExchangeRateAsync(newRate);
+        var result = await MaintenanceService.CreateExchangeRateAsync(newRate);
         isSubmitting = false;
 
-        if (success)
+        if (result.Success)
         {
-            ShowToast("Tipo de cambio registrado.", "success");
-            newRate = new CreateExchangeRateDto();
+            ShowToast("Tipo de cambio registrado correctamente", "success");
+            newRate = new CreateExchangeRateDto { Source = "MANUAL", ValidFrom = DateTime.Today };
             await LoadTab(3);
         }
         else
         {
-            ShowToast("Error al registrar el tipo de cambio.", "danger");
+            ShowToast(result.Message, "danger");
         }
     }
 
