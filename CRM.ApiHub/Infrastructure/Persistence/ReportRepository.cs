@@ -1,22 +1,26 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CRM.ApiHub.Application.DTOs;
 using CRM.ApiHub.Domain.Repositories;
 using Dapper;
+using Microsoft.Extensions.Logging;
 
 namespace CRM.ApiHub.Infrastructure.Persistence;
 
 public class ReportRepository : IReportRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ILogger<ReportRepository> _logger;
 
-    public ReportRepository(IDbConnectionFactory connectionFactory)
+    public ReportRepository(IDbConnectionFactory connectionFactory, ILogger<ReportRepository> logger)
     {
         _connectionFactory = connectionFactory;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<ConversionFunnelStageDto>> GetConversionFunnelAsync(
@@ -101,9 +105,68 @@ public class ReportRepository : IReportRepository
             GROUP BY u.id_user, u.username, col.name, col.paternal_surname, col.maternal_surname
             ORDER BY TotalOrders DESC;";
 
-        return await connection.QueryAsync<SalesByAsesorDto>(
-            new CommandDefinition(sql, new { SupervisorId = supervisorId, DateFrom = dateFrom.Date, DateTo = dateTo.Date.AddDays(1).AddTicks(-1) }, cancellationToken: ct)
-        );
+        try
+        {
+            return await connection.QueryAsync<SalesByAsesorDto>(
+                new CommandDefinition(sql, new { SupervisorId = supervisorId, DateFrom = dateFrom.Date, DateTo = dateTo.Date.AddDays(1).AddTicks(-1) }, cancellationToken: ct)
+            );
+        }
+        catch (DbException ex)
+        {
+            _logger.LogWarning(ex, "Error al acceder a ext_ecosystem.collaborators (FDW) en reporte de asesor. Se usará consulta de respaldo local sin FDW.");
+
+            const string fallbackSql = @"
+                WITH supervisor_campaigns AS (
+                    SELECT id_cmpg FROM user_service.user_campaign WHERE id_user = @SupervisorId AND is_active = true
+                ),
+                supervisor_portfolios AS (
+                    SELECT id_ptflo FROM user_service.user_portfolio WHERE id_user = @SupervisorId AND is_active = true
+                ),
+                team_members AS (
+                    SELECT DISTINCT uc.id_user 
+                    FROM user_service.user_campaign uc
+                    JOIN access_control.user_role ur ON uc.id_user = ur.id_user AND ur.id_role = 1 -- ASESOR
+                    WHERE uc.id_cmpg IN (SELECT id_cmpg FROM supervisor_campaigns) AND uc.is_active = true
+                    
+                    UNION
+                    
+                    SELECT DISTINCT up.id_user 
+                    FROM user_service.user_portfolio up
+                    JOIN access_control.user_role ur ON up.id_user = ur.id_user AND ur.id_role = 1 -- ASESOR
+                    WHERE up.id_ptflo IN (SELECT id_ptflo FROM supervisor_portfolios) AND up.is_active = true
+                )
+                SELECT 
+                    u.id_user AS IdUser,
+                    u.username AS Username,
+                    u.username AS AdvisorName,
+                    COALESCE(COUNT(o.id_order), 0)::integer AS TotalOrders,
+                    COALESCE(COUNT(CASE WHEN o.id_status = 9 THEN 1 END), 0)::integer AS ApprovedOrders,
+                    COALESCE(SUM(
+                        CASE 
+                            WHEN o.currency_code = 'PEN' THEN o.total_value
+                            WHEN o.currency_code = 'EUR' THEN o.total_value * 4.0
+                            ELSE o.total_value * 4.0
+                        END
+                    ), 0)::numeric AS TotalAmountPen,
+                    COALESCE(SUM(
+                        CASE 
+                            WHEN o.currency_code = 'EUR' THEN o.total_value
+                            WHEN o.currency_code = 'PEN' THEN o.total_value * 0.25
+                            ELSE o.total_value * 0.25
+                        END
+                    ), 0)::numeric AS TotalAmountEur
+                FROM team_members tm
+                JOIN user_service.users u ON tm.id_user = u.id_user
+                LEFT JOIN sales_service.sales_order o ON u.id_user = o.id_user 
+                    AND o.sales_date >= @DateFrom 
+                    AND o.sales_date <= @DateTo
+                GROUP BY u.id_user, u.username
+                ORDER BY TotalOrders DESC;";
+
+            return await connection.QueryAsync<SalesByAsesorDto>(
+                new CommandDefinition(fallbackSql, new { SupervisorId = supervisorId, DateFrom = dateFrom.Date, DateTo = dateTo.Date.AddDays(1).AddTicks(-1) }, cancellationToken: ct)
+            );
+        }
     }
 
     public async Task<IncidentStatsDto> GetIncidentStatsAsync(
