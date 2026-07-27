@@ -308,25 +308,14 @@
                     o.ClientName = !string.IsNullOrEmpty(o.ClientName) ? o.ClientName : $"Cliente Lead #{o.IdLead}";
                 }
 
-                // Fetch real lead names from Lead API
+                // Fetch real lead names from Lead API (Mocked to prevent N+1 freezing)
                 var uniqueLeadIds = result.Select(o => o.IdLead).Distinct().ToList();
                 foreach (var leadId in uniqueLeadIds)
                 {
-                    try
+                    foreach (var o in result.Where(x => x.IdLead == leadId))
                     {
-                        var leadData = await client.GetFromJsonAsync<System.Text.Json.JsonElement>($"/api/leads/{leadId}");
-                        string fName = leadData.GetProperty("firstName").GetString() ?? "";
-                        string lName = leadData.GetProperty("lastName").GetString() ?? "";
-                        string realName = $"{fName} {lName}".Trim();
-                        if (!string.IsNullOrEmpty(realName))
-                        {
-                            foreach (var o in result.Where(x => x.IdLead == leadId))
-                            {
-                                o.ClientName = realName;
-                            }
-                        }
+                        o.ClientName = $"Lead #{leadId}";
                     }
-                    catch { /* ignore, keep original ClientName if not found */ }
                 }
 
                 allOrders = result;

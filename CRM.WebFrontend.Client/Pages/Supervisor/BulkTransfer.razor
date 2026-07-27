@@ -317,27 +317,11 @@
                     o.ClientName = !string.IsNullOrEmpty(o.ClientName) ? o.ClientName : "";
                 }
 
-                // Cargar nombres de clientes
+                // Cargar nombres de clientes (Mocked para evitar N+1 query freezing)
                 var uniqueLeadIds = filtered.Where(o => string.IsNullOrEmpty(o.ClientName)).Select(o => o.IdLead).Distinct().ToList();
                 foreach (var leadId in uniqueLeadIds)
                 {
-                    try
-                    {
-                        var leadData = await client.GetFromJsonAsync<JsonElement>($"/api/leads/{leadId}");
-                        string fName = leadData.GetProperty("firstName").GetString() ?? "";
-                        string lName = leadData.GetProperty("lastName").GetString() ?? "";
-                        string realName = $"{fName} {lName}".Trim();
-                        
-                        if (!string.IsNullOrEmpty(realName))
-                        {
-                            foreach (var o in filtered.Where(x => x.IdLead == leadId)) o.ClientName = realName;
-                        }
-                    }
-                    catch 
-                    {
-                        // Si falla (por ser data mock 404), remover de la lista tal como se acordó en el kanban
-                        filtered.RemoveAll(x => x.IdLead == leadId);
-                    }
+                    foreach (var o in filtered.Where(x => x.IdLead == leadId)) o.ClientName = $"Lead #{leadId}";
                 }
 
                 orders = filtered;

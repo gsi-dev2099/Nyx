@@ -116,5 +116,6 @@ public interface ISalesOrderService
     Task<bool> SaveAlternateProfileAsync(long idOrder, AlternateProfileViewModel profile);
     Task<IEnumerable<OrderDocumentViewModel>> GetDocumentsByOrderAsync(long idOrder);
     Task<bool> UploadDocumentAsync(long idOrder, string documentType, string fileName, byte[] fileBytes, string contentType);
+    Task<bool> UpdateOrderStatusAsync(long idOrder, long toStatusId, long? toSubstatusId = null, string? comment = null);
     Task<bool> CheckPermissionAsync(string permissionKey, long statusId);
 }

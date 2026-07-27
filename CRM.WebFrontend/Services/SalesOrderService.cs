@@ -182,6 +182,25 @@ public class SalesOrderService : ISalesOrderService
         }
     }
 
+    public async Task<bool> UpdateOrderStatusAsync(long idOrder, long toStatusId, long? toSubstatusId = null, string? comment = null)
+    {
+        try
+        {
+            var response = await _httpClient.PatchAsJsonAsync($"api/orders/{idOrder}/status", new
+            {
+                ToStatusId = toStatusId,
+                ToSubstatusId = toSubstatusId,
+                Comment = comment
+            });
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in UpdateOrderStatusAsync: {ex.Message}");
+            return false;
+        }
+    }
+
     public async Task<bool> CheckPermissionAsync(string permissionKey, long statusId)
     {
         try
