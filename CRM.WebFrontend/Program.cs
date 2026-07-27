@@ -34,8 +34,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Lax;
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(20);
-        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
+        options.SlidingExpiration = false;
     });
 
 builder.Services.AddAuthorization();
@@ -67,7 +67,6 @@ builder.Services.AddScoped<IBackofficeService, BackofficeService>();
 builder.Services.AddScoped<ISalesOrderService, SalesOrderService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IReportService, ReportService>();
-builder.Services.AddScoped<IPreSaleService, PreSaleService>();
 builder.Services.AddScoped<IActivationService, ActivationService>();
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.NotificationService>();
 
