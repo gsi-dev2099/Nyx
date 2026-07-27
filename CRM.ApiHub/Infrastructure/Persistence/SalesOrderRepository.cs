@@ -1,22 +1,26 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CRM.ApiHub.Domain.Entities;
 using CRM.ApiHub.Domain.Repositories;
 using Dapper;
+using Microsoft.Extensions.Logging;
 
 namespace CRM.ApiHub.Infrastructure.Persistence;
 
 public class SalesOrderRepository : ISalesOrderRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ILogger<SalesOrderRepository> _logger;
 
-    public SalesOrderRepository(IDbConnectionFactory connectionFactory)
+    public SalesOrderRepository(IDbConnectionFactory connectionFactory, ILogger<SalesOrderRepository> logger)
     {
         _connectionFactory = connectionFactory;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<SalesOrder>> GetByFiltersAsync(
@@ -51,13 +55,12 @@ public class SalesOrderRepository : ISalesOrderRepository
 
         if (dateFrom.HasValue)
         {
-            sql.Append(" AND sales_date >= @DateFrom");
+            sql.Append(" AND sales_date >= @DateFrom AND register >= @DateFrom");
             parameters.Add("DateFrom", dateFrom.Value);
         }
-
         if (dateTo.HasValue)
         {
-            sql.Append(" AND sales_date <= @DateTo");
+            sql.Append(" AND sales_date <= @DateTo AND register <= @DateTo");
             parameters.Add("DateTo", dateTo.Value);
         }
 
@@ -313,11 +316,148 @@ public class SalesOrderRepository : ISalesOrderRepository
 
             ORDER BY timestamp ASC;";
 
-        return await connection.QueryAsync<SalesOrderHistoryEventRaw>(
-            new CommandDefinition(sql, new { IdOrder = idOrder }, cancellationToken: ct)
-        );
-     }
-     
+        try
+        {
+            return await connection.QueryAsync<SalesOrderHistoryEventRaw>(
+                new CommandDefinition(sql, new { IdOrder = idOrder }, cancellationToken: ct)
+            );
+        }
+        catch (DbException ex)
+        {
+            _logger.LogWarning(ex, "Error al acceder a ext_ecosystem.collaborators (FDW) en línea de tiempo de orden {OrderId}. Se usará consulta de respaldo sin FDW.", idOrder);
+
+            const string fallbackSql = @"
+                SELECT 
+                    register AS timestamp,
+                    'STATUS_CHANGE' AS event_type,
+                    changed_by AS actor_id,
+                    col.username AS actor_name,
+                    CONCAT('Cambio de estado del pedido de ', COALESCE(from_status_id::text, 'Inicial'), ' a ', to_status_id::text) AS description,
+                    json_build_object(
+                        'from_status_id', from_status_id,
+                        'to_status_id', to_status_id,
+                        'comment', comment,
+                        'is_bulk', is_bulk
+                    )::text AS details_json
+                FROM sales_service.sales_order_status_history h
+                LEFT JOIN user_service.users col ON col.id_user = h.changed_by
+                WHERE h.id_order = @IdOrder
+
+                UNION ALL
+
+                SELECT 
+                    register AS timestamp,
+                    'CUSTODY_TRANSFER' AS event_type,
+                    from_user_id AS actor_id,
+                    CONCAT(col_from.username, ' -> ', col_to.username) AS actor_name,
+                    CONCAT('Transferencia de custodia de ', from_role, ' (', col_from.username, ') a ', to_role, ' (', col_to.username, ')') AS description,
+                    json_build_object(
+                        'from_role', from_role,
+                        'to_role', to_role,
+                        'transfer_type', transfer_type,
+                        'to_user_id', to_user_id,
+                        'comment', comment
+                    )::text AS details_json
+                FROM sales_service.sales_order_custody_log c
+                LEFT JOIN user_service.users col_from ON col_from.id_user = c.from_user_id
+                LEFT JOIN user_service.users col_to ON col_to.id_user = c.to_user_id
+                WHERE c.id_order = @IdOrder
+
+                UNION ALL
+
+                SELECT 
+                    register AS timestamp,
+                    'INCIDENT_DETECTED' AS event_type,
+                    detected_by AS actor_id,
+                    col.username AS actor_name,
+                    CONCAT('Incidente registrado: ', custom_name) AS description,
+                    json_build_object(
+                        'custom_name', custom_name,
+                        'custom_description', custom_description,
+                        'incident_status', incident_status
+                    )::text AS details_json
+                FROM sales_service.order_incident i
+                LEFT JOIN user_service.users col ON col.id_user = i.detected_by
+                WHERE i.id_order = @IdOrder
+
+                UNION ALL
+
+                SELECT 
+                    resolved_at AS timestamp,
+                    'INCIDENT_RESOLVED' AS event_type,
+                    resolved_by AS actor_id,
+                    col.username AS actor_name,
+                    CONCAT('Incidente resuelto: ', custom_name) AS description,
+                    json_build_object(
+                        'custom_name', custom_name,
+                        'resolution_notes', resolution_notes
+                    )::text AS details_json
+                FROM sales_service.order_incident i
+                LEFT JOIN user_service.users col ON col.id_user = i.resolved_by
+                WHERE i.id_order = @IdOrder AND i.resolved_at IS NOT NULL
+
+                UNION ALL
+
+                SELECT 
+                    r.register AS timestamp,
+                    'INCIDENT_RESPONSE' AS event_type,
+                    r.responded_by AS actor_id,
+                    col.username AS actor_name,
+                    CONCAT('Respuesta en incidencia #', r.id_order_incident, ' (', r.response_type, '): ', r.response_text) AS description,
+                    json_build_object(
+                        'id_order_incident', r.id_order_incident,
+                        'response_type', r.response_type,
+                        'response_text', r.response_text
+                    )::text AS details_json
+                FROM sales_service.incident_response r
+                INNER JOIN sales_service.order_incident i ON i.id_order_incident = r.id_order_incident
+                LEFT JOIN user_service.users col ON col.id_user = r.responded_by
+                WHERE i.id_order = @IdOrder
+
+                UNION ALL
+
+                SELECT 
+                    uploaded_at AS timestamp,
+                    'DOCUMENT_UPLOADED' AS event_type,
+                    uploaded_by AS actor_id,
+                    col.username AS actor_name,
+                    CONCAT('Documento subido: ', file_name, ' (', document_type, ')') AS description,
+                    json_build_object(
+                        'file_name', file_name,
+                        'document_type', document_type,
+                        'file_size_kb', file_size_kb,
+                        'mime_type', mime_type
+                    )::text AS details_json
+                FROM sales_service.order_document d
+                LEFT JOIN user_service.users col ON col.id_user = d.uploaded_by
+                WHERE d.id_order = @IdOrder AND d.is_active = true
+
+                UNION ALL
+
+                SELECT 
+                    verified_at AS timestamp,
+                    'DOCUMENT_VERIFIED' AS event_type,
+                    verified_by AS actor_id,
+                    col.username AS actor_name,
+                    CONCAT('Documento verificado: ', file_name, ' (', document_type, ') como ', verification_status) AS description,
+                    json_build_object(
+                        'file_name', file_name,
+                        'document_type', document_type,
+                        'verification_status', verification_status,
+                        'verification_notes', verification_notes
+                    )::text AS details_json
+                FROM sales_service.order_document d
+                LEFT JOIN user_service.users col ON col.id_user = d.verified_by
+                WHERE d.id_order = @IdOrder AND d.verified_at IS NOT NULL AND d.is_active = true
+
+                ORDER BY timestamp ASC;";
+
+            return await connection.QueryAsync<SalesOrderHistoryEventRaw>(
+                new CommandDefinition(fallbackSql, new { IdOrder = idOrder }, cancellationToken: ct)
+            );
+        }
+    }
+
      public async Task<SalesOrder?> GetByLeadIdAsync(long idLead, CancellationToken ct = default)
      {
          using var connection = _connectionFactory.CreateConnection();

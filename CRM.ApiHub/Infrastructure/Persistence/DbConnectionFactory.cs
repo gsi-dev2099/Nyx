@@ -73,6 +73,13 @@ public class NpgsqlConnectionFactory : IDbConnectionFactory
             _logger.LogError(ex, "Error al intentar obtener esquemas de DB. Se continuará con la cadena original.");
         }
         
+        // Asegurar configuración de Pool de conexiones Npgsql para producción
+        if (!decrypted.Contains("Pooling=", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!decrypted.EndsWith(";")) decrypted += ";";
+            decrypted += "Pooling=true;Minimum Pool Size=10;Maximum Pool Size=100;Connection Lifetime=300;Timeout=15;";
+        }
+        
         _connectionString = decrypted;
     }
 

@@ -4,6 +4,8 @@ using CRM.ApiHub.Domain.Repositories;
 using CRM.ApiHub.Infrastructure.Persistence;
 using Dapper;
 using System.Threading.Tasks;
+using System.Data.Common;
+using Microsoft.Extensions.Logging;
 
 namespace CRM.ApiHub.Api.Controllers;
 
@@ -13,10 +15,12 @@ namespace CRM.ApiHub.Api.Controllers;
 public class CampaignController : ControllerBase
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ILogger<CampaignController> _logger;
 
-    public CampaignController(IDbConnectionFactory connectionFactory)
+    public CampaignController(IDbConnectionFactory connectionFactory, ILogger<CampaignController> logger)
     {
         _connectionFactory = connectionFactory;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -121,7 +125,28 @@ public class CampaignController : ControllerBase
             LEFT JOIN access_control.role r ON ur.id_role = r.id_role AND r.is_active = true
             WHERE r.name = @Role
             ORDER BY Name;";
-        var advisors = await connection.QueryAsync(sql, new { Role = role.ToUpper() });
-        return Ok(advisors);
+        
+        try
+        {
+            var advisors = await connection.QueryAsync(sql, new { Role = role.ToUpper() });
+            return Ok(advisors);
+        }
+        catch (DbException ex)
+        {
+            _logger.LogWarning(ex, "Error al acceder a ext_ecosystem.collaborators (FDW) al obtener asesores. Se usará consulta de respaldo local sin FDW.");
+
+            const string fallbackSql = @"
+                SELECT 
+                    u.id_user as Id,
+                    u.username as Name
+                FROM user_service.users u
+                LEFT JOIN access_control.user_role ur ON u.id_user = ur.id_user AND ur.is_active = true
+                LEFT JOIN access_control.role r ON ur.id_role = r.id_role AND r.is_active = true
+                WHERE r.name = @Role
+                ORDER BY Name;";
+
+            var advisors = await connection.QueryAsync(fallbackSql, new { Role = role.ToUpper() });
+            return Ok(advisors);
+        }
     }
 }

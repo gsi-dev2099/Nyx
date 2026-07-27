@@ -7,6 +7,7 @@ using CRM.ApiHub.Application.Interfaces;
 using CRM.ApiHub.Domain.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CRM.ApiHub.Api.Controllers;
 
@@ -35,6 +36,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting("LoginLimit")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         Console.WriteLine($"[AUTH-DEBUG] Login attempt received for user: '{request.Username}'");

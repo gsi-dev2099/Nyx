@@ -93,12 +93,12 @@ public class SupervisorRepository : ISupervisorRepository
         }
         if (dateFrom.HasValue)
         {
-            sql.Append(" AND o.sales_date >= @DateFrom");
+            sql.Append(" AND o.sales_date >= @DateFrom AND o.register >= @DateFrom");
             parameters.Add("DateFrom", dateFrom.Value);
         }
         if (dateTo.HasValue)
         {
-            sql.Append(" AND o.sales_date <= @DateTo");
+            sql.Append(" AND o.sales_date <= @DateTo AND o.register <= @DateTo");
             parameters.Add("DateTo", dateTo.Value);
         }
 
@@ -202,11 +202,39 @@ public class SupervisorRepository : ISupervisorRepository
                     transaction: transaction
                 );
 
-                // 2. Actualizar custodio y estado a Pendiente Backoffice (id_status = 3)
+                // 2. Obtener estado actual con bloqueo FOR UPDATE
+                const string selectSql = "SELECT id_status FROM sales_service.sales_order WHERE id_order = @IdOrder FOR UPDATE;";
+                var currentStatusId = await connection.ExecuteScalarAsync<long?>(
+                    new CommandDefinition(selectSql, new { IdOrder = orderId }, transaction: transaction, cancellationToken: ct)
+                );
+
+                if (!currentStatusId.HasValue)
+                {
+                    transaction.Rollback();
+                    result.FailedCount++;
+                    result.FailedOrderIds.Add(orderId);
+                    continue;
+                }
+
+                // 3. Validar si el supervisor cuenta con el permiso sales.order.bulk_transfer para este estado
+                const string checkPermissionSql = "SELECT access_control.can_user_action(@SupervisorId, 'sales.order.bulk_transfer', @StatusId);";
+                var hasPermission = await connection.ExecuteScalarAsync<bool>(
+                    new CommandDefinition(checkPermissionSql, new { SupervisorId = supervisorId, StatusId = currentStatusId.Value }, transaction: transaction, cancellationToken: ct)
+                );
+
+                if (!hasPermission)
+                {
+                    transaction.Rollback();
+                    result.FailedCount++;
+                    result.FailedOrderIds.Add(orderId);
+                    continue;
+                }
+
+                // 4. Actualizar custodio y estado a Pendiente Backoffice (id_status = 3)
                 const string updateSql = @"
                     UPDATE sales_service.sales_order 
                     SET custody_user_id = @BackofficeUserId, 
-                        id_status = @PendingBackofficeStatusId, 
+                        id_status = 3, 
                         last_update = NOW()
                     WHERE id_order = @OrderId;";
 

@@ -1,0 +1,63 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+    <meta charset="utf-8">
+    <title>Documentación de Estructura de Carpetas</title>
+    <style>
+        body { font-family: 'Calibri', sans-serif; font-size: 11pt; line-height: 1.5; }
+        h1 { color: #2F5496; font-size: 16pt; }
+        h2 { color: #2F5496; font-size: 14pt; margin-top: 20px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        h3 { color: #1F3763; font-size: 12pt; margin-bottom: 5px; }
+        ul { margin-top: 5px; margin-bottom: 15px; }
+        li { margin-bottom: 8px; }
+        code { font-family: 'Courier New', Courier, monospace; background-color: #f4f4f4; padding: 2px 4px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <h1>Documentación de la Arquitectura del Sistema CRM</h1>
+    <p>Este documento describe la estructura principal del proyecto y la funcionalidad de cada carpeta y componente clave mostrado en el explorador de soluciones.</p>
+
+    <h2>1. CRM.ApiHub (Backend)</h2>
+    <p>Este es el núcleo lógico del sistema. Funciona como el proveedor central de servicios (API REST). Aquí se maneja:</p>
+    <ul>
+        <li><strong>Controladores (Controllers):</strong> Exponen los endpoints HTTP para que el Frontend los consuma.</li>
+        <li><strong>Lógica de Negocio (UseCases/Domain):</strong> Reglas del negocio, entidades principales (modelos de base de datos) e interfaces.</li>
+        <li><strong>Acceso a Datos (Infrastructure/Persistence):</strong> Conexiones a la base de datos PostgreSQL, repositorios y consultas (Dapper/EF Core).</li>
+    </ul>
+
+    <h2>2. CRM.WebFrontend (Servidor Host / BFF)</h2>
+    <p>Este es el proyecto servidor que aloja la aplicación web. Actúa como un intermediario (Backend For Frontend) entre el cliente y el ApiHub.</p>
+    <ul>
+        <li><strong>Autenticación Segura:</strong> Maneja la seguridad basada en Cookies (Cookie Authentication) y transforma las sesiones en Tokens JWT para el ApiHub.</li>
+        <li><strong>Proxy (YARP):</strong> Funciona como un enrutador inverso que intercepta las peticiones del cliente y las redirige al ApiHub adjuntando de manera segura los tokens de autorización.</li>
+        <li><strong>Static Files:</strong> Sirve los archivos base, el framework Blazor WebAssembly y los estilos de la aplicación.</li>
+    </ul>
+
+    <h2>3. CRM.WebFrontend.Client (Frontend / UI)</h2>
+    <p>Es la aplicación cliente construida en <strong>Blazor WebAssembly</strong>. Contiene toda la interfaz de usuario con la que interactúan los asesores, supervisores y administradores. Se divide en las siguientes carpetas:</p>
+    <ul>
+        <li><strong>Components:</strong> Contiene los componentes visuales reutilizables (modales, alertas, tablas, botones personalizados). Ayuda a no repetir el mismo código HTML/C#.</li>
+        <li><strong>Layout:</strong> Define las "plantillas maestras" de las páginas.
+            <ul>
+                <li><code>MainLayout.razor</code>: El diseño general de la aplicación una vez iniciada la sesión (con barra lateral, header, etc.).</li>
+                <li><code>NavMenu.razor</code>: El menú de navegación principal del sistema.</li>
+                <li><code>EmptyLayout.razor</code>: Plantilla en blanco (usada por ejemplo para la pantalla de Login donde no quieres mostrar el menú).</li>
+            </ul>
+        </li>
+        <li><strong>Models:</strong> Clases (DTOs) que definen la estructura de los datos que se enviarán y recibirán del ApiHub (Ej. <i>CreateIncidentCatalogDto</i>).</li>
+        <li><strong>Pages:</strong> Contiene las pantallas completas (Rutas) del sistema, como el Login, el Dashboard del Asesor, o el panel de Mantenimiento.</li>
+        <li><strong>Providers:</strong> Clases que gestionan el estado de la aplicación. Destaca el manejo del estado de autenticación (<code>AuthenticationStateProvider</code>) para saber quién está conectado y qué roles tiene en tiempo real.</li>
+        <li><strong>Services:</strong> Clases que encapsulan las llamadas HTTP al servidor. Aquí se encuentran archivos como <code>MaintenanceService.cs</code> que realizan los GET, POST, PUT, DELETE hacia el backend.</li>
+        <li><strong>Program.cs:</strong> El punto de entrada del cliente. Aquí se configuran los servicios y se le indica al navegador cómo arrancar la aplicación Blazor.</li>
+    </ul>
+
+    <h2>4. Otras Carpetas y Archivos Importantes</h2>
+    <ul>
+        <li><strong>docs:</strong> Carpeta designada para almacenar manuales, diagramas y documentación técnica (como este documento).</li>
+        <li><strong>.agents:</strong> Carpeta de configuración interna para los agentes de Inteligencia Artificial, guardando reglas, herramientas y contexto para la asistencia en el código.</li>
+        <li><strong>README.md:</strong> Archivo principal de presentación del repositorio, generalmente usado para explicar cómo instalar, compilar y ejecutar el proyecto a los desarrolladores nuevos.</li>
+        <li><strong>.gitignore:</strong> Le indica a Git (sistema de control de versiones) qué carpetas o archivos temporales/compilados (como la carpeta <code>bin</code> u <code>obj</code>) no deben subirse al repositorio en la nube.</li>
+    </ul>
+
+</body>
+</html>
