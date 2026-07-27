@@ -209,6 +209,12 @@
                     <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Estado Actual</span>
                     <span class="badge bg-dark fs-6 px-3 py-1 mt-1">@_order.Status</span>
                 </div>
+                @if (_isEditable)
+                {
+                    <button class="btn btn-premium btn-sm mt-3" @onclick="SendToSupervisor" disabled="@_isSaving">
+                        Enviar a Supervisor
+                    </button>
+                }
             </div>
         </div>
 
@@ -785,6 +791,35 @@
         finally
         {
             _isUploading = false;
+        }
+    }
+
+    private async Task SendToSupervisor()
+    {
+        if (_order == null || !_isEditable) return;
+        
+        _isSaving = true;
+        try
+        {
+            // Usamos el ID 2 como estado genérico "Enviado a supervisor" o "En validación"
+            var success = await SalesOrderService.UpdateOrderStatusAsync(_order.IdOrder, 2, comment: "Enviado para revisión por supervisor");
+            if (success)
+            {
+                Snackbar.Add("Orden enviada a supervisor exitosamente.", Severity.Success);
+                await LoadOrderDetails();
+            }
+            else
+            {
+                Snackbar.Add("Error al enviar la orden a supervisor.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
         }
     }
 }

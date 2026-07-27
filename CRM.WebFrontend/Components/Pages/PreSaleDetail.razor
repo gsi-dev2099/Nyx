@@ -1,0 +1,251 @@
+@page "/asesor/preventas/{Id:long}"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "ASESOR")]
+@using CRM.WebFrontend.Services
+@inject IPreSaleService PreSaleService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<style>
+    :root {
+        --bg-app: #f4f4f5;
+        --surface: #ffffff;
+        --border-color: #e4e4e7;
+        --text-main: #18181b;
+        --text-muted: #71717a;
+        --accent: #09090b;
+        --radius-lg: 16px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
+    }
+
+    .premium-panel {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.01);
+    }
+
+    .btn-premium {
+        background: var(--accent);
+        color: white;
+        font-weight: 600;
+        border-radius: var(--radius-sm);
+        padding: 0.6rem 1.2rem;
+        border: 1px solid transparent;
+        transition: all 0.15s ease;
+    }
+    
+    .btn-premium:hover {
+        background: #27272a;
+        color: white;
+    }
+
+    .info-label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+
+    .info-value {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: var(--text-main);
+        margin-bottom: 1.5rem;
+    }
+</style>
+
+<div class="container-fluid py-4 px-md-5" style="max-width: 1200px;">
+    <div class="mb-4">
+        <button class="btn btn-link text-dark text-decoration-none p-0 d-flex align-items-center mb-3" @onclick="GoBack">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Volver a la bandeja
+        </button>
+        <h3 class="fw-bold mb-0">Detalle del Prospecto (Lead)</h3>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-dark" role="status"></div>
+        </div>
+    }
+    else if (_presale == null)
+    {
+        <div class="alert alert-warning">No se encontró el prospecto especificado.</div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <!-- Left Column: Lead Info -->
+            <div class="col-md-8">
+                <div class="premium-panel p-4 h-100">
+                    <h5 class="fw-bold mb-4 border-bottom pb-2">Información de Contacto</h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-label">Nombre Completo</div>
+                            <div class="info-value">@($"{_presale.FirstName} {_presale.LastName}")</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">Teléfono</div>
+                            <div class="info-value">@(_presale.Phone ?? "No disponible")</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-label">Dirección</div>
+                            <div class="info-value">@(_presale.Address ?? "No disponible")</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">Provincia</div>
+                            <div class="info-value">@(_presale.Province ?? "No disponible")</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-label">Operador Actual</div>
+                            <div class="info-value">@(_presale.Operator ?? "No disponible")</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">Cobertura</div>
+                            <div class="info-value">
+                                <span class="badge bg-secondary">@(_presale.CoverageStatus ?? "Desconocida")</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="info-label">Notas Adicionales</div>
+                            <div class="info-value" style="font-size: 0.95rem; white-space: pre-line;">
+                                @(string.IsNullOrWhiteSpace(_presale.Notes) ? "Ninguna" : _presale.Notes)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Actions -->
+            <div class="col-md-4">
+                <div class="premium-panel p-4 mb-4">
+                    <h6 class="fw-bold mb-3">Registrar Interacción</h6>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Notas de la llamada</label>
+                        <textarea class="form-control" rows="3" @bind="_callLogNote" placeholder="El cliente indica que..."></textarea>
+                    </div>
+                    <button class="btn btn-outline-dark w-100" @onclick="LogCall" disabled="@(_isSaving || string.IsNullOrWhiteSpace(_callLogNote))">
+                        Guardar Llamada
+                    </button>
+                </div>
+
+                <div class="premium-panel p-4 text-center">
+                    <h6 class="fw-bold mb-3">¿Cerró la venta?</h6>
+                    <p class="text-muted small mb-4">Si el cliente aceptó, convierte este lead en una orden de venta para iniciar el formulario.</p>
+                    <button class="btn btn-premium w-100 py-3" @onclick="ConvertToOrder" disabled="@_isSaving">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><path d="M22 11.08V12a10 10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        Convertir a Venta
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public long Id { get; set; }
+
+    private PreSaleViewModel? _presale;
+    private bool _isLoading = true;
+    private bool _isSaving = false;
+    private string _callLogNote = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLeadData();
+    }
+
+    private async Task LoadLeadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var presales = await PreSaleService.GetByUserAsync(null); 
+            _presale = presales.FirstOrDefault(p => p.IdPresale == Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LogCall()
+    {
+        if (string.IsNullOrWhiteSpace(_callLogNote)) return;
+        
+        _isSaving = true;
+        try
+        {
+            var success = await PreSaleService.AddCallLogAsync(Id, _callLogNote);
+            if (success)
+            {
+                Snackbar.Add("Llamada registrada con éxito.", Severity.Success);
+                _presale!.Notes += $"\n[{DateTime.Now:dd/MM/yyyy HH:mm}] {_callLogNote}";
+                _callLogNote = string.Empty;
+            }
+            else
+            {
+                Snackbar.Add("No se pudo registrar la llamada.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task ConvertToOrder()
+    {
+        _isSaving = true;
+        try
+        {
+            var success = await PreSaleService.ConvertAsync(Id);
+            if (success)
+            {
+                Snackbar.Add("¡Lead convertido a venta! Revisa tu bandeja de pedidos.", Severity.Success);
+                NavigationManager.NavigateTo("/asesor");
+            }
+            else
+            {
+                Snackbar.Add("Error al convertir a venta. Posiblemente ya fue convertido.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/asesor/preventas");
+    }
+}

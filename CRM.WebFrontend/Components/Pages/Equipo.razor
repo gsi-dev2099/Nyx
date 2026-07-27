@@ -1,8 +1,8 @@
 @page "/supervisor/equipo"
 @page "/backoffice/equipo"
+@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "SUPERVISOR,BACKOFFICE")]
-@inject HttpClient Http
 
 <PageTitle>Rendimiento de Equipo - NYX CRM</PageTitle>
 

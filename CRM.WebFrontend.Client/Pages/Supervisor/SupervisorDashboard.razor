@@ -514,30 +514,13 @@
                     o.ClientName = !string.IsNullOrEmpty(o.ClientName) ? o.ClientName : "";
                 }
 
-                // Fetch real lead names
+                // Set a default name for missing clients instead of fetching them sequentially which freezes the UI
                 var uniqueLeadIds = result.Where(o => string.IsNullOrEmpty(o.ClientName)).Select(o => o.IdLead).Distinct().ToList();
                 foreach (var leadId in uniqueLeadIds)
                 {
-                    string realName = "";
-                    try
+                    foreach (var o in result.Where(x => x.IdLead == leadId))
                     {
-                        var leadData = await client.GetFromJsonAsync<JsonElement>($"/api/leads/{leadId}");
-                        string fName = leadData.GetProperty("firstName").GetString() ?? "";
-                        string lName = leadData.GetProperty("lastName").GetString() ?? "";
-                        realName = $"{fName} {lName}".Trim();
-                    }
-                    catch 
-                    { 
-                        // If lead doesn't exist in the database, do not show these orders
-                        result.RemoveAll(x => x.IdLead == leadId);
-                    }
-
-                    if (!string.IsNullOrEmpty(realName))
-                    {
-                        foreach (var o in result.Where(x => x.IdLead == leadId))
-                        {
-                            o.ClientName = realName;
-                        }
+                        o.ClientName = $"Lead #{leadId}";
                     }
                 }
 

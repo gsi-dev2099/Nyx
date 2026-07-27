@@ -67,6 +67,7 @@ builder.Services.AddScoped<IBackofficeService, BackofficeService>();
 builder.Services.AddScoped<ISalesOrderService, SalesOrderService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IPreSaleService, PreSaleService>();
 builder.Services.AddScoped<IActivationService, ActivationService>();
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.NotificationService>();
 
