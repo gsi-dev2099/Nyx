@@ -218,6 +218,14 @@
         public int DaysElapsed { get; set; }
     }
 
+    public class LeadDto
+    {
+        public long IdLead { get; set; }
+        public string? FullName { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+    }
+
     public class LookupDto { public long Id { get; set; } public string Name { get; set; } = ""; public string? Color { get; set; } }
 
     private List<SalesOrderListDto> allOrders = new();
@@ -299,6 +307,8 @@
             var result = await client.GetFromJsonAsync<List<SalesOrderListDto>>(query);
             if (result != null)
             {
+                result = result.Where(x => x.IdLead != 99998).ToList();
+
                 foreach (var o in result)
                 {
                     o.CampaignName = filterCampaigns.FirstOrDefault(c => c.Id == o.IdCmpg)?.Name ?? "Desconocida";
@@ -308,13 +318,38 @@
                     o.ClientName = !string.IsNullOrEmpty(o.ClientName) ? o.ClientName : $"Cliente Lead #{o.IdLead}";
                 }
 
-                // Fetch real lead names from Lead API (Mocked to prevent N+1 freezing)
+                // Fetch real lead names from Lead API
                 var uniqueLeadIds = result.Select(o => o.IdLead).Distinct().ToList();
-                foreach (var leadId in uniqueLeadIds)
+                var leadTasks = uniqueLeadIds.Select(async leadId => 
                 {
-                    foreach (var o in result.Where(x => x.IdLead == leadId))
+                    try 
                     {
-                        o.ClientName = $"Lead #{leadId}";
+                        var lead = await client.GetFromJsonAsync<LeadDto>($"/api/leads/{leadId}");
+                        if (lead != null)
+                        {
+                            var leadName = !string.IsNullOrEmpty(lead.FullName) ? lead.FullName : $"{lead.FirstName} {lead.LastName}".Trim();
+                            if (!string.IsNullOrEmpty(leadName)) return new { Id = leadId, Name = leadName };
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error obteniendo nombre de lead: {ex.Message}");
+                    }
+                    return new { Id = leadId, Name = $"Cliente no registrado" };
+                });
+                
+                var leadResults = await Task.WhenAll(leadTasks);
+                var leadDict = leadResults.ToDictionary(k => k.Id, v => v.Name);
+
+                foreach (var order in result)
+                {
+                    if (leadDict.TryGetValue(order.IdLead, out var name))
+                    {
+                        order.ClientName = name;
+                    }
+                    else
+                    {
+                        order.ClientName = $"Cliente no registrado";
                     }
                 }
 

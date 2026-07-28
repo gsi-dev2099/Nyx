@@ -493,6 +493,8 @@
             var result = await client.GetFromJsonAsync<List<TeamOrderDto>>(query.TrimEnd('&', '?'));
             if (result != null)
             {
+                result = result.Where(x => x.IdLead != 99998).ToList();
+                
                 // Enrich with campaign names
                 foreach (var o in result)
                 {
@@ -514,13 +516,32 @@
                     o.ClientName = !string.IsNullOrEmpty(o.ClientName) ? o.ClientName : "";
                 }
 
-                // Set a default name for missing clients instead of fetching them sequentially which freezes the UI
+                // Fetch lead names concurrently
                 var uniqueLeadIds = result.Where(o => string.IsNullOrEmpty(o.ClientName)).Select(o => o.IdLead).Distinct().ToList();
-                foreach (var leadId in uniqueLeadIds)
+                var leadTasks = uniqueLeadIds.Select(async leadId => 
                 {
-                    foreach (var o in result.Where(x => x.IdLead == leadId))
+                    try
                     {
-                        o.ClientName = $"Lead #{leadId}";
+                        var lead = await client.GetFromJsonAsync<TempLeadDto>($"/api/leads/{leadId}");
+                        if (lead != null)
+                        {
+                            var fullName = !string.IsNullOrWhiteSpace(lead.FullName) ? lead.FullName : $"{lead.FirstName} {lead.LastName}";
+                            if (!string.IsNullOrWhiteSpace(fullName)) return new { Id = leadId, Name = fullName.Trim() };
+                        }
+                    }
+                    catch { }
+                    return new { Id = leadId, Name = $"Cliente no registrado" };
+                });
+                
+                var leadNames = await Task.WhenAll(leadTasks);
+                var leadDict = leadNames.ToDictionary(k => k.Id, v => v.Name);
+
+                foreach (var o in result)
+                {
+                    if (string.IsNullOrEmpty(o.ClientName))
+                    {
+                        if (leadDict.TryGetValue(o.IdLead, out var name)) o.ClientName = name;
+                        else o.ClientName = $"Cliente no registrado";
                     }
                 }
 
@@ -666,5 +687,12 @@
         StateHasChanged();
         await Task.Delay(1200); // Show animation briefly
         NavManager.NavigateTo("/supervisor/bulk-transfer");
+    }
+
+    private class TempLeadDto
+    {
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? FullName { get; set; }
     }
 }
