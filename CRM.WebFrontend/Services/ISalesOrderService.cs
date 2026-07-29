@@ -112,6 +112,7 @@ public interface ISalesOrderService
     Task<IEnumerable<FormFieldViewModel>> GetFieldsAsync(long idForm);
     Task<IEnumerable<OrderDataViewModel>> GetOrderDataAsync(long idOrder);
     Task<bool> SaveOrderDataAsync(long idOrder, long idForm, IEnumerable<OrderDataViewModel> data);
+    Task<(bool Success, string Message)> SaveOrderDataWithDetailsAsync(long idOrder, long idForm, IEnumerable<OrderDataViewModel> data);
     Task<AlternateProfileViewModel?> GetAlternateProfileAsync(long idOrder);
     Task<bool> SaveAlternateProfileAsync(long idOrder, AlternateProfileViewModel profile);
     Task<IEnumerable<OrderDocumentViewModel>> GetDocumentsByOrderAsync(long idOrder);

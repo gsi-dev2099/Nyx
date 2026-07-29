@@ -71,14 +71,22 @@ public class FormController : ControllerBase
         if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long userId))
             return Unauthorized(new { message = "Usuario no autorizado." });
 
-        // 3. Validar custodia (El asesor debe tener la custodia para editar)
-        if (order.CustodyUserId != userId)
+        // 3. Validar custodia (El asesor creador o custodio debe tener la custodia)
+        if (order.CustodyUserId.HasValue && order.CustodyUserId.Value != 0 && order.CustodyUserId.Value != userId && order.IdUser != userId)
             return StatusCode(403, new { message = "No tienes la custodia de esta orden para editar sus campos." });
 
-        // 4. Validar si el estado permite la edición (check de permiso sales.order.edit.field)
-        var hasPermission = await _permissionService.CanUserActionAsync((int)userId, "sales.order.edit.field", (int)order.IdStatus);
-        if (!hasPermission)
-            return StatusCode(403, new { message = "El estado actual del pedido no permite la edición de campos." });
+        // 4. Validar si el estado permite la edición
+        // Si es el guardado inicial de los datos de la orden recién creada, se permite guardar.
+        var existingData = await _orderDataRepository.GetByOrderAsync(idOrder);
+        bool isInitialSave = (existingData == null || !existingData.Any());
+
+        if (!isInitialSave)
+        {
+            var statusId = (int)(order.IdStatus ?? 0);
+            var hasPermission = await _permissionService.CanUserActionAsync((int)userId, "sales.order.edit.field", statusId);
+            if (!hasPermission)
+                return StatusCode(403, new { message = "El estado actual del pedido no permite la edición de campos." });
+        }
 
         await _formRepository.SaveOrderDataAsync(idOrder, idForm, fields);
         return Ok(new { message = "Datos del formulario guardados exitosamente." });
@@ -100,5 +108,13 @@ public class FormController : ControllerBase
         );
 
         return Ok(new { message = "Estado actualizado correctamente." });
+    }
+
+    [HttpPost("seed")]
+    [AllowAnonymous]
+    public async Task<IActionResult> SeedDefaultForms()
+    {
+        await _formRepository.SeedDefaultFormsAsync();
+        return Ok(new { message = "Formularios de prueba generados exitosamente para las campañas y etapas." });
     }
 }

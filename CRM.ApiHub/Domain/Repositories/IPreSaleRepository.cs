@@ -8,5 +8,5 @@ public interface IPreSaleRepository
     Task<int> CreateAsync(LeadPreSale preSale);
     Task<bool> AddCallLogAsync(int idPresale, string callLog, long userId = 1);
     Task<bool> AssignAsync(int idPresale, int toUserId, string context);
-    Task<bool> ConvertAsync(int idPresale, dynamic paramsData);
+    Task<long> ConvertAsync(int idPresale, dynamic paramsData);
 }
