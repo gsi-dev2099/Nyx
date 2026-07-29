@@ -685,7 +685,7 @@
                 FieldStatus = "PENDING"
             });
 
-            var success = await SalesOrderService.SaveOrderDataAsync(_order.IdOrder, _template.IdForm, dataToSave);
+            var (success, errorMessage) = await SalesOrderService.SaveOrderDataWithDetailsAsync(_order.IdOrder, _template.IdForm, dataToSave);
             if (success)
             {
                 Snackbar.Add("Ficha de venta guardada exitosamente.", Severity.Success);
@@ -694,7 +694,7 @@
             }
             else
             {
-                Snackbar.Add("Error al guardar la ficha de venta.", Severity.Error);
+                Snackbar.Add($"Error al guardar la ficha de venta: {errorMessage}", Severity.Error);
             }
         }
         catch (Exception ex)

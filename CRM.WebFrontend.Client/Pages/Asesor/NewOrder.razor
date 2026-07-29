@@ -110,7 +110,10 @@
 
                                     @if (field.FieldType == "select")
                                     {
-                                        <select class="form-select rounded-3" @bind="field.Value" required="@field.IsRequired">
+                                        <select class="form-select rounded-3 @(fieldValidationErrors.ContainsKey(field.IdFld) ? "is-invalid border-danger" : "")"
+                                                value="@field.Value"
+                                                @onchange="@((ChangeEventArgs e) => OnFieldValueInput(field, e.Value?.ToString()))"
+                                                required="@field.IsRequired">
                                             <option value="">-- Selecciona --</option>
                                             @if (!string.IsNullOrEmpty(field.Options))
                                             {
@@ -122,7 +125,6 @@
                                                         }
                                                     }
                                                 } catch {
-                                                    <!-- Si no es JSON array, parseamos por comas como fallback -->
                                                     @foreach(var opt in field.Options.Split(',')) {
                                                         <option value="@opt.Trim()">@opt.Trim()</option>
                                                     }
@@ -132,7 +134,11 @@
                                     }
                                     else if (field.FieldType == "date")
                                     {
-                                        <input type="date" class="form-control rounded-3" value="@field.Value" @onchange="@(e => field.Value = e.Value?.ToString() ?? string.Empty)" required="@field.IsRequired" />
+                                        <input type="date"
+                                               class="form-control rounded-3 @(fieldValidationErrors.ContainsKey(field.IdFld) ? "is-invalid border-danger" : "")"
+                                               value="@field.Value"
+                                               @onchange="@((ChangeEventArgs e) => OnFieldValueInput(field, e.Value?.ToString()))"
+                                               required="@field.IsRequired" />
                                     }
                                     else if (field.FieldType == "file")
                                     {
@@ -141,12 +147,21 @@
                                     else
                                     {
                                         <input type="text" 
-                                               class="form-control rounded-3" 
+                                               class="form-control rounded-3 @(fieldValidationErrors.ContainsKey(field.IdFld) ? "is-invalid border-danger" : "")" 
                                                placeholder="@field.Placeholder"
-                                               @bind="field.Value" 
+                                               value="@field.Value"
+                                               @oninput="@((ChangeEventArgs e) => OnFieldValueInput(field, e.Value?.ToString()))"
                                                required="@field.IsRequired" 
                                                pattern="@GetValidationPattern(field)"
                                                title="@GetValidationTitle(field)" />
+                                    }
+
+                                    @if (fieldValidationErrors.ContainsKey(field.IdFld))
+                                    {
+                                        <div class="text-danger small mt-1 fw-bold">
+                                            <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Small" Class="me-1" />
+                                            @fieldValidationErrors[field.IdFld]
+                                        </div>
                                     }
                                     
                                 </div>
@@ -157,7 +172,7 @@
                             <button type="button" class="btn btn-light rounded-pill px-4 me-2" @onclick='() => Navigation.NavigateTo("/asesor")' disabled="@isSaving">
                                 Cancelar
                             </button>
-                            <button type="submit" class="btn btn-primary rounded-pill px-4 d-flex align-items-center" disabled="@isSaving">
+                            <button type="submit" class="btn btn-primary rounded-pill px-4 d-flex align-items-center" disabled="@(isSaving || fieldValidationErrors.Any())">
                                 @if (isSaving)
                                 {
                                     <MudProgressCircular Class="me-2" Size="Size.Small" Color="Color.Surface" Indeterminate="true" />
@@ -365,13 +380,74 @@
     {
         return field.ValidationType switch
         {
-            "DNI_ES" => "Debe ser un DNI válido (8 números y 1 letra mayúscula)",
+            "DNI_ES" => "Debe ser un DNI válido (8 números y 1 letra mayúscula con Módulo 23)",
             "NIE_ES" => "Debe ser un NIE válido (empieza con X, Y o Z)",
             "PHONE_ES" => "Debe ser un teléfono español de 9 dígitos",
             "CUPS_ENERGY" => "Debe ser un código CUPS válido (empieza por ES)",
-            "IBAN" => "Debe ser un IBAN español válido (24 caracteres empezando por ES)",
+            "IBAN" => "Debe ser un IBAN español válido de 24 caracteres (Módulo 97)",
             _ => field.IsRequired ? "Este campo es requerido" : null
         };
+    }
+
+    private Dictionary<long, string> fieldValidationErrors = new();
+
+    private bool ValidateField(FormFieldDto field)
+    {
+        fieldValidationErrors.Remove(field.IdFld);
+
+        if (field.IsRequired && string.IsNullOrWhiteSpace(field.Value))
+        {
+            fieldValidationErrors[field.IdFld] = "Este campo es requerido.";
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(field.Value))
+        {
+            if (field.ValidationType == "DNI_ES" || field.FieldKey.Equals("dni_titular", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!ValidationHelper.ValidateDni(field.Value))
+                {
+                    fieldValidationErrors[field.IdFld] = "DNI/NIE no es válido (letra de control incorrecta según Módulo 23 de España, ej. 12345678Z).";
+                    return false;
+                }
+            }
+            else if (field.ValidationType == "IBAN" || field.FieldKey.Equals("iban_cuenta", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!ValidationHelper.ValidateIban(field.Value))
+                {
+                    fieldValidationErrors[field.IdFld] = "IBAN no es válido. Debe tener 24 caracteres empezando por ES y cumplir Módulo 97 (ej. ES9121000418450200051332).";
+                    return false;
+                }
+            }
+            else if (field.ValidationType == "PHONE_ES" || field.FieldKey.Equals("telefono_contacto", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!ValidationHelper.ValidatePhone(field.Value))
+                {
+                    fieldValidationErrors[field.IdFld] = "Teléfono de España no válido (debe tener 9 dígitos empezando por 6, 7, 8 o 9).";
+                    return false;
+                }
+            }
+            else if (!string.IsNullOrEmpty(field.ValidationRegex))
+            {
+                try
+                {
+                    if (!Regex.IsMatch(field.Value, field.ValidationRegex))
+                    {
+                        fieldValidationErrors[field.IdFld] = "El formato ingresado no es válido.";
+                        return false;
+                    }
+                }
+                catch {}
+            }
+        }
+
+        return true;
+    }
+
+    private void OnFieldValueInput(FormFieldDto field, string? value)
+    {
+        field.Value = value ?? string.Empty;
+        ValidateField(field);
     }
 
     private class OrderDataSubmitDto
@@ -391,27 +467,19 @@
         }
 
         bool hasValidationErrors = false;
-        foreach(var field in formSchema.Fields)
+        foreach (var field in formSchema.Fields)
         {
-            if (field.ValidationType == "DNI_ES" && !string.IsNullOrEmpty(field.Value))
+            if (!ValidateField(field))
             {
-                if (!ValidationHelper.ValidateDni(field.Value))
-                {
-                    Snackbar.Add($"El valor en {field.Label} no es un DNI válido (letra incorrecta).", Severity.Error);
-                    hasValidationErrors = true;
-                }
-            }
-            if (field.ValidationType == "IBAN" && !string.IsNullOrEmpty(field.Value))
-            {
-                if (!ValidationHelper.ValidateIban(field.Value))
-                {
-                    Snackbar.Add($"El valor en {field.Label} no es un IBAN válido.", Severity.Error);
-                    hasValidationErrors = true;
-                }
+                hasValidationErrors = true;
             }
         }
         
-        if (hasValidationErrors) return;
+        if (hasValidationErrors)
+        {
+            Snackbar.Add("Por favor corrige los errores del formulario resaltados en rojo antes de guardar.", Severity.Error);
+            return;
+        }
 
         isSaving = true;
         try
@@ -420,7 +488,9 @@
             {
                 idLead = selectedLeadId,
                 idCmpg = selectedCampaignId,
-                idUser = currentUserId, // Extraído del JWT del usuario autenticado
+                idUser = currentUserId,
+                ownerUserId = currentUserId,
+                custodyUserId = currentUserId,
                 idStatus = selectedStatusId,
                 status = "PENDING_VALIDATION"
             };
@@ -458,11 +528,27 @@
                     
                     if (!formDataResponse.IsSuccessStatusCode)
                     {
-                        Snackbar.Add("Orden creada, pero falló al guardar los datos del formulario.", Severity.Warning);
+                        var errorContent = await formDataResponse.Content.ReadAsStringAsync();
+                        string errorDetail = $"Error {formDataResponse.StatusCode}";
+                        try
+                        {
+                            using var errDoc = System.Text.Json.JsonDocument.Parse(errorContent);
+                            if (errDoc.RootElement.TryGetProperty("message", out var msgElement))
+                            {
+                                errorDetail = msgElement.GetString() ?? errorDetail;
+                            }
+                        }
+                        catch
+                        {
+                            if (!string.IsNullOrWhiteSpace(errorContent)) errorDetail = errorContent;
+                        }
+
+                        Snackbar.Add($"Orden #{newOrderId} creada, pero falló al guardar los datos del formulario: {errorDetail}", Severity.Error);
+                        return;
                     }
                 }
                 
-                Snackbar.Add("Orden creada exitosamente", Severity.Success);
+                Snackbar.Add($"Orden #{newOrderId} creada y formulario guardado exitosamente.", Severity.Success);
                 Navigation.NavigateTo("/asesor/orders");
             }
             else
