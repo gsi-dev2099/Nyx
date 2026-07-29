@@ -151,6 +151,12 @@ public static class DependencyInjection
         services.AddScoped<GetActivationStatsUseCase>();
 
         // JWT Authentication
+        var secretKey = config["JwtSettings:SecretKey"];
+        if (string.IsNullOrEmpty(secretKey))
+        {
+            throw new InvalidOperationException("La clave de firma JWT 'JwtSettings:SecretKey' no está configurada en la aplicación.");
+        }
+
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options => {
                 options.TokenValidationParameters = new TokenValidationParameters 
@@ -162,7 +168,7 @@ public static class DependencyInjection
                     ValidIssuer   = config["JwtSettings:Issuer"],
                     ValidAudience = config["JwtSettings:Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(config["JwtSettings:SecretKey"] ?? "a-default-secret-key-that-is-long-enough-for-validation-32-chars-long"))
+                        Encoding.UTF8.GetBytes(secretKey))
                 };
             });
 
