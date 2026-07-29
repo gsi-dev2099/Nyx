@@ -189,91 +189,89 @@ public class SupervisorRepository : ISupervisorRepository
         }
 
         var batchId = Guid.NewGuid();
-
-        foreach (var orderId in orderIds)
+        using var transaction = connection.BeginTransaction();
+        try
         {
-            using var transaction = connection.BeginTransaction();
-            try
-            {
-                // 1. Establecer el ID de usuario actor en la sesión
-                await connection.ExecuteAsync(
-                    "SELECT set_config('app.current_user_id', @SupervisorIdStr, true);",
-                    new { SupervisorIdStr = supervisorId.ToString() },
-                    transaction: transaction
-                );
+            // 1. Establecer el ID de usuario actor en la sesión
+            await connection.ExecuteAsync(
+                "SELECT set_config('app.current_user_id', @SupervisorIdStr, true);",
+                new { SupervisorIdStr = supervisorId.ToString() },
+                transaction: transaction
+            );
 
-                // 2. Obtener estado actual con bloqueo FOR UPDATE
-                const string selectSql = "SELECT id_status FROM sales_service.sales_order WHERE id_order = @IdOrder FOR UPDATE;";
-                var currentStatusId = await connection.ExecuteScalarAsync<long?>(
-                    new CommandDefinition(selectSql, new { IdOrder = orderId }, transaction: transaction, cancellationToken: ct)
-                );
-
-                if (!currentStatusId.HasValue)
-                {
-                    transaction.Rollback();
-                    result.FailedCount++;
-                    result.FailedOrderIds.Add(orderId);
-                    continue;
-                }
-
-                // 3. Validar si el supervisor cuenta con el permiso sales.order.bulk_transfer para este estado
-                const string checkPermissionSql = "SELECT access_control.can_user_action(@SupervisorId, 'sales.order.bulk_transfer', @StatusId);";
-                var hasPermission = await connection.ExecuteScalarAsync<bool>(
-                    new CommandDefinition(checkPermissionSql, new { SupervisorId = supervisorId, StatusId = currentStatusId.Value }, transaction: transaction, cancellationToken: ct)
-                );
-
-                if (!hasPermission)
-                {
-                    transaction.Rollback();
-                    result.FailedCount++;
-                    result.FailedOrderIds.Add(orderId);
-                    continue;
-                }
-
-                // 4. Actualizar custodio y estado a Pendiente Backoffice (id_status = 3)
-                const string updateSql = @"
-                    UPDATE sales_service.sales_order 
-                    SET custody_user_id = @BackofficeUserId, 
-                        id_status = 3, 
+            // 2. Ejecutar la transferencia masiva en un solo query optimizado (CTE)
+            const string bulkSql = @"
+                WITH target_orders AS (
+                    SELECT id_order, id_status
+                    FROM sales_service.sales_order
+                    WHERE id_order = ANY(@OrderIds)
+                    FOR UPDATE
+                ),
+                allowed_orders AS (
+                    SELECT id_order, id_status
+                    FROM target_orders
+                    WHERE access_control.can_user_action(@SupervisorId, 'sales.order.bulk_transfer', id_status)
+                ),
+                updated_orders AS (
+                    UPDATE sales_service.sales_order o
+                    SET custody_user_id = @BackofficeUserId,
+                        id_status = 3,
                         last_update = NOW()
-                    WHERE id_order = @OrderId;";
+                    FROM allowed_orders a
+                    WHERE o.id_order = a.id_order
+                    RETURNING o.id_order, a.id_status
+                ),
+                inserted_logs AS (
+                    INSERT INTO sales_service.sales_order_custody_log (
+                        id_order, log_date, from_user_id, to_user_id, 
+                        from_role, to_role, transfer_type, id_status_at, 
+                        comment, is_bulk, batch_id, register
+                    )
+                    SELECT 
+                        u.id_order, NOW(), @SupervisorId, @BackofficeUserId,
+                        'SUPERVISOR', 'BACKOFFICE', 'BULK_TO_BACKOFFICE', 3,
+                        @Comment, true, @BatchId, NOW()
+                    FROM updated_orders u
+                )
+                SELECT id_order FROM updated_orders;";
 
-                int rowsAffected = await connection.ExecuteAsync(
-                    new CommandDefinition(updateSql, new { BackofficeUserId = backofficeUserId, OrderId = orderId }, transaction: transaction, cancellationToken: ct)
-                );
+            var successfulList = (await connection.QueryAsync<long>(
+                new CommandDefinition(
+                    bulkSql, 
+                    new { 
+                        OrderIds = orderIds, 
+                        SupervisorId = supervisorId, 
+                        BackofficeUserId = backofficeUserId, 
+                        Comment = comment ?? "Envío masivo al BAC", 
+                        BatchId = batchId 
+                    }, 
+                    transaction: transaction, 
+                    cancellationToken: ct
+                )
+            )).ToList();
 
-                if (rowsAffected > 0)
+            transaction.Commit();
+
+            var successfulSet = new HashSet<long>(successfulList);
+            foreach (var orderId in orderIds)
+            {
+                if (successfulSet.Contains(orderId))
                 {
-                    // 3. Registrar en custody_log con batch_id
-                    const string insertLogSql = @"
-                        INSERT INTO sales_service.sales_order_custody_log (
-                            id_order, log_date, from_user_id, to_user_id, 
-                            from_role, to_role, transfer_type, id_status_at, 
-                            comment, is_bulk, batch_id, register
-                        )
-                        VALUES (
-                            @OrderId, CURRENT_DATE, @SupervisorId, @BackofficeUserId,
-                            'SUPERVISOR', 'BACKOFFICE', 'BULK_TO_BACKOFFICE', 3,
-                            @Comment, true, @BatchId, NOW()
-                        );";
-
-                    await connection.ExecuteAsync(
-                        new CommandDefinition(insertLogSql, new { OrderId = orderId, SupervisorId = supervisorId, BackofficeUserId = backofficeUserId, Comment = comment ?? "Envío masivo al BAC", BatchId = batchId }, transaction: transaction, cancellationToken: ct)
-                    );
-
-                    transaction.Commit();
                     result.SuccessfulCount++;
                 }
                 else
                 {
-                    transaction.Rollback();
                     result.FailedCount++;
                     result.FailedOrderIds.Add(orderId);
                 }
             }
-            catch
+        }
+        catch (Exception)
+        {
+            transaction.Rollback();
+            // Si toda la transacción falla, todas las órdenes se marcan como fallidas
+            foreach (var orderId in orderIds)
             {
-                transaction.Rollback();
                 result.FailedCount++;
                 result.FailedOrderIds.Add(orderId);
             }

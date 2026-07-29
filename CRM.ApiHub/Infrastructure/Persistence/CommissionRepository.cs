@@ -159,48 +159,21 @@ public class CommissionRepository : ICommissionRepository
         using var transaction = connection.BeginTransaction();
         try
         {
-            foreach (var orderId in orderIds)
-            {
-                // Fetch sales order items with product name
-                const string fetchItemsSql = @"
-                    SELECT 
-                        i.id_item AS IdOrderItem,
-                        i.id_order AS IdOrder,
-                        i.commission_eur AS CommissionEur,
-                        i.commission_pen AS CommissionPen,
-                        p.name AS ProductName
-                    FROM sales_service.sales_order_item i
-                    LEFT JOIN product_service.product p ON i.id_prod = p.id_prod
-                    WHERE i.id_order = @OrderId;";
+            // Insertar todos los ítems de las órdenes en una sola consulta de conjuntos
+            const string insertSql = @"
+                INSERT INTO sales_service.commission_settlement_item 
+                    (id_settlement, id_order, id_order_item, commission_eur, commission_pen, product_name)
+                SELECT 
+                    @IdSettlement, 
+                    i.id_order, 
+                    i.id_item, 
+                    i.commission_eur, 
+                    i.commission_pen, 
+                    p.name
+                FROM sales_service.sales_order_item i
+                LEFT JOIN product_service.product p ON i.id_prod = p.id_prod
+                WHERE i.id_order = ANY(@OrderIds);
 
-                var items = await connection.QueryAsync<OrderItemWithProduct>(
-                    new CommandDefinition(fetchItemsSql, new { OrderId = orderId }, transaction: transaction, cancellationToken: ct)
-                );
-
-                foreach (var item in items)
-                {
-                    const string insertItemSql = @"
-                        INSERT INTO sales_service.commission_settlement_item 
-                            (id_settlement, id_order, id_order_item, commission_eur, commission_pen, product_name)
-                        VALUES 
-                            (@IdSettlement, @IdOrder, @IdOrderItem, @CommissionEur, @CommissionPen, @ProductName);";
-
-                    await connection.ExecuteAsync(
-                        new CommandDefinition(insertItemSql, new 
-                        { 
-                            IdSettlement = idSettlement, 
-                            IdOrder = item.IdOrder, 
-                            IdOrderItem = (long?)item.IdOrderItem, 
-                            CommissionEur = item.CommissionEur, 
-                            CommissionPen = item.CommissionPen, 
-                            ProductName = item.ProductName 
-                        }, transaction: transaction, cancellationToken: ct)
-                    );
-                }
-            }
-
-            // Recalculate totals in settlement
-            const string updateTotalsSql = @"
                 UPDATE sales_service.commission_settlement
                 SET total_eur = (SELECT COALESCE(SUM(commission_eur), 0) FROM sales_service.commission_settlement_item WHERE id_settlement = @IdSettlement),
                     total_pen = (SELECT COALESCE(SUM(commission_pen), 0) FROM sales_service.commission_settlement_item WHERE id_settlement = @IdSettlement),
@@ -209,7 +182,7 @@ public class CommissionRepository : ICommissionRepository
                 WHERE id_settlement = @IdSettlement;";
 
             await connection.ExecuteAsync(
-                new CommandDefinition(updateTotalsSql, new { IdSettlement = idSettlement }, transaction: transaction, cancellationToken: ct)
+                new CommandDefinition(insertSql, new { IdSettlement = idSettlement, OrderIds = orderIds }, transaction: transaction, cancellationToken: ct)
             );
 
             transaction.Commit();
