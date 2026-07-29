@@ -1,7 +1,7 @@
 using System;
 using System.Text.RegularExpressions;
 
-namespace CRM.WebFrontend.Helpers;
+namespace CRM.WebFrontend.Client.Helpers;
 
 public static class ValidationHelper
 {

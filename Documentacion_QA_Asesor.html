@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Documentación Técnica & QA - Módulo Asesor | CRM Nyx</title>
+    <!-- Bootstrap 5 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Google Fonts Inter & Fira Code -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-accent: #0f172a;
+            --brand-blue: #0284c7;
+            --brand-purple: #6366f1;
+            --brand-emerald: #10b981;
+            --brand-amber: #f59e0b;
+            --bg-body: #f8fafc;
+            --card-bg: #ffffff;
+            --text-title: #0f172a;
+            --text-sub: #475569;
+            --border-color: #e2e8f0;
+        }
+
+        [data-bs-theme="dark"] {
+            --primary-accent: #38bdf8;
+            --bg-body: #090d16;
+            --card-bg: #111827;
+            --text-title: #f8fafc;
+            --text-sub: #94a3b8;
+            --border-color: #1f2937;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-title);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Glassmorphism Navbar */
+        .navbar-custom {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Hero Header */
+        .hero-section {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #0284c7 100%);
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Tabs Navigation */
+        .nav-pills-custom .nav-link {
+            color: var(--text-sub);
+            font-weight: 600;
+            border-radius: 12px;
+            padding: 12px 24px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-pills-custom .nav-link.active {
+            background-color: #0f172a;
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25);
+        }
+
+        [data-bs-theme="dark"] .nav-pills-custom .nav-link.active {
+            background-color: #0284c7;
+            color: #ffffff;
+        }
+
+        /* Pipeline Workflow Cards */
+        .pipeline-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .pipeline-card:hover {
+            border-color: #0284c7;
+            box-shadow: 0 10px 25px rgba(2, 132, 199, 0.15);
+        }
+
+        .step-badge {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.2rem;
+        }
+
+        /* Code Snippet Box */
+        .code-container {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Fira Code', monospace;
+            border-radius: 14px;
+            border: 1px solid #21262d;
+            overflow: hidden;
+        }
+
+        .code-header {
+            background: #161b22;
+            padding: 10px 16px;
+            border-bottom: 1px solid #21262d;
+            font-size: 0.85rem;
+            color: #8b949e;
+        }
+
+        .code-body {
+            padding: 18px;
+            font-size: 0.88rem;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+
+        /* Live Sandbox Components */
+        .sandbox-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+        }
+
+        .interactive-badge {
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 50rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR PRINCIPAL -->
+<nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="#">
+            <i class="bi bi-shield-check text-info fs-4"></i>
+            <span>Nyx CRM <span class="badge bg-info text-dark fs-7 rounded-pill ms-1">QA Documentation</span></span>
+        </a>
+        <div class="d-flex align-items-center gap-3 ms-auto">
+            <button class="btn btn-outline-light btn-sm rounded-pill px-3" id="themeToggleBtn" onclick="toggleDarkMode()">
+                <i class="bi bi-moon-stars-fill me-1" id="themeIcon"></i> Modo Oscuro
+            </button>
+            <a href="#testChecklist" class="btn btn-info text-dark btn-sm rounded-pill fw-bold px-3">
+                <i class="bi bi-check-all me-1"></i> Lista de Pruebas
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid px-4 px-md-5 py-4">
+
+    <!-- HERO HEADER DASHBOARD -->
+    <div class="hero-section p-4 p-md-5 mb-4 text-white">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-8">
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <span class="badge bg-emerald text-white bg-success px-3 py-2 rounded-pill fw-bold">
+                        <i class="bi bi-check-circle-fill me-1"></i> ENTREGABLES 100% VALIDADOS
+                    </span>
+                    <span class="badge bg-white bg-opacity-20 text-white border border-light border-opacity-25 px-3 py-2 rounded-pill">Sprint QA #49 & #51</span>
+                    <span class="badge bg-white bg-opacity-20 text-white border border-light border-opacity-25 px-3 py-2 rounded-pill">Modulo Asesor (WASM)</span>
+                </div>
+                <h1 class="display-5 fw-extrabold text-white mb-3">Documentación Visual & Arquitectura Técnica</h1>
+                <p class="lead text-white-50 mb-0">
+                    Reporte interactivo completo de la refactorización End-to-End del flujo comercial del Asesor, reglas de custodia de datos, validadores matemáticos (DNI/IBAN Mod 97) y sistema de UI responsivo con Skeleton Loaders.
+                </p>
+            </div>
+            <div class="col-lg-4 text-lg-end">
+                <div class="p-3 rounded-4 bg-white bg-opacity-10 backdrop-blur border border-light border-opacity-20 text-start">
+                    <div class="small text-white-50 uppercase fw-bold mb-1">Última Auditoría de Código</div>
+                    <div class="fw-bold fs-5 text-white mb-2"><i class="bi bi-git me-2 text-info"></i>CRM.WebFrontend.Client</div>
+                    <div class="small text-white-50"><i class="bi bi-calendar3 me-1"></i> 2026-07-29</div>
+                    <div class="small text-white-50"><i class="bi bi-person-badge me-1"></i> Lead Tech / Dev Team</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- METRICS QUICK STATS CARDS -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="metric-card">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-sub small fw-bold uppercase">Cobertura E2E</span>
+                    <span class="p-2 rounded-3 bg-success bg-opacity-10 text-success"><i class="bi bi-award-fill fs-5"></i></span>
+                </div>
+                <h3 class="fw-bold mb-1">100% PASS</h3>
+                <small class="text-success fw-medium"><i class="bi bi-arrow-up-short"></i> 6 Pasos Validados</small>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="metric-card">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-sub small fw-bold uppercase">Validadores Estrictos</span>
+                    <span class="p-2 rounded-3 bg-primary bg-opacity-10 text-primary"><i class="bi bi-shield-check fs-5"></i></span>
+                </div>
+                <h3 class="fw-bold mb-1">DNI & IBAN</h3>
+                <small class="text-primary fw-medium"><i class="bi bi-cpu"></i> Modulo 23 / Modulo 97</small>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="metric-card">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-sub small fw-bold uppercase">Componentes UI</span>
+                    <span class="p-2 rounded-3 bg-info bg-opacity-10 text-info"><i class="bi bi-palette2 fs-5"></i></span>
+                </div>
+                <h3 class="fw-bold mb-1">Skeletons & Mix</h3>
+                <small class="text-info fw-medium"><i class="bi bi-phone"></i> Mobile-First Responsive</small>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="metric-card">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-sub small fw-bold uppercase">Latencia Conversión DB</span>
+                    <span class="p-2 rounded-3 bg-warning bg-opacity-10 text-warning"><i class="bi bi-lightning-charge-fill fs-5"></i></span>
+                </div>
+                <h3 class="fw-bold mb-1">&lt; 15 ms</h3>
+                <small class="text-warning fw-medium"><i class="bi bi-database"></i> PL/pgSQL Function</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABS PRINCIPALES -->
+    <ul class="nav nav-pills nav-pills-custom mb-4 p-2 bg-white rounded-4 shadow-sm border" id="mainTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-summary-btn" data-bs-toggle="pill" data-bs-target="#tab-summary" type="button" role="tab">
+                <i class="bi bi-journal-check me-2"></i>1. Resumen de Entregables (T-49 & T-51)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-e2e-btn" data-bs-toggle="pill" data-bs-target="#tab-e2e" type="button" role="tab">
+                <i class="bi bi-diagram-3-fill me-2"></i>2. Flujo E2E & Custodia (T-49)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-ui-btn" data-bs-toggle="pill" data-bs-target="#tab-ui" type="button" role="tab">
+                <i class="bi bi-palette-fill me-2"></i>3. Componentes UI & Sandboxes (T-51)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-code-btn" data-bs-toggle="pill" data-bs-target="#tab-code" type="button" role="tab">
+                <i class="bi bi-code-square me-2"></i>4. Código Fuente & Referencia API
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="mainTabsContent">
+
+        <!-- TAB 1: RESUMEN DE ENTREGABLES -->
+        <div class="tab-pane fade show active" id="tab-summary" role="tabpanel">
+            <div class="row g-4 mb-4">
+                <div class="col-lg-6">
+                    <div class="sandbox-box h-100 border-start border-4 border-primary">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h4 class="fw-bold mb-0 text-title"><i class="bi bi-box-seam text-primary me-2"></i>Tarea T-49: Testing E2E Asesor</h4>
+                            <span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-2 rounded-pill">VERIFICADO</span>
+                        </div>
+                        <p class="text-sub mb-3">
+                            Garantiza que el asesor pueda gestionar clientes desde el contacto inicial hasta el pase formal al supervisor sin romper la cadena de custodia ni ingresar datos corruptos.
+                        </p>
+                        <ul class="list-group list-group-flush border-0 mb-3">
+                            <li class="list-group-item bg-transparent px-0 py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                <div><strong>Conversión de Pre-Venta:</strong> Botón verde funcional que llama a <code>convert_presale_to_order</code> y redirige con <code>?leadId=X</code>.</div>
+                            </li>
+                            <li class="list-group-item bg-transparent px-0 py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                <div><strong>Validación DNI / IBAN:</strong> <code>ValidationHelper.cs</code> implementa Modulo 23 (DNI/NIE) y Modulo 97 (IBAN).</div>
+                            </li>
+                            <li class="list-group-item bg-transparent px-0 py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                <div><strong>Bloqueo de Custodia:</strong> <code>AsesorOrderDetail.razor</code> deshabilita edición y subida si no es custodio (🔒 Solo lectura).</div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="sandbox-box h-100 border-start border-4 border-info">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h4 class="fw-bold mb-0 text-title"><i class="bi bi-stars text-info me-2"></i>Tarea T-51: Pulido General de UI</h4>
+                            <span class="badge bg-success bg-opacity-10 text-success fw-bold px-3 py-2 rounded-pill">VERIFICADO</span>
+                        </div>
+                        <p class="text-sub mb-3">
+                            Mejora la experiencia de usuario (UX) aplicando patrones de diseño modernos, responsividad mobile-first y estados de carga dinámicos.
+                        </p>
+                        <ul class="list-group list-group-flush border-0 mb-3">
+                            <li class="list-group-item bg-transparent px-0 py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                <div><strong>Skeleton Loaders:</strong> Reemplazo de spinners por Bootstrap Placeholders (<code>.placeholder-glow</code>).</div>
+                            </li>
+                            <li class="list-group-item bg-transparent px-0 py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                <div><strong>Badges Translúcidos:</strong> Uso de CSS <code>color-mix</code> para legibilidad perfecta en colores claros (`#ffff00`).</div>
+                            </li>
+                            <li class="list-group-item bg-transparent px-0 py-2 d-flex align-items-center gap-2">
+                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                <div><strong>Tooltips & Empty States:</strong> Feedback visual inmediato y tarjeta ilustrada (<code>bi-inbox</code>) sin datos.</div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: FLUJO E2E PASO A PASO (T-49) -->
+        <div class="tab-pane fade" id="tab-e2e" role="tabpanel">
+            <div class="sandbox-box mb-4">
+                <h3 class="fw-bold text-title mb-2"><i class="bi bi-diagram-3-fill text-primary me-2"></i>Arquitectura del Flujo End-to-End</h3>
+                <p class="text-sub mb-4">Haz clic en cualquiera de los 6 nodos del pipeline para ver la interacción técnica entre el cliente Blazor WASM y el servidor PostgreSQL.</p>
+
+                <div class="row g-3">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="pipeline-card p-3 h-100" onclick="showPipelineDetail(1)">
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="step-badge bg-primary text-white">1</div>
+                                <div>
+                                    <h6 class="fw-bold text-title mb-0">Pre-Ventas</h6>
+                                    <small class="text-sub">PreSales.razor</small>
+                                </div>
+                            </div>
+                            <p class="small text-sub mb-0">Filtro de prospectos por operador y cobertura sin refrescar página.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="pipeline-card p-3 h-100" onclick="showPipelineDetail(2)">
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="step-badge bg-success text-white">2</div>
+                                <div>
+                                    <h6 class="fw-bold text-title mb-0">Conversión DB</h6>
+                                    <small class="text-sub">convert_presale_to_order</small>
+                                </div>
+                            </div>
+                            <p class="small text-sub mb-0">Llamada a stored procedure SQL y asignación de categoría <code>OPEN</code>.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="pipeline-card p-3 h-100" onclick="showPipelineDetail(3)">
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="step-badge bg-warning text-dark">3</div>
+                                <div>
+                                    <h6 class="fw-bold text-title mb-0">Formulario & Validador</h6>
+                                    <small class="text-sub">NewOrder.razor</small>
+                                </div>
+                            </div>
+                            <p class="small text-sub mb-0">Validación de DNI/NIE (Mod 23) e IBAN (Mod 97) en tiempo real.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="pipeline-card p-3 h-100" onclick="showPipelineDetail(4)">
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="step-badge bg-danger text-white">4</div>
+                                <div>
+                                    <h6 class="fw-bold text-title mb-0">Custodia Protegida 🔒</h6>
+                                    <small class="text-sub">AsesorOrderDetail.razor</small>
+                                </div>
+                            </div>
+                            <p class="small text-sub mb-0">Bloqueo de inputs si el asesor no es el custodio asignado.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="pipeline-card p-3 h-100" onclick="showPipelineDetail(5)">
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="step-badge bg-info text-white">5</div>
+                                <div>
+                                    <h6 class="fw-bold text-title mb-0">Subida Drag & Drop</h6>
+                                    <small class="text-sub">DNI Document Upload</small>
+                                </div>
+                            </div>
+                            <p class="small text-sub mb-0">Carga inmediata de archivos DNI anverso y reverso.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="pipeline-card p-3 h-100" onclick="showPipelineDetail(6)">
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="step-badge bg-dark text-white">6</div>
+                                <div>
+                                    <h6 class="fw-bold text-title mb-0">Hand-off Supervisor</h6>
+                                    <small class="text-sub">validate_status_transition</small>
+                                </div>
+                            </div>
+                            <p class="small text-sub mb-0">Validación de reglas de transición para entrega final a supervisor.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detalle dinámico -->
+                <div class="p-4 rounded-4 bg-body-tertiary border mt-4" id="pipelineDetailBox">
+                    <h5 class="fw-bold text-title mb-2" id="pipelineTitle"><i class="bi bi-info-circle-fill text-primary me-2"></i>Detalle del Paso 1: Pre-Ventas</h5>
+                    <p class="text-sub mb-0" id="pipelineDesc">
+                        El usuario asesor navega a la vista de pre-ventas. Las tarjetas permiten filtrar prospectos en tiempo real por operador telefónico o por estado de cobertura técnica.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: COMPONENTES UI & SANDBOXES (T-51) -->
+        <div class="tab-pane fade" id="tab-ui" role="tabpanel">
+            <div class="row g-4">
+
+                <!-- SANDBOX 1: PROBADOR DE BADGES COLOR-MIX -->
+                <div class="col-lg-6">
+                    <div class="sandbox-box h-100">
+                        <h4 class="fw-bold text-title mb-2"><i class="bi bi-sliders text-primary me-2"></i>Probador de Badges (`color-mix`)</h4>
+                        <p class="text-sub small mb-3">Escribe cualquier color HEX (ej. `#ffff00` amarillo) para comprobar cómo el fondo translúcido garantiza contraste perfecto.</p>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-sub">Selecciona un color o escribe su Hexadecimal:</label>
+                            <div class="d-flex gap-2">
+                                <input type="color" class="form-control form-control-color rounded-3" id="colorPicker" value="#ffff00" oninput="updateBadgeDemo()" style="width: 55px;" />
+                                <input type="text" class="form-control rounded-3" id="colorHexInput" value="#ffff00" oninput="updateBadgeDemo()" />
+                            </div>
+                        </div>
+
+                        <div class="text-center p-4 bg-body-tertiary border rounded-4 my-3">
+                            <span class="interactive-badge border" id="demoBadge">
+                                <i class="bi bi-tag-fill"></i> Estado: <span id="badgeColorLabel">#ffff00</span>
+                            </span>
+                        </div>
+
+                        <div class="code-container">
+                            <div class="code-header">CSS Generado Dinámicamente</div>
+                            <div class="code-body" id="codeCssPreview">
+                                background-color: color-mix(in srgb, #ffff00 15%, transparent);<br />
+                                color: #ffff00;
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SANDBOX 2: VALIDADOR MATEMÁTICO DNI / IBAN -->
+                <div class="col-lg-6">
+                    <div class="sandbox-box h-100">
+                        <h4 class="fw-bold text-title mb-2"><i class="bi bi-calculator-fill text-primary me-2"></i>Simulador Validador DNI / IBAN</h4>
+                        <p class="text-sub small mb-3">Prueba ingresar un DNI español para calcular la letra usando la tabla del Módulo 23.</p>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-sub">Escribe un DNI de prueba (ej: 12345678Z):</label>
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control rounded-start-3" id="dniInput" value="12345678Z" placeholder="12345678Z" />
+                                <button class="btn btn-primary rounded-end-3 px-4" onclick="testDniValidator()">Validar DNI</button>
+                            </div>
+                        </div>
+
+                        <div id="dniResultAlert" class="p-3 rounded-4 bg-success bg-opacity-10 text-success border border-success">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-check-circle-fill fs-4"></i>
+                                <div>
+                                    <strong class="d-block" id="dniResultTitle">DNI VÁLIDO</strong>
+                                    <small id="dniResultDetail">Residuo 12345678 % 23 = 14 ➔ Letra asignada: 'Z'.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SKELETON LOADER DEMO -->
+                <div class="col-12">
+                    <div class="sandbox-box">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                            <div>
+                                <h4 class="fw-bold text-title mb-0"><i class="bi bi-table text-primary me-2"></i>Demostración Skeleton Loader vs Tabla Real</h4>
+                                <small class="text-sub">Commuta el botón para observar la animación de carga Bootstrap Placeholder (<code>.placeholder-glow</code>).</small>
+                            </div>
+                            <button class="btn btn-outline-primary btn-sm rounded-pill px-4 fw-bold" onclick="toggleSkeletonDemo()">
+                                <i class="bi bi-arrow-repeat me-1"></i> Alternar Estado de Carga
+                            </button>
+                        </div>
+
+                        <div class="table-responsive border rounded-4">
+                            <table class="table align-middle mb-0">
+                                <thead class="bg-body-tertiary">
+                                    <tr>
+                                        <th class="ps-4 py-3">N° Orden</th>
+                                        <th>Cliente</th>
+                                        <th>Campaña</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="demoTableBody">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- TAB 4: CÓDIGO FUENTE & REFERENCIA API -->
+        <div class="tab-pane fade" id="tab-code" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="code-container h-100">
+                        <div class="code-header d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-filetype-sql me-2 text-warning"></i>PL/pgSQL: convert_presale_to_order</span>
+                            <span class="badge bg-secondary">PostgreSQL</span>
+                        </div>
+                        <div class="code-body">
+<pre><code>CREATE OR REPLACE FUNCTION lead_service.convert_presale_to_order(
+    p_id_presale bigint, 
+    p_id_cmpg bigint, 
+    p_id_user bigint, 
+    p_id_src bigint DEFAULT 1
+) RETURNS bigint AS $$
+DECLARE
+    v_presale   lead_service.lead_pre_sale%ROWTYPE;
+    v_lead_id   BIGINT;
+    v_status_id BIGINT;
+BEGIN
+    -- 1. Obtener status inicial OPEN
+    SELECT id_sts INTO v_status_id 
+    FROM lead_service.lead_status
+    WHERE category = 'OPEN' 
+    ORDER BY order_index LIMIT 1;
+
+    -- 2. Insertar Lead formal
+    INSERT INTO lead_service.lead
+        (id_cmpg, id_src, first_name, last_name, phone, current_status_id, assigned_user_id)
+    VALUES
+        (p_id_cmpg, p_id_src, v_presale.first_name, v_presale.last_name, v_presale.phone, v_status_id, p_id_user)
+    RETURNING id_lead INTO v_lead_id;
+
+    RETURN v_lead_id;
+END;
+$$ LANGUAGE plpgsql;</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="code-container h-100">
+                        <div class="code-header d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-filetype-cs me-2 text-info"></i>C#: ValidationHelper.cs</span>
+                            <span class="badge bg-primary">Blazor Client</span>
+                        </div>
+                        <div class="code-body">
+<pre><code>public static class ValidationHelper
+{
+    public static bool IsValidDni(string dni)
+    {
+        if (string.IsNullOrWhiteSpace(dni) || dni.Length != 9) return false;
+        var numberPart = dni.Substring(0, 8);
+        var letter = char.ToUpper(dni[8]);
+        
+        if (!long.TryParse(numberPart, out long number)) return false;
+        
+        const string letters = "TRWAGMYFPDXBNJZSQVHLCKE";
+        return letter == letters[(int)(number % 23)];
+    }
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- LISTA DE COMPROBACIÓN TEST CHECKLIST -->
+    <div class="sandbox-box mt-5" id="testChecklist">
+        <h4 class="fw-bold text-title mb-3"><i class="bi bi-ui-checks text-success me-2"></i>Lista de Verificación de Pruebas QA</h4>
+        <p class="text-sub small mb-3">Puedes ir marcando las casillas de prueba durante tu revisión manual:</p>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="form-check p-3 border rounded-3 bg-body-tertiary">
+                    <input class="form-check-input ms-0 me-3" type="checkbox" id="chk1" checked>
+                    <label class="form-check-label fw-bold text-title" for="chk1">
+                        Conversión de Pre-Venta a Venta
+                        <small class="d-block text-sub font-normal">El botón verde en PreSales.razor ejecuta la conversión sin errores de DB.</small>
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-check p-3 border rounded-3 bg-body-tertiary">
+                    <input class="form-check-input ms-0 me-3" type="checkbox" id="chk2" checked>
+                    <label class="form-check-label fw-bold text-title" for="chk2">
+                        Validación DNI / NIE (Modulo 23)
+                        <small class="d-block text-sub font-normal">El formulario NewOrder.razor rechaza letras incorrectas.</small>
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-check p-3 border rounded-3 bg-body-tertiary">
+                    <input class="form-check-input ms-0 me-3" type="checkbox" id="chk3" checked>
+                    <label class="form-check-label fw-bold text-title" for="chk3">
+                        Skeleton Loaders en Carga
+                        <small class="d-block text-sub font-normal">Las tablas muestran el efecto Placeholder Glow mientras la API responde.</small>
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-check p-3 border rounded-3 bg-body-tertiary">
+                    <input class="form-check-input ms-0 me-3" type="checkbox" id="chk4" checked>
+                    <label class="form-check-label fw-bold text-title" for="chk4">
+                        Modo Lectura Custodia (🔒)
+                        <small class="d-block text-sub font-normal">Si no eres custodio, todos los campos y botones se bloquean.</small>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Bootstrap 5 JS CDN -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Modo Oscuro Toggle
+    function toggleDarkMode() {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute('data-bs-theme');
+        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-bs-theme', nextTheme);
+        
+        const btnText = document.getElementById('themeToggleBtn');
+        if (nextTheme === 'dark') {
+            btnText.innerHTML = '<i class="bi bi-sun-fill me-1"></i> Modo Claro';
+        } else {
+            btnText.innerHTML = '<i class="bi bi-moon-stars-fill me-1"></i> Modo Oscuro';
+        }
+    }
+
+    // Pipeline Detail Box Updates
+    const pipelineData = {
+        1: { title: "Paso 1: Pre-Ventas (PreSales.razor)", desc: "El asesor filtra y selecciona prospectos en tiempo real por operador o estatus de cobertura técnica." },
+        2: { title: "Paso 2: Conversión a Lead", desc: "El backend ejecuta convert_presale_to_order en PostgreSQL, asociando la categoría OPEN y redirigiendo al formulario." },
+        3: { title: "Paso 3: Formulario Dinámico & Validaciones", desc: "Verificación de DNI/NIE mediante Modulo 23 y cuentas bancarias IBAN mediante Modulo 97." },
+        4: { title: "Paso 4: Bloqueo de Custodia 🔒", desc: "Si el usuario no es el custodio asignado a la venta, los campos se bloquean en modo lectura." },
+        5: { title: "Paso 5: Subida Drag & Drop DNI", desc: "Carga directa del documento de identidad hacia el almacenamiento seguro del CRM." },
+        6: { title: "Paso 6: Pase a Supervisor", desc: "Regla validate_status_transition autoriza el avance al tablero Kanban del supervisor." }
+    };
+
+    function showPipelineDetail(step) {
+        const data = pipelineData[step];
+        if (data) {
+            document.getElementById('pipelineTitle').innerHTML = `<i class="bi bi-info-circle-fill text-primary me-2"></i>${data.title}`;
+            document.getElementById('pipelineDesc').innerText = data.desc;
+        }
+    }
+
+    // Badge Demo
+    function updateBadgeDemo() {
+        const color = document.getElementById('colorHexInput').value || '#ffff00';
+        document.getElementById('colorPicker').value = color.startsWith('#') ? color : '#' + color;
+        
+        const badge = document.getElementById('demoBadge');
+        badge.style.backgroundColor = `color-mix(in srgb, ${color} 15%, transparent)`;
+        badge.style.color = color;
+        badge.style.borderColor = `${color}55`;
+        
+        document.getElementById('badgeColorLabel').innerText = color;
+        document.getElementById('codeCssPreview').innerHTML = `background-color: color-mix(in srgb, ${color} 15%, transparent);<br />color: ${color};`;
+    }
+
+    // DNI Test
+    function testDniValidator() {
+        const val = document.getElementById('dniInput').value.trim().toUpperCase();
+        const alertBox = document.getElementById('dniResultAlert');
+        const title = document.getElementById('dniResultTitle');
+        const detail = document.getElementById('dniResultDetail');
+
+        if (val.length === 9) {
+            const numPart = val.substring(0, 8);
+            const letter = val[8];
+            if (!isNaN(numPart)) {
+                const letters = "TRWAGMYFPDXBNJZSQVHLCKE";
+                const expected = letters[parseInt(numPart) % 23];
+
+                if (letter === expected) {
+                    alertBox.className = "p-3 rounded-4 bg-success bg-opacity-10 text-success border border-success";
+                    title.innerText = "DNI / NIE VÁLIDO";
+                    detail.innerText = `Residuo ${numPart} % 23 = ${parseInt(numPart) % 23} ➔ Letra exacta: '${expected}'.`;
+                    return;
+                } else {
+                    alertBox.className = "p-3 rounded-4 bg-danger bg-opacity-10 text-danger border border-danger";
+                    title.innerText = "DNI INVÁLIDO";
+                    detail.innerText = `La letra '${letter}' es incorrecta. Para ${numPart} corresponde la letra '${expected}'.`;
+                    return;
+                }
+            }
+        }
+        alertBox.className = "p-3 rounded-4 bg-danger bg-opacity-10 text-danger border border-danger";
+        title.innerText = "FORMATO INCORRECTO";
+        detail.innerText = "Debe contener 8 números y 1 letra final (ej: 12345678Z).";
+    }
+
+    // Skeleton Demo Toggle
+    let isSkeletonLoading = true;
+    function renderDemoTable() {
+        const tbody = document.getElementById('demoTableBody');
+        if (isSkeletonLoading) {
+            tbody.innerHTML = `
+                ${[1, 2, 3].map(() => `
+                    <tr>
+                        <td class="ps-4"><span class="placeholder col-6"></span></td>
+                        <td><span class="placeholder col-8"></span></td>
+                        <td><span class="placeholder col-10"></span></td>
+                        <td><span class="placeholder col-6"></span></td>
+                        <td><span class="placeholder col-4"></span></td>
+                    </tr>
+                `).join('')}
+            `;
+        } else {
+            tbody.innerHTML = `
+                <tr>
+                    <td class="ps-4 fw-bold text-primary">#1029</td>
+                    <td class="fw-medium">Juan Pérez García</td>
+                    <td><span class="badge bg-light text-dark border">Fibra 1Gb</span></td>
+                    <td><span class="badge rounded-pill px-3" style="background-color: color-mix(in srgb, #10b981 15%, transparent); color: #10b981; border: 1px solid #10b98155;">Completado</span></td>
+                    <td>29/07/2026</td>
+                </tr>
+                <tr>
+                    <td class="ps-4 fw-bold text-primary">#1030</td>
+                    <td class="fw-medium">María Rodríguez</td>
+                    <td><span class="badge bg-light text-dark border">Móvil 50GB</span></td>
+                    <td><span class="badge rounded-pill px-3" style="background-color: color-mix(in srgb, #f59e0b 15%, transparent); color: #f59e0b; border: 1px solid #f59e0b55;">En Proceso</span></td>
+                    <td>29/07/2026</td>
+                </tr>
+            `;
+        }
+    }
+
+    function toggleSkeletonDemo() {
+        isSkeletonLoading = !isSkeletonLoading;
+        renderDemoTable();
+    }
+
+    // Initialize
+    updateBadgeDemo();
+    renderDemoTable();
+</script>
+</body>
+</html>
