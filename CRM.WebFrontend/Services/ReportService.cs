@@ -36,7 +36,7 @@ public class ReportService : IReportService
         {
             var query = BuildQuery(null, dateFrom, dateTo);
             var result = await _httpClient.GetFromJsonAsync<List<SalesByAsesorViewModel>>($"api/reports/sales-by-asesor{query}");
-            return (result == null || result.Count == 0) ? GetFallbackSalesByAsesorData() : result;
+            return result ?? new List<SalesByAsesorViewModel>();
         }
         catch (Exception ex)
         {
