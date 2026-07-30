@@ -24,13 +24,15 @@
         </div>
     </div>
 
+    <AdvisorOnboardingBanner />
+
     <!-- Filtros -->
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card border-0 shadow-sm rounded-4 mb-4" role="search" aria-label="Filtros de búsqueda de órdenes">
         <div class="card-body p-4">
             <div class="row row-cols-1 row-cols-md-4 g-3 align-items-end">
                 <div class="col">
-                    <label class="form-label fw-bold text-muted small">Campaña</label>
-                    <select class="form-select rounded-3" @bind="filterCampaignId">
+                    <label for="filter-campaign" class="form-label fw-bold text-muted small">Campaña</label>
+                    <select id="filter-campaign" class="form-select rounded-3" @bind="filterCampaignId" aria-label="Filtrar por campaña">
                         <option value="">Todas</option>
                         @foreach (var c in filterCampaigns)
                         {
@@ -39,8 +41,8 @@
                     </select>
                 </div>
                 <div class="col">
-                    <label class="form-label fw-bold text-muted small">Estado</label>
-                    <select class="form-select rounded-3" @bind="filterStatusId">
+                    <label for="filter-status" class="form-label fw-bold text-muted small">Estado</label>
+                    <select id="filter-status" class="form-select rounded-3" @bind="filterStatusId" aria-label="Filtrar por estado">
                         <option value="">Todos</option>
                         @foreach (var s in filterStatuses)
                         {
@@ -49,17 +51,17 @@
                     </select>
                 </div>
                 <div class="col">
-                    <label class="form-label fw-bold text-muted small">Desde</label>
-                    <input type="date" class="form-control rounded-3" @bind="filterDateFrom" />
+                    <label for="filter-date-from" class="form-label fw-bold text-muted small">Desde</label>
+                    <input type="date" id="filter-date-from" class="form-control rounded-3" @bind="filterDateFrom" aria-label="Fecha desde" />
                 </div>
                 <div class="col">
-                    <label class="form-label fw-bold text-muted small">Hasta</label>
-                    <input type="date" class="form-control rounded-3" @bind="filterDateTo" />
+                    <label for="filter-date-to" class="form-label fw-bold text-muted small">Hasta</label>
+                    <input type="date" id="filter-date-to" class="form-control rounded-3" @bind="filterDateTo" aria-label="Fecha hasta" />
                 </div>
             </div>
             <div class="mt-3 text-end">
-                <button class="btn btn-outline-secondary rounded-pill px-4 me-2 w-sm-100 mb-2 mb-md-0" @onclick="ClearFilters">Limpiar</button>
-                <button class="btn btn-dark rounded-pill px-4 w-sm-100" @onclick="ApplyFilters">Buscar</button>
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4 me-2 w-sm-100 mb-2 mb-md-0" @onclick="ClearFilters">Limpiar</button>
+                <button type="button" class="btn btn-dark rounded-pill px-4 w-sm-100" @onclick="ApplyFilters">Buscar</button>
             </div>
         </div>
     </div>

@@ -10,6 +10,7 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @inject NavigationManager Navigation
 @attribute [Authorize(Roles = "ASESOR")]
 
@@ -36,8 +37,8 @@
                 
                 <div class="row g-4">
                     <div class="col-md-12">
-                        <label class="form-label fw-bold">Cliente (Lead)</label>
-                        <select class="form-select form-select-lg rounded-3" @bind="selectedLeadId">
+                        <label for="select-lead" class="form-label fw-bold">Cliente (Lead)</label>
+                        <select id="select-lead" class="form-select form-select-lg rounded-3" @bind="selectedLeadId" aria-label="Seleccionar Cliente Lead">
                             <option value="0" disabled selected="@(selectedLeadId == 0)">-- Selecciona un cliente --</option>
                             @foreach (var l in leads)
                             {
@@ -47,8 +48,8 @@
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">Campaña</label>
-                        <select class="form-select form-select-lg rounded-3" value="@selectedCampaignId" @onchange="OnCampaignSelected">
+                        <label for="select-campaign" class="form-label fw-bold">Campaña</label>
+                        <select id="select-campaign" class="form-select form-select-lg rounded-3" value="@selectedCampaignId" @onchange="OnCampaignSelected" aria-label="Seleccionar Campaña">
                             <option value="0" disabled>-- Selecciona una campaña --</option>
                             @foreach (var cmpg in campaigns)
                             {
@@ -58,8 +59,8 @@
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">Etapa (Pipeline)</label>
-                        <select class="form-select form-select-lg rounded-3" value="@selectedStatusId" @onchange="OnStatusSelected" disabled="@(selectedCampaignId == 0)">
+                        <label for="select-status" class="form-label fw-bold">Etapa (Pipeline)</label>
+                        <select id="select-status" class="form-select form-select-lg rounded-3" value="@selectedStatusId" @onchange="OnStatusSelected" disabled="@(selectedCampaignId == 0)" aria-label="Seleccionar Etapa Pipeline">
                             <option value="0" disabled>-- Selecciona una etapa --</option>
                             @foreach (var st in statuses)
                             {
@@ -90,32 +91,38 @@
                         <div class="row g-4">
                             @foreach (var field in formSchema.Fields)
                             {
+                                var fieldId = $"field-{field.IdFld}";
+                                var errorId = $"error-{field.IdFld}";
+                                var helpId = $"help-{field.IdFld}";
+
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-bold text-secondary d-flex align-items-center mb-1">
+                                    <label for="@fieldId" class="form-label fw-bold text-secondary d-flex align-items-center mb-1">
                                         @field.Label
                                         @if (field.IsRequired)
                                         {
-                                            <span class="text-danger ms-1">*</span>
+                                            <span class="text-danger ms-1" aria-hidden="true">*</span>
                                         }
                                         @if (!string.IsNullOrEmpty(GetValidationTitle(field)))
                                         {
                                             <MudTooltip Text="@GetValidationTitle(field)" Placement="Placement.Top">
-                                                <i class="bi bi-info-circle ms-2 text-primary cursor-pointer"></i>
+                                                <i class="bi bi-info-circle ms-2 text-primary cursor-pointer" aria-hidden="true"></i>
                                             </MudTooltip>
                                         }
                                     </label>
                                     
                                     @if (!string.IsNullOrEmpty(field.HelpText))
                                     {
-                                        <div class="form-text text-muted mb-2"><MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="me-1"/>@field.HelpText</div>
+                                        <div id="@helpId" class="form-text text-muted mb-2"><MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="me-1"/>@field.HelpText</div>
                                     }
 
                                     @if (field.FieldType == "select")
                                     {
-                                        <select class="form-select rounded-3 @(fieldValidationErrors.ContainsKey(field.IdFld) ? "is-invalid border-danger" : "")"
+                                        <select id="@fieldId"
+                                                class="form-select rounded-3 @(fieldValidationErrors.ContainsKey(field.IdFld) ? "is-invalid border-danger" : "")"
                                                 value="@field.Value"
                                                 @onchange="@((ChangeEventArgs e) => OnFieldValueInput(field, e.Value?.ToString()))"
-                                                required="@field.IsRequired">
+                                                required="@field.IsRequired"
+                                                aria-describedby="@($"{helpId} {errorId}")">
                                             <option value="">-- Selecciona --</option>
                                             @if (!string.IsNullOrEmpty(field.Options))
                                             {
@@ -137,30 +144,34 @@
                                     else if (field.FieldType == "date")
                                     {
                                         <input type="date"
+                                               id="@fieldId"
                                                class="form-control rounded-3 @(fieldValidationErrors.ContainsKey(field.IdFld) ? "is-invalid border-danger" : "")"
                                                value="@field.Value"
                                                @onchange="@((ChangeEventArgs e) => OnFieldValueInput(field, e.Value?.ToString()))"
-                                               required="@field.IsRequired" />
+                                               required="@field.IsRequired"
+                                               aria-describedby="@($"{helpId} {errorId}")" />
                                     }
                                     else if (field.FieldType == "file")
                                     {
-                                        <InputFile class="form-control rounded-3" OnChange="@(e => OnFileChange(field, e))" required="@field.IsRequired" />
+                                        <InputFile id="@fieldId" class="form-control rounded-3" OnChange="@(e => OnFileChange(field, e))" required="@field.IsRequired" aria-describedby="@helpId" />
                                     }
                                     else
                                     {
                                         <input type="text" 
+                                               id="@fieldId"
                                                class="form-control rounded-3 @(fieldValidationErrors.ContainsKey(field.IdFld) ? "is-invalid border-danger" : "")" 
                                                placeholder="@field.Placeholder"
                                                value="@field.Value"
                                                @oninput="@((ChangeEventArgs e) => OnFieldValueInput(field, e.Value?.ToString()))"
                                                required="@field.IsRequired" 
                                                pattern="@GetValidationPattern(field)"
-                                               title="@GetValidationTitle(field)" />
+                                               title="@GetValidationTitle(field)"
+                                               aria-describedby="@($"{helpId} {errorId}")" />
                                     }
 
                                     @if (fieldValidationErrors.ContainsKey(field.IdFld))
                                     {
-                                        <div class="text-danger small mt-1 fw-bold">
+                                        <div id="@errorId" class="text-danger small mt-1 fw-bold" role="alert">
                                             <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Small" Class="me-1" />
                                             @fieldValidationErrors[field.IdFld]
                                         </div>
@@ -171,7 +182,7 @@
                         </div>
 
                         <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 mt-4 pt-3 border-top">
-                            <button type="button" class="btn btn-light rounded-pill px-4 w-100 w-sm-auto" @onclick='() => Navigation.NavigateTo("/asesor")' disabled="@isSaving">
+                            <button type="button" class="btn btn-light rounded-pill px-4 w-100 w-sm-auto" @onclick="ConfirmCancelAsync" disabled="@isSaving">
                                 Cancelar
                             </button>
                             <button type="submit" class="btn btn-primary rounded-pill px-4 d-flex align-items-center justify-content-center w-100 w-sm-auto" disabled="@(isSaving || fieldValidationErrors.Any())">
@@ -581,6 +592,22 @@
         finally
         {
             isSaving = false;
+        }
+    }
+
+    private async Task ConfirmCancelAsync()
+    {
+        bool? result = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
+        {
+            Title = "¿Descartar Nueva Orden?",
+            Message = "¿Estás seguro de que deseas cancelar? Todos los datos ingresados en esta orden se perderán.",
+            YesText = "Sí, cancelar",
+            NoText = "Volver a la orden"
+        });
+
+        if (result == true)
+        {
+            Navigation.NavigateTo("/asesor/orders");
         }
     }
 }
