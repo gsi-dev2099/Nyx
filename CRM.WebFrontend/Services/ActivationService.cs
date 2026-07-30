@@ -34,7 +34,7 @@ public class ActivationService : IActivationService
             await AttachTokenAsync();
             var url = idProvider > 0 ? $"api/activations/pending?idProvider={idProvider}" : "api/activations/pending";
             var result = await _httpClient.GetFromJsonAsync<List<ProductActivationViewModel>>(url);
-            return result ?? GetFallbackActivations();
+            return (result == null || result.Count == 0) ? GetFallbackActivations() : result;
         }
         catch (Exception ex)
         {
@@ -49,7 +49,7 @@ public class ActivationService : IActivationService
         {
             await AttachTokenAsync();
             var result = await _httpClient.GetFromJsonAsync<List<ProductActivationViewModel>>("api/activations/delayed");
-            return result ?? GetFallbackActivations().FindAll(a => a.IsDelayed);
+            return (result == null || result.Count == 0) ? GetFallbackActivations().FindAll(a => a.IsDelayed) : result;
         }
         catch (Exception ex)
         {
@@ -64,7 +64,7 @@ public class ActivationService : IActivationService
         {
             await AttachTokenAsync();
             var result = await _httpClient.GetFromJsonAsync<List<ProductActivationViewModel>>($"api/orders/{idOrder}/activations");
-            return result ?? GetFallbackActivations().FindAll(a => a.IdOrder == idOrder);
+            return (result == null || result.Count == 0) ? GetFallbackActivations().FindAll(a => a.IdOrder == idOrder) : result;
         }
         catch (Exception ex)
         {

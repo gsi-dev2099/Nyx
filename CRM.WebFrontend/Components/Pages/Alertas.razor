@@ -142,16 +142,30 @@
         isLoading = false;
     }
 
-    private void NavigateToDetail(NotificationDto alert)
+    private async Task NavigateToDetail(NotificationDto alert)
     {
         if (!string.IsNullOrEmpty(alert.ActionData))
         {
-            Navigation.NavigateTo($"/supervisor/orders/{alert.ActionData}");
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var isBackoffice = authState.User.IsInRole("BACKOFFICE");
+            
+            if (isBackoffice)
+            {
+                Navigation.NavigateTo($"/backoffice/audit/{alert.ActionData}");
+            }
+            else
+            {
+                Navigation.NavigateTo($"/supervisor/orders/{alert.ActionData}");
+            }
         }
         else
         {
-            // If no action data, just go to general incidents or dashboard
-            Navigation.NavigateTo("/supervisor");
+            // If no action data, just go to general dashboard
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.IsInRole("BACKOFFICE"))
+                Navigation.NavigateTo("/backoffice/dashboard");
+            else
+                Navigation.NavigateTo("/supervisor");
         }
     }
 }
