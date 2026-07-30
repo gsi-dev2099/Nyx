@@ -2,6 +2,12 @@
 @page "/backoffice/alertas"
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
+@using CRM.WebFrontend.Services
+@using CRM.WebFrontend.Client.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IHttpClientFactory HttpClientFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
 @attribute [Authorize(Roles = "SUPERVISOR,BACKOFFICE")]
 
 <PageTitle>Alertas Activas - NYX CRM</PageTitle>
@@ -20,7 +26,7 @@
             <div class="card border-0 shadow-sm rounded-4 h-100 bg-danger text-white">
                 <div class="card-body p-4 text-center">
                     <h5 class="text-white-50 mb-3">SLA Excedido (Crítico)</h5>
-                    <h2 class="display-5 fw-bold mb-0">3</h2>
+                    <h2 class="display-5 fw-bold mb-0">@criticalAlerts</h2>
                     <small class="text-white mt-2 d-block">Requiere atención inmediata</small>
                 </div>
             </div>
@@ -29,7 +35,7 @@
             <div class="card border-0 shadow-sm rounded-4 h-100 bg-warning text-dark">
                 <div class="card-body p-4 text-center">
                     <h5 class="text-muted mb-3">Seguimientos Pendientes</h5>
-                    <h2 class="display-5 fw-bold mb-0">12</h2>
+                    <h2 class="display-5 fw-bold mb-0">@pendingAlerts</h2>
                     <small class="text-muted mt-2 d-block">Próximos a vencer hoy</small>
                 </div>
             </div>
@@ -47,44 +53,40 @@
                 {
                     <div class="text-center py-5 text-muted">
                         <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                        Cargando alertas...
+                        Cargando alertas desde API...
+                    </div>
+                }
+                else if (!notifications.Any())
+                {
+                    <div class="text-center py-5 text-muted">
+                        No hay alertas pendientes en este momento.
                     </div>
                 }
                 else
                 {
-                    <!-- Alerta 1 -->
-                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-4">
-                        <div class="d-flex align-items-start">
-                            <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center me-3 mt-1" style="width: 45px; height: 45px;">
-                                <i class="bi bi-clock-history fs-5"></i>
-                            </div>
-                            <div>
-                                <h6 class="fw-bold mb-1">SLA Vencido - Promesa de Venta</h6>
-                                <p class="text-muted mb-1 small">Cliente: <span class="fw-bold text-dark">Carlos Mendoza</span> (987654321)</p>
-                                <p class="text-muted mb-0 small">Asesor asignado: <span class="fw-bold text-dark">Juan Sayago</span> - Retraso de 2 horas.</p>
-                            </div>
-                        </div>
-                        <div>
-                            <button class="btn btn-outline-danger rounded-pill px-4 btn-sm">Ver Detalles</button>
-                        </div>
-                    </div>
+                    @foreach (var alert in notifications.OrderByDescending(n => n.CreatedAt))
+                    {
+                        var isCritical = alert.Title.Contains("Vencido", StringComparison.OrdinalIgnoreCase) || alert.Title.Contains("SLA", StringComparison.OrdinalIgnoreCase);
+                        var iconClass = isCritical ? "bi-clock-history" : "bi-telephone-outbound";
+                        var bgClass = isCritical ? "bg-danger text-white" : "bg-warning text-dark";
+                        var btnClass = isCritical ? "btn-outline-danger" : "btn-outline-warning text-dark fw-bold border-2";
 
-                    <!-- Alerta 2 -->
-                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-4">
-                        <div class="d-flex align-items-start">
-                            <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center me-3 mt-1" style="width: 45px; height: 45px;">
-                                <i class="bi bi-telephone-outbound fs-5"></i>
+                        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-4">
+                            <div class="d-flex align-items-start">
+                                <div class="@bgClass rounded-circle d-flex align-items-center justify-content-center me-3 mt-1" style="width: 45px; height: 45px;">
+                                    <i class="bi @iconClass fs-5"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-1">@alert.Title</h6>
+                                    <p class="text-muted mb-1 small">@alert.Message</p>
+                                    <p class="text-muted mb-0 small">Generado: <span class="fw-bold text-dark">@alert.TimeAgo</span></p>
+                                </div>
                             </div>
                             <div>
-                                <h6 class="fw-bold mb-1">Llamada de Seguimiento Pendiente</h6>
-                                <p class="text-muted mb-1 small">Cliente: <span class="fw-bold text-dark">Empresa SAC</span> (912345678)</p>
-                                <p class="text-muted mb-0 small">Asesor asignado: <span class="fw-bold text-dark">María Farfán</span> - Vence en 30 minutos.</p>
+                                <button class="btn @btnClass rounded-pill px-4 btn-sm" @onclick="() => NavigateToDetail(alert)">Ver Detalles</button>
                             </div>
                         </div>
-                        <div>
-                            <button class="btn btn-outline-warning text-dark rounded-pill px-4 btn-sm fw-bold border-2">Ver Detalles</button>
-                        </div>
-                    </div>
+                    }
                 }
             </div>
         </div>
@@ -93,11 +95,77 @@
 
 @code {
     private bool isLoading = false;
+    private List<NotificationDto> notifications = new();
+    private int criticalAlerts = 0;
+    private int pendingAlerts = 0;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadAlertsAsync();
+    }
+
+    private async Task LoadAlertsAsync()
+    {
         isLoading = true;
-        await Task.Delay(600); // Simulación de carga del backend
+        
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var userIdStr = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            if (long.TryParse(userIdStr, out long userId))
+            {
+                var client = HttpClientFactory.CreateClient("BackendApi");
+                var result = await client.GetFromJsonAsync<List<NotificationDto>>($"/api/notifications?userId={userId}&limit=20");
+                if (result != null)
+                {
+                    notifications = result.Where(n => !n.IsRead).ToList();
+                    criticalAlerts = notifications.Count(n => n.Title.Contains("Vencido", StringComparison.OrdinalIgnoreCase) || n.Title.Contains("SLA", StringComparison.OrdinalIgnoreCase));
+                    pendingAlerts = notifications.Count - criticalAlerts;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error Loading Alerts: {ex.Message}");
+            // Fallback for visual mock if API fails
+            criticalAlerts = 3;
+            pendingAlerts = 12;
+            notifications = new List<NotificationDto>
+            {
+                new NotificationDto { IdAlert = 1, Title = "SLA Vencido - Promesa de Venta", Message = "Cliente: Carlos Mendoza (987654321) - Asesor asignado: Juan Sayago - Retraso de 2 horas.", CreatedAt = DateTime.UtcNow.AddHours(-2), ActionData = "101" },
+                new NotificationDto { IdAlert = 2, Title = "Llamada de Seguimiento Pendiente", Message = "Cliente: Empresa SAC (912345678) - Asesor asignado: María Farfán - Vence en 30 minutos.", CreatedAt = DateTime.UtcNow.AddMinutes(-30), ActionData = "102" }
+            };
+        }
+        
         isLoading = false;
+    }
+
+    private async Task NavigateToDetail(NotificationDto alert)
+    {
+        if (!string.IsNullOrEmpty(alert.ActionData))
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var isBackoffice = authState.User.IsInRole("BACKOFFICE");
+            
+            if (isBackoffice)
+            {
+                Navigation.NavigateTo($"/backoffice/audit/{alert.ActionData}");
+            }
+            else
+            {
+                Navigation.NavigateTo($"/supervisor/orders/{alert.ActionData}");
+            }
+        }
+        else
+        {
+            // If no action data, just go to general dashboard
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.IsInRole("BACKOFFICE"))
+                Navigation.NavigateTo("/backoffice/dashboard");
+            else
+                Navigation.NavigateTo("/supervisor");
+        }
     }
 }

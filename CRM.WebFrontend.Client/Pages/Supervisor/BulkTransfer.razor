@@ -300,6 +300,8 @@
             
             if (ordersResult != null)
             {
+                ordersResult = ordersResult.Where(x => x.IdLead != 99998).ToList();
+                
                 // Filtrar por estado "REVISION_SUPERVISOR" o similar (ID 2 típicamente o por nombre)
                 var revStatus = statuses.FirstOrDefault(s => s.Name.Contains("SUPERVISOR", StringComparison.OrdinalIgnoreCase));
                 long targetStatusId = revStatus?.Id ?? 2;
@@ -317,11 +319,33 @@
                     o.ClientName = !string.IsNullOrEmpty(o.ClientName) ? o.ClientName : "";
                 }
 
-                // Cargar nombres de clientes (Mocked para evitar N+1 query freezing)
+                // Fetch lead names concurrently
                 var uniqueLeadIds = filtered.Where(o => string.IsNullOrEmpty(o.ClientName)).Select(o => o.IdLead).Distinct().ToList();
-                foreach (var leadId in uniqueLeadIds)
+                var leadTasks = uniqueLeadIds.Select(async leadId => 
                 {
-                    foreach (var o in filtered.Where(x => x.IdLead == leadId)) o.ClientName = $"Lead #{leadId}";
+                    try
+                    {
+                        var lead = await client.GetFromJsonAsync<TempLeadDto>($"/api/leads/{leadId}");
+                        if (lead != null)
+                        {
+                            var fullName = !string.IsNullOrWhiteSpace(lead.FullName) ? lead.FullName : $"{lead.FirstName} {lead.LastName}";
+                            if (!string.IsNullOrWhiteSpace(fullName)) return new { Id = leadId, Name = fullName.Trim() };
+                        }
+                    }
+                    catch { }
+                    return new { Id = leadId, Name = $"Cliente no registrado" };
+                });
+                
+                var leadNames = await Task.WhenAll(leadTasks);
+                var leadDict = leadNames.ToDictionary(k => k.Id, v => v.Name);
+
+                foreach (var o in filtered)
+                {
+                    if (string.IsNullOrEmpty(o.ClientName))
+                    {
+                        if (leadDict.TryGetValue(o.IdLead, out var name)) o.ClientName = name;
+                        else o.ClientName = $"Cliente no registrado";
+                    }
                 }
 
                 orders = filtered;
@@ -447,5 +471,12 @@
         {
             isTransferring = false;
         }
+    }
+
+    private class TempLeadDto
+    {
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? FullName { get; set; }
     }
 }

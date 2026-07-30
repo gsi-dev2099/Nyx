@@ -20,6 +20,12 @@ public class ProductActivationTracking
     [Column("product_name")]
     public string ProductName { get; set; } = string.Empty;
 
+    [NotMapped]
+    public string CustomerName { get; set; } = string.Empty;
+
+    [NotMapped]
+    public string ProviderName { get; set; } = string.Empty;
+
     [Column("id_provider")]
     public long? IdProvider { get; set; }
 

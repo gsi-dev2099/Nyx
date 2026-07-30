@@ -67,14 +67,14 @@ public class ReportRepository : IReportRepository
                 SELECT DISTINCT uc.id_user 
                 FROM user_service.user_campaign uc
                 JOIN access_control.user_role ur ON uc.id_user = ur.id_user AND ur.id_role = 1 -- ASESOR
-                WHERE uc.id_cmpg IN (SELECT id_cmpg FROM supervisor_campaigns) AND uc.is_active = true
+                WHERE (@SupervisorId = 0 OR uc.id_cmpg IN (SELECT id_cmpg FROM supervisor_campaigns)) AND uc.is_active = true
                 
                 UNION
                 
                 SELECT DISTINCT up.id_user 
                 FROM user_service.user_portfolio up
                 JOIN access_control.user_role ur ON up.id_user = ur.id_user AND ur.id_role = 1 -- ASESOR
-                WHERE up.id_ptflo IN (SELECT id_ptflo FROM supervisor_portfolios) AND up.is_active = true
+                WHERE (@SupervisorId = 0 OR up.id_ptflo IN (SELECT id_ptflo FROM supervisor_portfolios)) AND up.is_active = true
             )
             SELECT 
                 u.id_user AS IdUser,

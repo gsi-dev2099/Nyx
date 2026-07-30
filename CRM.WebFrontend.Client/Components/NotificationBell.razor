@@ -367,7 +367,7 @@
             CloseDetailModal();
             if (!string.IsNullOrEmpty(route))
             {
-                NavManager.NavigateTo(route);
+                NavManager.NavigateTo(route, forceLoad: true);
             }
         }
     }
@@ -412,7 +412,7 @@
                     : (!string.IsNullOrEmpty(actionData) ? $"/asesor/orders/{actionData}" : "/asesor/orders"),
             "BACKOFFICE" or "BAC" => "/backoffice/dashboard",
             "SUPERVISOR" => "/supervisor/dashboard",
-            "TRANSFER" or "TRANSFERENCIA" => "/supervisor/dashboard",
+            "TRANSFER" or "TRANSFERENCIA" => userRole.Equals("BACKOFFICE", StringComparison.OrdinalIgnoreCase) ? "/backoffice/dashboard" : "/supervisor/dashboard",
             "AUDIT" or "AUDITORIA" => "/backoffice/dashboard",
             _ => null
         };

@@ -3,8 +3,15 @@ using Microsoft.OpenApi;
 using CRM.ApiHub.Api.Hubs;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configuración de Serilog
+builder.Host.UseSerilog((context, loggerConfiguration) =>
+{
+    loggerConfiguration.ReadFrom.Configuration(context.Configuration);
+});
 
 // Configuración de CORS
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>()
