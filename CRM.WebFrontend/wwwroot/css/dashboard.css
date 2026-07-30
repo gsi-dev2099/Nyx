@@ -1254,10 +1254,24 @@ body {
         grid-template-columns: 1fr;
     }
     .main-content {
-        padding: 20px;
+        padding: 12px !important;
+        max-width: 100vw;
+        overflow-x: hidden;
     }
     .custom-sidebar {
-        display: none; /* In production a hamburger menu, for mockup we keep it simple */
+        display: none;
+    }
+    .dashboard-root {
+        flex-direction: column;
+        overflow-x: hidden;
+    }
+    select.form-select, input.form-control {
+        font-size: 16px !important; /* Prevents auto-zoom on mobile WebKit */
+        max-width: 100%;
+    }
+    .top-navigation {
+        padding: 0 4px;
+        margin-bottom: 8px;
     }
 }
 
@@ -1327,14 +1341,35 @@ body {
     flex-direction: column;
 }
 
-.zd-card-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 4px;
-}
-
 .zd-card-desc {
     font-size: 13px;
     color: var(--text-secondary);
+}
+
+/* Accessibility & Keyboard Focus Styles */
+:focus-visible {
+    outline: 2px solid #003B5C !important;
+    outline-offset: 2px !important;
+    border-radius: 4px;
+}
+
+.btn:focus-visible, 
+.form-control:focus-visible, 
+.form-select:focus-visible, 
+.notification-bell-btn:focus-visible {
+    outline: 3px solid #0284c7 !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.25) !important;
+}
+
+/* Screen reader only utility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
 }

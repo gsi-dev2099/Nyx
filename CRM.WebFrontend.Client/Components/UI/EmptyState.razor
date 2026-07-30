@@ -1,0 +1,36 @@
+@using Microsoft.AspNetCore.Components
+
+<div class="d-flex flex-column align-items-center justify-content-center text-center p-5 rounded-4 bg-light bg-opacity-50 border border-dashed my-4">
+    <div class="empty-state-icon mb-3 text-secondary d-flex align-items-center justify-content-center rounded-circle bg-white shadow-sm p-4" style="width: 80px; height: 80px;">
+        <i class="@Icon fs-1 text-primary"></i>
+    </div>
+    
+    <h5 class="fw-bold text-dark mb-2">@Title</h5>
+    
+    @if (!string.IsNullOrEmpty(Description))
+    {
+        <p class="text-muted small mb-4 max-w-md mx-auto" style="max-width: 420px;">
+            @Description
+        </p>
+    }
+    
+    @if (!string.IsNullOrEmpty(ActionButtonText) && Action.HasDelegate)
+    {
+        <button class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-2" @onclick="Action">
+            @if (!string.IsNullOrEmpty(ActionIcon))
+            {
+                <i class="@ActionIcon"></i>
+            }
+            <span>@ActionButtonText</span>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public string Icon { get; set; } = "bi bi-inbox";
+    [Parameter] public string Title { get; set; } = "Sin resultados";
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? ActionButtonText { get; set; }
+    [Parameter] public string? ActionIcon { get; set; }
+    [Parameter] public EventCallback Action { get; set; }
+}

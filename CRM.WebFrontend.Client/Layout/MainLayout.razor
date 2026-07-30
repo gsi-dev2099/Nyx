@@ -49,6 +49,17 @@
         <!-- Top Navigation -->
         <header class="top-navigation">
             <div class="d-flex align-items-center gap-2">
+                <button type="button" 
+                        class="btn d-md-none me-2 shadow-sm rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" 
+                        @onclick="ToggleMobileSidebar" 
+                        title="Menú de Navegación"
+                        style="width: 36px; height: 36px; background-color: #003B5C; color: #FFFFFF; border: none; z-index: 100;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
                 @for (int i = 0; i < _breadcrumbs.Count; i++)
                 {
                     var item = _breadcrumbs[i];
@@ -76,12 +87,46 @@
             </div>
         </header>
 
+        @if (_mobileSidebarOpen)
+        {
+            <div class="mobile-sidebar-backdrop d-md-none" @onclick="ToggleMobileSidebar"></div>
+            <aside class="mobile-sidebar-drawer d-md-none">
+                <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <img src="/images/logo.png" alt="NYX CRM Logo" style="width: 32px; height: 32px; object-fit: contain;" />
+                        <span class="fw-bold text-primary fs-6">NYX CRM</span>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="ToggleMobileSidebar"></button>
+                </div>
+                <div class="p-3 overflow-y-auto flex-grow-1" style="max-height: calc(100vh - 120px);">
+                    <NavMenu />
+                </div>
+                <div class="p-3 border-top bg-light mt-auto">
+                    <AuthorizeView>
+                        <Authorized>
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <div class="avatar-container flex-shrink-0" style="width: 32px; height: 32px; background: #E1F5FE; color: #003B5C; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem;">
+                                    @(context.User.Identity?.Name?.FirstOrDefault().ToString().ToUpper() ?? "U")
+                                </div>
+                                <span class="small fw-bold text-dark text-truncate">@context.User.Identity?.Name</span>
+                            </div>
+                        </Authorized>
+                    </AuthorizeView>
+                    <div class="d-flex gap-2">
+                        <NavLink href="/settings" class="btn btn-sm btn-outline-secondary w-50" @onclick="ToggleMobileSidebar">Configuración</NavLink>
+                        <NavLink href="/logout-endpoint" class="btn btn-sm btn-outline-danger w-50" @onclick="ToggleMobileSidebar">Salir</NavLink>
+                    </div>
+                </div>
+            </aside>
+        }
+
         <!-- Dynamic Page Body -->
         <div class="container-fluid py-2">
             @Body
         </div>
 
         <MudThemeProvider Theme="_customTheme" />
+        <MudPopoverProvider />
         <MudDialogProvider />
         <MudSnackbarProvider />
     </main>
@@ -92,10 +137,40 @@
     .custom-sidebar {
         transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), padding 0.3s ease, border-right 0.3s ease;
     }
+    
+    .mobile-sidebar-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1050;
+        backdrop-filter: blur(2px);
+    }
+    .mobile-sidebar-drawer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 280px;
+        max-width: 85vw;
+        height: 100vh;
+        background: #ffffff;
+        z-index: 1060;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.18);
+        display: flex;
+        flex-direction: column;
+        animation: slideInLeft 0.22s ease-out;
+    }
+    @@keyframes slideInLeft {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(0); }
+    }
 </style>
 
 @code {
     private bool _sidebarExpanded = false;
+    private bool _mobileSidebarOpen = false;
     private List<string> _breadcrumbs = new();
 
     private MudTheme _customTheme = new MudTheme()
@@ -125,6 +200,7 @@
 
     private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
     {
+        _mobileSidebarOpen = false;
         UpdateBreadcrumbs();
         StateHasChanged();
     }
@@ -171,6 +247,11 @@
     private void ToggleSidebar()
     {
         _sidebarExpanded = !_sidebarExpanded;
+    }
+
+    private void ToggleMobileSidebar()
+    {
+        _mobileSidebarOpen = !_mobileSidebarOpen;
     }
 
     public void Dispose()
