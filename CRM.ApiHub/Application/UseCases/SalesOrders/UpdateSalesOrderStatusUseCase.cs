@@ -36,6 +36,7 @@ public class UpdateSalesOrderStatusUseCase
             var order = await _salesOrderRepository.GetByIdAsync(idOrder, ct);
             if (order != null)
             {
+                // Notify the original asesor about the status change
                 await _notificationService.SendNotificationAsync(
                     userId: order.IdUser,
                     title: "Estado de Orden Actualizado",
@@ -43,6 +44,19 @@ public class UpdateSalesOrderStatusUseCase
                     module: "SalesOrder",
                     actionData: idOrder.ToString()
                 );
+
+                // When sent to BackOffice individually, also notify the custody holder
+                const int BACKOFFICE_STATUS_ID = 3;
+                if (dto.ToStatusId == BACKOFFICE_STATUS_ID && order.CustodyUserId.HasValue && order.CustodyUserId.Value != order.IdUser)
+                {
+                    await _notificationService.SendNotificationAsync(
+                        userId: order.CustodyUserId.Value,
+                        title: $"Orden #{idOrder} asignada para revisión BAC",
+                        message: $"Se te ha asignado la orden #{idOrder} para revisión desde el Supervisor.",
+                        module: "TRANSFER",
+                        actionData: idOrder.ToString()
+                    );
+                }
             }
         }
 

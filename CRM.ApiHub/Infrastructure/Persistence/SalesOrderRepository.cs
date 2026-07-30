@@ -142,14 +142,57 @@ public class SalesOrderRepository : ISalesOrderRepository
             long? fromStatusId = current.id_status != null ? (long?)current.id_status : null;
             long? fromSubstatusId = current.id_substatus != null ? (long?)current.id_substatus : null;
 
-            const string updateSql = @"
-                UPDATE sales_service.sales_order 
-                SET id_status = @ToStatusId, id_substatus = @ToSubstatusId, last_update = NOW()
-                WHERE id_order = @IdOrder;";
+            // Bug Fix: When transitioning to status 3 (En BackOffice) via individual "Cambiar Estado",
+            // also assign custody_user_id to the supervisor (actorId) so the order appears in
+            // the backoffice inbox. Previously, custody was left as NULL, rendering the order invisible.
+            const int BACKOFFICE_STATUS_ID = 3;
+            bool isTransferToBackoffice = toStatusId == BACKOFFICE_STATUS_ID && fromStatusId != BACKOFFICE_STATUS_ID;
+
+            string updateSql;
+            object updateParams;
+
+            if (isTransferToBackoffice)
+            {
+                updateSql = @"
+                    UPDATE sales_service.sales_order 
+                    SET id_status = @ToStatusId, id_substatus = @ToSubstatusId, 
+                        custody_user_id = @ActorId, last_update = NOW()
+                    WHERE id_order = @IdOrder;";
+                updateParams = new { ToStatusId = toStatusId, ToSubstatusId = toSubstatusId, IdOrder = idOrder, ActorId = actorId };
+            }
+            else
+            {
+                updateSql = @"
+                    UPDATE sales_service.sales_order 
+                    SET id_status = @ToStatusId, id_substatus = @ToSubstatusId, last_update = NOW()
+                    WHERE id_order = @IdOrder;";
+                updateParams = new { ToStatusId = toStatusId, ToSubstatusId = toSubstatusId, IdOrder = idOrder };
+            }
 
             await connection.ExecuteAsync(
-                new CommandDefinition(updateSql, new { ToStatusId = toStatusId, ToSubstatusId = toSubstatusId, IdOrder = idOrder }, transaction: transaction, cancellationToken: ct)
+                new CommandDefinition(updateSql, updateParams, transaction: transaction, cancellationToken: ct)
             );
+
+            // Insert custody log when transferring to BackOffice individually
+            if (isTransferToBackoffice)
+            {
+                const string insertCustodyLogSql = @"
+                    INSERT INTO sales_service.sales_order_custody_log (
+                        id_order, log_date, from_user_id, to_user_id, 
+                        from_role, to_role, transfer_type, id_status_at, 
+                        comment, is_bulk, register
+                    ) VALUES (
+                        @IdOrder, NOW(), @ActorId, @ActorId,
+                        'SUPERVISOR', 'SUPERVISOR', 'INDIVIDUAL_TO_BACKOFFICE', @ToStatusId,
+                        @Comment, false, NOW()
+                    );";
+
+                await connection.ExecuteAsync(
+                    new CommandDefinition(insertCustodyLogSql, 
+                        new { IdOrder = idOrder, ActorId = actorId, ToStatusId = toStatusId, Comment = comment ?? "Transferido al BackOffice por Supervisor (individual)" }, 
+                        transaction: transaction, cancellationToken: ct)
+                );
+            }
 
             if (fromStatusId != toStatusId || fromSubstatusId != toSubstatusId)
             {

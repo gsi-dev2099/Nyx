@@ -4,7 +4,12 @@
 @using CRM.WebFrontend.Models
 @using CRM.WebFrontend.Services
 @inject IBackofficeService BackofficeService
-
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Configuration
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IConfiguration Config
+@implements IAsyncDisposable
 <style>
     /* Tipografía nativa y colores premium */
     :root {
@@ -231,7 +236,17 @@
                                         <span class="text-lowercase text-muted fw-normal" style="font-size: 0.75rem;">(Desde tabla sales_service.order_document)</span>
                                     </span>
                                     <div class="doc-viewer">
-                                        <img src="@_currentDoc.DocumentImageUrl" alt="DNI" class="img-fluid object-fit-cover w-100 h-100" />
+                                        @if (string.IsNullOrEmpty(_currentDoc.DocumentImageUrl))
+                                        {
+                                            <div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 bg-light rounded text-muted p-4">
+                                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-50"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                                                <span class="fw-medium" style="font-size: 1.1rem;">Documento No Disponible</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <img src="@_currentDoc.DocumentImageUrl" alt="DNI" class="img-fluid object-fit-cover w-100 h-100" />
+                                        }
                                     </div>
                                 </div>
                                 
@@ -316,10 +331,47 @@
     private bool _isLoading = true;
     private string _observation = "";
 
+    private HubConnection? hubConnection;
+
     protected override async Task OnInitializedAsync()
     {
         _queue = await BackofficeService.GetPendingQueueAsync();
         _isLoading = false;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var accessToken = authState.User.FindFirst("access_token")?.Value;
+
+        var baseUrl = Config["ApiSettings:BaseUrl"] ?? "http://localhost:5068";
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl($"{baseUrl}/notificationHub", options =>
+            {
+                options.AccessTokenProvider = () => Task.FromResult(accessToken);
+            })
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<string, string>("ReceiveNotification", async (title, message) =>
+        {
+            _queue = await BackofficeService.GetPendingQueueAsync();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            await hubConnection.StartAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SignalR] Connection error in Dashboard: {ex.Message}");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
     }
 
     private async Task SelectOrder(long idOrder)

@@ -21,16 +21,64 @@ public class BackofficeService : IBackofficeService
     {
         try
         {
-            var docs = await _httpClient.GetFromJsonAsync<List<OrderDocumentDto>>("api/backoffice/pending-docs");
-            if (docs == null) return Enumerable.Empty<SalesQueueItem>();
+            // Use backoffice/orders endpoint which returns all orders assigned to this BAC analyst
+            // Then filter to only BAC-stage statuses: EN_BACKOFFICE (3) and EN_GESTION (4)
+            var allOrders = await _httpClient.GetFromJsonAsync<List<BackofficeOrderDto>>("api/backoffice/orders");
+            if (allOrders == null || allOrders.Count == 0) return Enumerable.Empty<SalesQueueItem>();
 
-            return docs.Select(d => new SalesQueueItem(
-                d.IdOrder,
-                d.CustomerName ?? "Cliente Desconocido",
-                d.Priority ?? "Media",
-                d.UploadedAt,
-                d.VerificationStatus
-            ));
+            // Only show orders the supervisor has derived to BackOffice
+            var orders = allOrders.Where(o => o.IdStatus == 3 || o.IdStatus == 4).ToList();
+            if (orders.Count == 0) return Enumerable.Empty<SalesQueueItem>();
+
+            // Fetch all campaigns once for lookup
+            var campaignDict = new Dictionary<long, string>();
+            try
+            {
+                var campaigns = await _httpClient.GetFromJsonAsync<List<CampaignDto>>("api/campaigns");
+                if (campaigns != null)
+                {
+                    foreach (var c in campaigns)
+                        campaignDict[c.Id] = c.Name;
+                }
+            }
+            catch { }
+
+            // Resolve lead names concurrently
+            var leadDict = new Dictionary<long, string>();
+            var uniqueLeadIds = orders.Select(o => o.IdLead).Distinct().ToList();
+            foreach (var leadId in uniqueLeadIds)
+            {
+                try
+                {
+                    var lead = await _httpClient.GetFromJsonAsync<LeadDto>($"api/leads/{leadId}");
+                    if (lead != null)
+                    {
+                        leadDict[leadId] = lead.FullName ?? $"{lead.FirstName} {lead.LastName}";
+                    }
+                }
+                catch { }
+            }
+
+            // Build queue items
+            var queueItems = new List<SalesQueueItem>();
+            foreach (var order in orders)
+            {
+                if (!leadDict.TryGetValue(order.IdLead, out var name))
+                    continue; // Skip orders if the lead doesn't exist
+
+                string customerName = name;
+                string campaignName = campaignDict.TryGetValue(order.IdCmpg, out var cName) ? cName : "Sin Campaña";
+
+                queueItems.Add(new SalesQueueItem(
+                    order.IdOrder,
+                    customerName,
+                    campaignName,
+                    order.SalesDate ?? order.Register,
+                    order.IdStatus.ToString()
+                ));
+            }
+
+            return queueItems;
         }
         catch (Exception ex)
         {
@@ -43,11 +91,34 @@ public class BackofficeService : IBackofficeService
     {
         try
         {
+            // 1. Get ALL documents for this order
             var docs = await _httpClient.GetFromJsonAsync<List<OrderDocumentDto>>($"api/orders/{idOrder}/documents");
-            var dniDoc = docs?.FirstOrDefault(d => d.DocumentType.Equals("DNI", StringComparison.OrdinalIgnoreCase) || d.DocumentType.Equals("IDENTIFICACION", StringComparison.OrdinalIgnoreCase));
             
-            string downloadUrl = dniDoc != null ? $"/api/documents/{dniDoc.IdDocument}/download" : "https://placehold.co/600x400/eeeeee/31343c?text=Documento+No+Disponible";
-            string filePath = dniDoc != null ? dniDoc.FilePath : "mock-path";
+            // Pick the best document: prefer DNI, then any image document, then any document
+            var imageDoc = docs?.FirstOrDefault(d => 
+                d.DocumentType.Equals("DNI", StringComparison.OrdinalIgnoreCase) || 
+                d.DocumentType.Equals("IDENTIFICACION", StringComparison.OrdinalIgnoreCase))
+                ?? docs?.FirstOrDefault(d => 
+                    d.MimeType != null && d.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                ?? docs?.FirstOrDefault();
+
+            // Determine the download URL: if FilePath is already an HTTP URL, use it directly
+            string downloadUrl = string.Empty;
+            if (imageDoc != null)
+            {
+                if (!string.IsNullOrEmpty(imageDoc.FilePath) && 
+                    (imageDoc.FilePath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || 
+                     imageDoc.FilePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+                {
+                    downloadUrl = imageDoc.FilePath;
+                }
+                else
+                {
+                    downloadUrl = $"/api/documents/{imageDoc.IdDocument}/download";
+                }
+            }
+            
+            string filePath = imageDoc?.FilePath ?? "mock-path";
 
             // 2. Get order details to get idLead
             var order = await _httpClient.GetFromJsonAsync<SalesOrderDto>($"api/orders/{idOrder}");
@@ -119,24 +190,43 @@ public class BackofficeService : IBackofficeService
     {
         try
         {
-            // 1. Get DNI document ID
+            // 1. Get document for this order (any image doc)
             var docs = await _httpClient.GetFromJsonAsync<List<OrderDocumentDto>>($"api/orders/{idOrder}/documents");
-            var dniDoc = docs?.FirstOrDefault(d => d.DocumentType.Equals("DNI", StringComparison.OrdinalIgnoreCase));
-            if (dniDoc == null) return;
-
+            var targetDoc = docs?.FirstOrDefault(d => 
+                d.DocumentType.Equals("DNI", StringComparison.OrdinalIgnoreCase) || 
+                d.DocumentType.Equals("IDENTIFICACION", StringComparison.OrdinalIgnoreCase))
+                ?? docs?.FirstOrDefault(d => 
+                    d.MimeType != null && d.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                ?? docs?.FirstOrDefault();
             // Map frontend decision names to backend db values if needed
             string backendStatus = decision.ToUpperInvariant();
             if (backendStatus == "VÁLIDO" || backendStatus == "VALIDO") backendStatus = "VALID";
             if (backendStatus == "INVÁLIDO" || backendStatus == "INVALIDO") backendStatus = "INVALID";
             if (backendStatus == "NO COINCIDE" || backendStatus == "MISMATCH") backendStatus = "MISMATCH";
 
-            // 2. Update document verification status
-            var response = await _httpClient.PatchAsJsonAsync($"api/backoffice/documents/{dniDoc.IdDocument}/verify", new
+            if (targetDoc != null)
             {
-                Status = backendStatus,
-                Notes = observation
+                // 2. Update document verification status only if a document exists
+                var response = await _httpClient.PatchAsJsonAsync($"api/backoffice/documents/{targetDoc.IdDocument}/verify", new
+                {
+                    Status = backendStatus,
+                    Notes = observation
+                });
+                response.EnsureSuccessStatusCode();
+            }
+
+            // 3. Update order status based on decision
+            long newStatusId = 3; // default EN_BACKOFFICE
+            if (backendStatus == "VALID") newStatusId = 5; // Enviado al proveedor
+            else if (backendStatus == "INVALID") newStatusId = 12; // Auditoría KO
+            else if (backendStatus == "MISMATCH") newStatusId = 11; // Incidencia
+
+            var orderResponse = await _httpClient.PatchAsJsonAsync($"api/orders/{idOrder}/status", new
+            {
+                ToStatusId = newStatusId,
+                Comment = observation
             });
-            response.EnsureSuccessStatusCode();
+            orderResponse.EnsureSuccessStatusCode();
         }
         catch (Exception ex)
         {
@@ -202,10 +292,29 @@ public class BackofficeService : IBackofficeService
         public long IdOrder { get; set; }
         public string DocumentType { get; set; } = "";
         public string FilePath { get; set; } = "";
+        public string? MimeType { get; set; }
         public string VerificationStatus { get; set; } = "";
         public string? CustomerName { get; set; }
         public string? Priority { get; set; }
         public DateTime UploadedAt { get; set; }
+    }
+
+    private class BackofficeOrderDto
+    {
+        public long IdOrder { get; set; }
+        public long IdLead { get; set; }
+        public long IdCmpg { get; set; }
+        public long IdStatus { get; set; }
+        public long IdUser { get; set; }
+        public long CustodyUserId { get; set; }
+        public DateTime Register { get; set; }
+        public DateTime? SalesDate { get; set; }
+    }
+
+    private class CampaignDto
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = "";
     }
 
     private class SalesOrderDto
