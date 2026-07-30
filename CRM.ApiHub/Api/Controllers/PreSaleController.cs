@@ -148,8 +148,8 @@ public class PreSaleController : ControllerBase
         else if (authenticatedUserId == -1000) authenticatedUserId = 237;
         else if (authenticatedUserId == -998) authenticatedUserId = 9;
 
-        var result = await _repository.ConvertAsync(id, new { UserId = (int)authenticatedUserId });
-        if (!result) return BadRequest(new { message = "No se pudo convertir la pre-venta o ya fue convertida." });
-        return Ok(new { message = "Pre-venta convertida a cliente con éxito." });
+        var leadId = await _repository.ConvertAsync(id, new { UserId = (int)authenticatedUserId });
+        if (leadId <= 0) return BadRequest(new { message = "No se pudo convertir la pre-venta o ya fue convertida." });
+        return Ok(new { message = "Pre-venta convertida a cliente con éxito.", leadId = leadId });
     }
 }

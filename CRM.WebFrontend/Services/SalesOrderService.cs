@@ -103,15 +103,45 @@ public class SalesOrderService : ISalesOrderService
 
     public async Task<bool> SaveOrderDataAsync(long idOrder, long idForm, IEnumerable<OrderDataViewModel> data)
     {
+        var (success, _) = await SaveOrderDataWithDetailsAsync(idOrder, idForm, data);
+        return success;
+    }
+
+    public async Task<(bool Success, string Message)> SaveOrderDataWithDetailsAsync(long idOrder, long idForm, IEnumerable<OrderDataViewModel> data)
+    {
         try
         {
             var response = await _httpClient.PostAsJsonAsync($"api/forms/order/{idOrder}/template/{idForm}", data);
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode)
+            {
+                return (true, "Datos guardados exitosamente.");
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            string errorMessage = $"Error de servidor ({response.StatusCode})";
+            try
+            {
+                using var jsonDoc = System.Text.Json.JsonDocument.Parse(content);
+                if (jsonDoc.RootElement.TryGetProperty("message", out var msgProp))
+                {
+                    errorMessage = msgProp.GetString() ?? errorMessage;
+                }
+                else if (jsonDoc.RootElement.TryGetProperty("title", out var titleProp))
+                {
+                    errorMessage = titleProp.GetString() ?? errorMessage;
+                }
+            }
+            catch
+            {
+                if (!string.IsNullOrWhiteSpace(content)) errorMessage = content;
+            }
+
+            return (false, errorMessage);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error in SaveOrderDataAsync: {ex.Message}");
-            return false;
+            return (false, ex.Message);
         }
     }
 

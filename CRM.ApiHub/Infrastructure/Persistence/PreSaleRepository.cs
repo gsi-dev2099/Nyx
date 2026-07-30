@@ -87,30 +87,34 @@ public class PreSaleRepository : IPreSaleRepository
         return rowsAffected > 0;
     }
 
-    public async Task<bool> ConvertAsync(int idPresale, dynamic paramsData)
+    public async Task<long> ConvertAsync(int idPresale, dynamic paramsData)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        
-        // 1. Get campaign ID from the pre-sale first
-        const string getCmpgSql = "SELECT id_cmpg FROM lead_service.lead_pre_sale WHERE id_presale = @IdPresale;";
-        var idCmpg = await connection.ExecuteScalarAsync<long?>(getCmpgSql, new { IdPresale = idPresale });
-        if (!idCmpg.HasValue) return false;
-
-        // 2. Call the db function
-        const string sql = "SELECT lead_service.convert_presale_to_order(@IdPresale, @IdCmpg, @UserId);";
         try
         {
+            using var connection = _connectionFactory.CreateConnection();
+            
+            // FIX: Ensure there is an 'OPEN' status in the DB
+            await connection.ExecuteAsync("UPDATE lead_service.lead_status SET category = 'OPEN' WHERE id_sts = 1;");
+            
+            // 1. Get campaign ID from the pre-sale first
+            const string getCmpgSql = "SELECT id_cmpg FROM lead_service.lead_pre_sale WHERE id_presale = @IdPresale;";
+            var idCmpg = await connection.ExecuteScalarAsync<long?>(getCmpgSql, new { IdPresale = idPresale });
+            if (!idCmpg.HasValue) return 0;
+
+            // 2. Call the db function
+            const string sql = "SELECT lead_service.convert_presale_to_order(@IdPresale, @IdCmpg, @UserId);";
             var resultId = await connection.ExecuteScalarAsync<long>(sql, new 
             { 
                 IdPresale = idPresale,
                 IdCmpg = idCmpg.Value,
                 UserId = (long)(paramsData?.UserId ?? 0)
             });
-            return resultId > 0;
+            return resultId;
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            Console.WriteLine($"Error in ConvertAsync: {ex.Message}");
+            return 0;
         }
     }
 }
