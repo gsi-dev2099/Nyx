@@ -49,7 +49,15 @@ public class ActivationRepository : IActivationRepository
     public async Task<IEnumerable<ProductActivationTracking>> GetPendingActivationsAsync(long idProvider, CancellationToken ct = default)
     {
         using var connection = _connectionFactory.CreateConnection();
-        var sql = $"{SelectColumnsSql} WHERE id_provider = @IdProvider ORDER BY expected_activation_date ASC;";
+        string sql;
+        if (idProvider > 0)
+        {
+            sql = $"{SelectColumnsSql} WHERE id_provider = @IdProvider ORDER BY expected_activation_date ASC;";
+        }
+        else
+        {
+            sql = $"{SelectColumnsSql} ORDER BY expected_activation_date ASC;";
+        }
 
         return await connection.QueryAsync<ProductActivationTracking>(
             new CommandDefinition(sql, new { IdProvider = idProvider }, cancellationToken: ct)
