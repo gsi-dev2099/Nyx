@@ -38,24 +38,39 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/activations/pending
 **Descripción de Negocio:** Operación GET para el recurso /api/activations/pending.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/orders/{id}/activations
 **Descripción de Negocio:** Operación GET para el recurso /api/orders/{id}/activations.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/activations/delayed
 **Descripción de Negocio:** Operación GET para el recurso /api/activations/delayed.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -70,8 +85,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -91,16 +111,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/orders/{id}/alternate-profile
 **Descripción de Negocio:** Operación GET para el recurso /api/orders/{id}/alternate-profile.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -118,8 +148,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -135,16 +170,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/approvals/{id}
 **Descripción de Negocio:** Operación GET para el recurso /api/approvals/{id}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -153,8 +198,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/audit/checklist/{idCmpg}
 **Descripción de Negocio:** Operación GET para el recurso /api/audit/checklist/{idCmpg}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -168,8 +218,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -186,8 +241,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -201,8 +261,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -219,16 +284,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/Auth/me
 **Descripción de Negocio:** Obtiene la información del usuario autenticado actual.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -242,8 +317,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -257,16 +337,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/Auth/check-permission
 **Descripción de Negocio:** Operación GET para el recurso /api/Auth/check-permission.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -275,16 +365,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/backoffice/orders
 **Descripción de Negocio:** Bandeja de entrada del Analista BackOffice. Filtra por custodia.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/backoffice/pending-docs
 **Descripción de Negocio:** Operación GET para el recurso /api/backoffice/pending-docs.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -300,8 +400,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -316,8 +421,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -326,32 +436,52 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/campaigns
 **Descripción de Negocio:** Operación GET para el recurso /api/campaigns.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/campaigns/{id}/statuses
 **Descripción de Negocio:** Operación GET para el recurso /api/campaigns/{id}/statuses.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/campaigns/orders
 **Descripción de Negocio:** Operación GET para el recurso /api/campaigns/orders.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/campaigns/advisors
 **Descripción de Negocio:** Operación GET para el recurso /api/campaigns/advisors.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -360,24 +490,39 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/currencies
 **Descripción de Negocio:** Operación GET para el recurso /api/currencies.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/currencies/convert
 **Descripción de Negocio:** Operación GET para el recurso /api/currencies/convert.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/commissions/settlements
 **Descripción de Negocio:** Operación GET para el recurso /api/commissions/settlements.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -393,16 +538,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/commissions/settlements/{id}
 **Descripción de Negocio:** Operación GET para el recurso /api/commissions/settlements/{id}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -417,16 +572,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `DELETE` /api/commissions/settlements/{id}
 **Descripción de Negocio:** Operación DELETE para el recurso /api/commissions/settlements/{id}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -442,8 +607,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -452,8 +622,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/orders/{id}/documents
 **Descripción de Negocio:** Operación GET para el recurso /api/orders/{id}/documents.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -465,8 +640,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 "{}"
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -481,16 +661,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/documents/{id}/download
 **Descripción de Negocio:** Operación GET para el recurso /api/documents/{id}/download.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -499,24 +689,39 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/forms/campaign/{idCmpg}/stage/{idStage}
 **Descripción de Negocio:** Operación GET para el recurso /api/forms/campaign/{idCmpg}/stage/{idStage}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/forms/{idForm}/fields
 **Descripción de Negocio:** Operación GET para el recurso /api/forms/{idForm}/fields.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/forms/order/{idOrder}/data
 **Descripción de Negocio:** Operación GET para el recurso /api/forms/order/{idOrder}/data.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -542,8 +747,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 ]
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -558,16 +768,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `POST` /api/forms/seed
 **Descripción de Negocio:** Operación POST para el recurso /api/forms/seed.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -576,24 +796,39 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/incidents/catalog
 **Descripción de Negocio:** Operación GET para el recurso /api/incidents/catalog.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/incidents/order/{idOrder}
 **Descripción de Negocio:** Operación GET para el recurso /api/incidents/order/{idOrder}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/incidents/{id}
 **Descripción de Negocio:** Operación GET para el recurso /api/incidents/{id}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -611,16 +846,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `DELETE` /api/incidents/{id}
 **Descripción de Negocio:** Operación DELETE para el recurso /api/incidents/{id}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -651,16 +896,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/incidents
 **Descripción de Negocio:** Gestión de incidencias y observaciones en ventas.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -676,8 +931,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -692,16 +952,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/incidents/{id}/kb-suggestions
 **Descripción de Negocio:** Operación GET para el recurso /api/incidents/{id}/kb-suggestions.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -710,16 +980,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/kb/search
 **Descripción de Negocio:** Operación GET para el recurso /api/kb/search.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/kb/{id}
 **Descripción de Negocio:** Operación GET para el recurso /api/kb/{id}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -734,8 +1014,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -744,8 +1029,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/leads
 **Descripción de Negocio:** Operación GET para el recurso /api/leads.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -767,16 +1057,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/leads/{id}
 **Descripción de Negocio:** Operación GET para el recurso /api/leads/{id}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -791,8 +1091,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -801,8 +1106,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/maintenance/statuses
 **Descripción de Negocio:** Operación GET para el recurso /api/maintenance/statuses.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -816,24 +1126,39 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/maintenance/testschema
 **Descripción de Negocio:** Operación GET para el recurso /api/maintenance/testschema.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/maintenance/products
 **Descripción de Negocio:** Operación GET para el recurso /api/maintenance/products.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -847,16 +1172,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/maintenance/incidents
 **Descripción de Negocio:** Operación GET para el recurso /api/maintenance/incidents.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -880,8 +1215,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -903,24 +1243,39 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `DELETE` /api/maintenance/incidents/{id}
 **Descripción de Negocio:** Operación DELETE para el recurso /api/maintenance/incidents/{id}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/maintenance/exchange-rates
 **Descripción de Negocio:** Operación GET para el recurso /api/maintenance/exchange-rates.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -939,16 +1294,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/maintenance/campaigns
 **Descripción de Negocio:** Operación GET para el recurso /api/maintenance/campaigns.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -957,24 +1322,39 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/notifications
 **Descripción de Negocio:** Operación GET para el recurso /api/notifications.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `PATCH` /api/notifications/{id}/read
 **Descripción de Negocio:** Operación PATCH para el recurso /api/notifications/{id}/read.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `POST` /api/notifications/read-all
 **Descripción de Negocio:** Operación POST para el recurso /api/notifications/read-all.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -983,8 +1363,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/presales
 **Descripción de Negocio:** Operación GET para el recurso /api/presales.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1009,8 +1394,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1024,8 +1414,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1040,8 +1435,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1055,8 +1455,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1065,16 +1470,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/providers
 **Descripción de Negocio:** Operación GET para el recurso /api/providers.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/providers/{id}/status-mapping
 **Descripción de Negocio:** Operación GET para el recurso /api/providers/{id}/status-mapping.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1090,8 +1505,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1106,8 +1526,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1116,32 +1541,52 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/reports/funnel
 **Descripción de Negocio:** Operación GET para el recurso /api/reports/funnel.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/reports/sales-by-asesor
 **Descripción de Negocio:** Operación GET para el recurso /api/reports/sales-by-asesor.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/reports/incidents
 **Descripción de Negocio:** Operación GET para el recurso /api/reports/incidents.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/reports/activations
 **Descripción de Negocio:** Operación GET para el recurso /api/reports/activations.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1150,8 +1595,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/orders
 **Descripción de Negocio:** Crea o lista órdenes de venta.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1178,24 +1628,39 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/orders/{id}
 **Descripción de Negocio:** Operación GET para el recurso /api/orders/{id}.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/orders/{id}/history
 **Descripción de Negocio:** Operación GET para el recurso /api/orders/{id}/history.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1212,8 +1677,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1222,16 +1692,26 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 #### `GET` /api/supervisor/orders
 **Descripción de Negocio:** Operación GET para el recurso /api/supervisor/orders.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
 #### `GET` /api/supervisor/stats
 **Descripción de Negocio:** Operación GET para el recurso /api/supervisor/stats.
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
@@ -1249,8 +1729,13 @@ Para probar todos estos endpoints sin configurar los JSON a mano:
 }
 ```
 
-**Respuestas:**
+**Respuestas Esperadas:**
 - **200**: OK
+- **400 (Bad Request)**: Error de validación en la petición.
+- **401 (Unauthorized)**: Token faltante o expirado.
+- **403 (Forbidden)**: Permisos insuficientes.
+- **404 (Not Found)**: Recurso no encontrado.
+- **422 (Unprocessable Entity)**: Error de regla de negocio.
 
 ---
 
