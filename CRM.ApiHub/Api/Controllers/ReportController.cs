@@ -58,11 +58,13 @@ public class ReportController : ControllerBase
     {
         try
         {
-            var actorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("id_user");
-            if (actorIdClaim == null || !long.TryParse(actorIdClaim.Value, out long supervisorId))
+            var actorIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("id_user");
+            if (actorIdClaim == null || !long.TryParse(actorIdClaim.Value, out long currentUserId))
             {
-                return Unauthorized(new { message = "Identidad de supervisor no encontrada en el token." });
+                return Unauthorized(new { message = "Identidad no encontrada en el token." });
             }
+
+            long supervisorId = User.IsInRole("SUPERVISOR") ? currentUserId : 0;
 
             var from = dateFrom ?? DateTime.Today.AddDays(-30);
             var to = dateTo ?? DateTime.Today;

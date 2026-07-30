@@ -22,16 +22,6 @@ Se ejecutó la prueba completa del flujo que abarca desde la revisión de la ven
 
 
 
-### Credenciales utilizadas en la sesión de testing
-
-| Rol | Usuario | Contraseña |
-
-|---|---|---|
-
-| Supervisor | `[REDACTED]` | `[REDACTED]` |
-
-| Backoffice (Analista BAC) | `[REDACTED]` | `[REDACTED]` |
-
 
 
 ### âœ”ï¸ Flujos Validados (Sin necesidad de corrección - Estaban bien)

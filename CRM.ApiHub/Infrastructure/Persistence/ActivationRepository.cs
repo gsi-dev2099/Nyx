@@ -20,31 +20,36 @@ public class ActivationRepository : IActivationRepository
 
     private const string SelectColumnsSql = @"
         SELECT 
-            id_tracking AS IdTracking,
-            id_order AS IdOrder,
-            id_order_item AS IdOrderItem,
-            product_name AS ProductName,
-            id_provider AS IdProvider,
-            provider_ref AS ProviderRef,
-            order_loaded_at::timestamp AS OrderLoadedAt,
-            expected_activation_date::timestamp AS ExpectedActivationDate,
-            actual_activation_date::timestamp AS ActualActivationDate,
-            activation_status AS ActivationStatus,
+            p.id_tracking AS IdTracking,
+            p.id_order AS IdOrder,
+            p.id_order_item AS IdOrderItem,
+            p.product_name AS ProductName,
+            p.id_provider AS IdProvider,
+            COALESCE(prov.name, 'Proveedor Desconocido') AS ProviderName,
+            COALESCE(l.first_name || ' ' || l.last_name, 'Cliente Desconocido') AS CustomerName,
+            p.provider_ref AS ProviderRef,
+            p.order_loaded_at::timestamp AS OrderLoadedAt,
+            p.expected_activation_date::timestamp AS ExpectedActivationDate,
+            p.actual_activation_date::timestamp AS ActualActivationDate,
+            p.activation_status AS ActivationStatus,
             CASE 
-                WHEN actual_activation_date IS NOT NULL THEN 
-                    GREATEST(0, (actual_activation_date - expected_activation_date)::integer)
-                WHEN expected_activation_date < CURRENT_DATE THEN 
-                    (CURRENT_DATE - expected_activation_date)::integer
+                WHEN p.actual_activation_date IS NOT NULL THEN 
+                    GREATEST(0, (p.actual_activation_date - p.expected_activation_date)::integer)
+                WHEN p.expected_activation_date < CURRENT_DATE THEN 
+                    (CURRENT_DATE - p.expected_activation_date)::integer
                 ELSE 
                     0 
             END AS DelayDays,
-            delay_reason AS DelayReason,
-            alert_sent_at::timestamp AS AlertSentAt,
-            last_checked_at::timestamp AS LastCheckedAt,
-            notes AS Notes,
-            created_at::timestamp AS CreatedAt,
-            updated_at::timestamp AS UpdatedAt
-        FROM sales_service.product_activation_tracking";
+            p.delay_reason AS DelayReason,
+            p.alert_sent_at::timestamp AS AlertSentAt,
+            p.last_checked_at::timestamp AS LastCheckedAt,
+            p.notes AS Notes,
+            p.created_at::timestamp AS CreatedAt,
+            p.updated_at::timestamp AS UpdatedAt
+        FROM sales_service.product_activation_tracking p
+        LEFT JOIN sales_service.sales_order o ON p.id_order = o.id_order
+        LEFT JOIN crm_service.lead l ON o.id_lead = l.id_lead
+        LEFT JOIN sales_service.provider_catalog prov ON p.id_provider = prov.id_provider";
 
     public async Task<IEnumerable<ProductActivationTracking>> GetPendingActivationsAsync(long idProvider, CancellationToken ct = default)
     {
