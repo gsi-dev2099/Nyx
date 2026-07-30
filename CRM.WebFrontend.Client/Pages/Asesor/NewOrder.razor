@@ -99,7 +99,9 @@
                                         }
                                         @if (!string.IsNullOrEmpty(GetValidationTitle(field)))
                                         {
-                                            <i class="bi bi-info-circle ms-2 text-primary" title="@GetValidationTitle(field)" data-bs-toggle="tooltip"></i>
+                                            <MudTooltip Text="@GetValidationTitle(field)" Placement="Placement.Top">
+                                                <i class="bi bi-info-circle ms-2 text-primary cursor-pointer"></i>
+                                            </MudTooltip>
                                         }
                                     </label>
                                     
@@ -168,11 +170,11 @@
                             }
                         </div>
 
-                        <div class="d-flex justify-content-end mt-4 pt-3 border-top">
-                            <button type="button" class="btn btn-light rounded-pill px-4 me-2" @onclick='() => Navigation.NavigateTo("/asesor")' disabled="@isSaving">
+                        <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 mt-4 pt-3 border-top">
+                            <button type="button" class="btn btn-light rounded-pill px-4 w-100 w-sm-auto" @onclick='() => Navigation.NavigateTo("/asesor")' disabled="@isSaving">
                                 Cancelar
                             </button>
-                            <button type="submit" class="btn btn-primary rounded-pill px-4 d-flex align-items-center" disabled="@(isSaving || fieldValidationErrors.Any())">
+                            <button type="submit" class="btn btn-primary rounded-pill px-4 d-flex align-items-center justify-content-center w-100 w-sm-auto" disabled="@(isSaving || fieldValidationErrors.Any())">
                                 @if (isSaving)
                                 {
                                     <MudProgressCircular Class="me-2" Size="Size.Small" Color="Color.Surface" Indeterminate="true" />

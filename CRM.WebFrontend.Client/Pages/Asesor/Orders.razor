@@ -64,74 +64,72 @@
         </div>
     </div>
 
-    <!-- Tabla -->
-    <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light text-muted">
-                        <tr>
-                            <th class="ps-4 py-3 text-nowrap">N° Orden</th>
-                            <th class="text-nowrap">Cliente</th>
-                            <th class="text-nowrap">Campaña</th>
-                            <th class="text-nowrap">Estado</th>
-                            <th class="text-nowrap">Substatus</th>
-                            <th class="text-nowrap">Fecha</th>
-                            <th class="text-nowrap">Días</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (isLoading)
-                        {
-                            @for(int i = 0; i < 5; i++)
+    @if (hasApiError)
+    {
+        <ApiErrorBanner Title="Error al cargar las órdenes" Message="@apiErrorMessage" OnRetry="LoadOrdersAsync" />
+    }
+    else
+    {
+        <!-- Tabla -->
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light text-muted">
+                            <tr>
+                                <th class="ps-4 py-3 text-nowrap">N° Orden</th>
+                                <th class="text-nowrap">Cliente</th>
+                                <th class="text-nowrap">Campaña</th>
+                                <th class="text-nowrap">Estado</th>
+                                <th class="text-nowrap">Substatus</th>
+                                <th class="text-nowrap">Fecha</th>
+                                <th class="text-nowrap">Días</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (isLoading)
+                            {
+                                <LoadingSkeletonTable Rows="5" Columns="7" />
+                            }
+                            else if (!pagedOrders.Any())
                             {
                                 <tr>
-                                    <td class="ps-4 py-3"><span class="placeholder col-6"></span></td>
-                                    <td><span class="placeholder col-8"></span></td>
-                                    <td><span class="placeholder col-10"></span></td>
-                                    <td><span class="placeholder col-8"></span></td>
-                                    <td><span class="placeholder col-6"></span></td>
-                                    <td><span class="placeholder col-10"></span></td>
-                                    <td><span class="placeholder col-4"></span></td>
+                                    <td colspan="7" class="p-0 border-0">
+                                        <EmptyState Icon="bi bi-inbox" 
+                                                    Title="No se encontraron órdenes" 
+                                                    Description="No hay ventas registradas con los filtros seleccionados. Genera una nueva orden para comenzar." 
+                                                    ActionButtonText="Generar Nueva Orden" 
+                                                    ActionIcon="bi bi-plus-circle" 
+                                                    Action='() => NavigationManager.NavigateTo("/asesor/orders/new")' />
+                                    </td>
                                 </tr>
                             }
-                        }
-                        else if (!pagedOrders.Any())
-                        {
-                            <tr>
-                                <td colspan="7" class="text-center py-5 text-muted">
-                                    <i class="bi bi-inbox fs-1 text-secondary mb-3 d-block"></i>
-                                    <h5>Sin resultados</h5>
-                                    <p>No se encontraron órdenes con los filtros seleccionados.</p>
-                                </td>
-                            </tr>
-                        }
-                        else
-                        {
-                            @foreach (var order in pagedOrders)
+                            else
                             {
-                                <tr style="cursor: pointer;" @onclick="() => GoToDetail(order.IdOrder)">
-                                    <td class="ps-4 fw-bold text-primary text-nowrap">#@order.IdOrder</td>
-                                    <td class="fw-medium text-nowrap">@order.ClientName</td>
-                                    <td class="text-nowrap"><span class="badge bg-light text-dark border">@order.CampaignName</span></td>
-                                    <td class="text-nowrap">
-                                        <span class="badge rounded-pill px-3 border" style="background-color: color-mix(in srgb, @(order.StatusColor ?? "#6c757d") 15%, transparent); color: @(order.StatusColor ?? "#6c757d"); border-color: @(order.StatusColor ?? "#6c757d")33 !important;">
-                                            @order.StatusName
-                                        </span>
-                                    </td>
-                                    <td class="text-muted small text-nowrap">@(string.IsNullOrEmpty(order.SubstatusName) ? "-" : order.SubstatusName)</td>
-                                    <td class="text-nowrap">@order.SalesDate.ToString("dd/MM/yyyy")</td>
-                                    <td class="text-nowrap">
-                                        <span class="fw-bold @(order.DaysElapsed > 5 ? "text-danger" : "text-success")">
-                                            @order.DaysElapsed días
-                                        </span>
-                                    </td>
-                                </tr>
+                                @foreach (var order in pagedOrders)
+                                {
+                                    <tr style="cursor: pointer;" @onclick="() => GoToDetail(order.IdOrder)">
+                                        <td class="ps-4 fw-bold text-primary text-nowrap">#@order.IdOrder</td>
+                                        <td class="fw-medium text-nowrap">@order.ClientName</td>
+                                        <td class="text-nowrap"><span class="badge bg-light text-dark border">@order.CampaignName</span></td>
+                                        <td class="text-nowrap">
+                                            <span class="badge rounded-pill px-3 border" style="background-color: color-mix(in srgb, @(order.StatusColor ?? "#6c757d") 15%, transparent); color: @(order.StatusColor ?? "#6c757d"); border-color: @(order.StatusColor ?? "#6c757d")33 !important;">
+                                                @order.StatusName
+                                            </span>
+                                        </td>
+                                        <td class="text-muted small text-nowrap">@(string.IsNullOrEmpty(order.SubstatusName) ? "-" : order.SubstatusName)</td>
+                                        <td class="text-nowrap">@order.SalesDate.ToString("dd/MM/yyyy")</td>
+                                        <td class="text-nowrap">
+                                            <span class="fw-bold @(order.DaysElapsed > 5 ? "text-danger" : "text-success")">
+                                                @order.DaysElapsed días
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
                             }
-                        }
-                    </tbody>
-                </table>
-            </div>
+                        </tbody>
+                    </table>
+                </div>
             
             <!-- Paginación -->
             @if (totalPages > 1)
@@ -158,6 +156,7 @@
             }
         </div>
     </div>
+    }
 </div>
 
 @if (selectedOrder != null)
@@ -235,6 +234,8 @@
     private List<LookupDto> filterCampaigns = new();
 
     private bool isLoading = true;
+    private bool hasApiError = false;
+    private string apiErrorMessage = string.Empty;
     private int currentUserId = 0;
 
     // Filtros
@@ -294,6 +295,8 @@
     private async Task LoadOrdersAsync()
     {
         isLoading = true;
+        hasApiError = false;
+        apiErrorMessage = string.Empty;
         try
         {
             var client = HttpClientFactory.CreateClient("BackendApi");
@@ -333,7 +336,9 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error fetching orders: {ex.Message}");
-            Snackbar.Add("Error al cargar las órdenes. Por favor, intente nuevamente.", Severity.Error);
+            hasApiError = true;
+            apiErrorMessage = "No se pudieron obtener las órdenes de venta desde el servidor. Por favor verifica si el servicio backend está activo.";
+            Snackbar.Add("Error de conexión con la API al obtener órdenes.", Severity.Error);
         }
         finally
         {
