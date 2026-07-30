@@ -1269,6 +1269,10 @@ body {
         font-size: 16px !important; /* Prevents auto-zoom on mobile WebKit */
         max-width: 100%;
     }
+    .top-navigation {
+        padding: 0 4px;
+        margin-bottom: 8px;
+    }
 }
 
 /* Zendesk UI Grid & Cards (Rounded with Soft Shadows) */

@@ -141,21 +141,22 @@
     }
     .notification-badge {
         position: absolute;
-        top: -1px;
-        right: -1px;
+        top: 0px;
+        right: 0px;
         background: #ef4444;
         color: white;
-        font-size: 0.55rem;
-        font-weight: 700;
-        min-width: 15px;
-        height: 15px;
+        font-size: 0.6rem;
+        font-weight: 800;
+        min-width: 16px;
+        height: 16px;
         border-radius: 999px;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 0 3px;
+        padding: 0 4px;
         line-height: 1;
         border: 2px solid #ffffff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
         animation: badge-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     }
     @@keyframes badge-pop {
@@ -167,7 +168,7 @@
         position: absolute;
         top: calc(100% + 8px);
         right: 0;
-        width: 360px;
+        width: 340px;
         max-height: 420px;
         background: white;
         z-index: 1060;
@@ -179,6 +180,18 @@
     @@keyframes panel-slide-in {
         0% { opacity: 0; transform: translateY(-8px); }
         100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @@media (max-width: 576px) {
+        .notification-panel {
+            position: fixed !important;
+            top: 54px !important;
+            right: 12px !important;
+            left: 12px !important;
+            width: auto !important;
+            max-width: calc(100vw - 24px) !important;
+            z-index: 1080 !important;
+        }
     }
 
     .notification-panel-header {
