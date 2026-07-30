@@ -48,7 +48,7 @@ public class ActivationRepository : IActivationRepository
             p.updated_at::timestamp AS UpdatedAt
         FROM sales_service.product_activation_tracking p
         LEFT JOIN sales_service.sales_order o ON p.id_order = o.id_order
-        LEFT JOIN crm_service.lead l ON o.id_lead = l.id_lead
+        LEFT JOIN lead_service.lead l ON o.id_lead = l.id_lead
         LEFT JOIN sales_service.provider_catalog prov ON p.id_provider = prov.id_provider";
 
     public async Task<IEnumerable<ProductActivationTracking>> GetPendingActivationsAsync(long idProvider, CancellationToken ct = default)
@@ -57,11 +57,11 @@ public class ActivationRepository : IActivationRepository
         string sql;
         if (idProvider > 0)
         {
-            sql = $"{SelectColumnsSql} WHERE id_provider = @IdProvider ORDER BY expected_activation_date ASC;";
+            sql = $"{SelectColumnsSql} WHERE p.id_provider = @IdProvider ORDER BY p.expected_activation_date ASC;";
         }
         else
         {
-            sql = $"{SelectColumnsSql} ORDER BY expected_activation_date ASC;";
+            sql = $"{SelectColumnsSql} ORDER BY p.expected_activation_date ASC;";
         }
 
         return await connection.QueryAsync<ProductActivationTracking>(
@@ -72,7 +72,7 @@ public class ActivationRepository : IActivationRepository
     public async Task<IEnumerable<ProductActivationTracking>> GetByOrderAsync(long idOrder, CancellationToken ct = default)
     {
         using var connection = _connectionFactory.CreateConnection();
-        var sql = $"{SelectColumnsSql} WHERE id_order = @IdOrder ORDER BY id_tracking ASC;";
+        var sql = $"{SelectColumnsSql} WHERE p.id_order = @IdOrder ORDER BY p.id_tracking ASC;";
 
         return await connection.QueryAsync<ProductActivationTracking>(
             new CommandDefinition(sql, new { IdOrder = idOrder }, cancellationToken: ct)
@@ -111,9 +111,9 @@ public class ActivationRepository : IActivationRepository
         using var connection = _connectionFactory.CreateConnection();
         // Return activations where the status is PENDING/DELAYED and expected_activation_date has already passed CURRENT_DATE
         var sql = @$"{SelectColumnsSql} 
-            WHERE activation_status NOT IN ('ACTIVATED', 'COMPLETED', 'CANCELLED') 
-              AND expected_activation_date < CURRENT_DATE 
-            ORDER BY expected_activation_date ASC;";
+            WHERE p.activation_status NOT IN ('ACTIVATED', 'COMPLETED', 'CANCELLED') 
+              AND p.expected_activation_date < CURRENT_DATE 
+            ORDER BY p.expected_activation_date ASC;";
 
         return await connection.QueryAsync<ProductActivationTracking>(
             new CommandDefinition(sql, cancellationToken: ct)
@@ -123,7 +123,7 @@ public class ActivationRepository : IActivationRepository
     public async Task<ProductActivationTracking?> GetByIdAsync(long idTracking, CancellationToken ct = default)
     {
         using var connection = _connectionFactory.CreateConnection();
-        var sql = $"{SelectColumnsSql} WHERE id_tracking = @IdTracking;";
+        var sql = $"{SelectColumnsSql} WHERE p.id_tracking = @IdTracking;";
 
         return await connection.QueryFirstOrDefaultAsync<ProductActivationTracking>(
             new CommandDefinition(sql, new { IdTracking = idTracking }, cancellationToken: ct)
