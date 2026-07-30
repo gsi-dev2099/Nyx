@@ -431,7 +431,34 @@
 
         if (!string.IsNullOrWhiteSpace(field.Value))
         {
-            if (field.ValidationType == "DNI_ES" || field.FieldKey.Equals("dni_titular", StringComparison.OrdinalIgnoreCase))
+            string valType = field.ValidationType ?? "";
+            string key = field.FieldKey ?? "";
+            string label = field.Label ?? "";
+
+            bool isDniField = valType.StartsWith("DNI", StringComparison.OrdinalIgnoreCase)
+                           || valType.StartsWith("NIE", StringComparison.OrdinalIgnoreCase)
+                           || key.Contains("dni", StringComparison.OrdinalIgnoreCase)
+                           || key.Contains("nie", StringComparison.OrdinalIgnoreCase)
+                           || key.Contains("documento", StringComparison.OrdinalIgnoreCase)
+                           || key.Contains("nif", StringComparison.OrdinalIgnoreCase)
+                           || label.Contains("DNI", StringComparison.OrdinalIgnoreCase)
+                           || label.Contains("NIE", StringComparison.OrdinalIgnoreCase)
+                           || label.Contains("Documento", StringComparison.OrdinalIgnoreCase);
+
+            bool isIbanField = valType.Equals("IBAN", StringComparison.OrdinalIgnoreCase)
+                            || key.Contains("iban", StringComparison.OrdinalIgnoreCase)
+                            || key.Contains("cuenta", StringComparison.OrdinalIgnoreCase)
+                            || label.Contains("IBAN", StringComparison.OrdinalIgnoreCase)
+                            || label.Contains("Cuenta", StringComparison.OrdinalIgnoreCase);
+
+            bool isPhoneField = valType.Contains("PHONE", StringComparison.OrdinalIgnoreCase)
+                             || key.Contains("telef", StringComparison.OrdinalIgnoreCase)
+                             || key.Contains("phone", StringComparison.OrdinalIgnoreCase)
+                             || key.Contains("movil", StringComparison.OrdinalIgnoreCase)
+                             || label.Contains("Teléfono", StringComparison.OrdinalIgnoreCase)
+                             || label.Contains("Telefono", StringComparison.OrdinalIgnoreCase);
+
+            if (isDniField)
             {
                 if (!ValidationHelper.ValidateDni(field.Value))
                 {
@@ -439,7 +466,7 @@
                     return false;
                 }
             }
-            else if (field.ValidationType == "IBAN" || field.FieldKey.Equals("iban_cuenta", StringComparison.OrdinalIgnoreCase))
+            else if (isIbanField)
             {
                 if (!ValidationHelper.ValidateIban(field.Value))
                 {
@@ -447,7 +474,7 @@
                     return false;
                 }
             }
-            else if (field.ValidationType == "PHONE_ES" || field.FieldKey.Equals("telefono_contacto", StringComparison.OrdinalIgnoreCase))
+            else if (isPhoneField)
             {
                 if (!ValidationHelper.ValidatePhone(field.Value))
                 {
@@ -495,6 +522,7 @@
         }
 
         bool hasValidationErrors = false;
+        fieldValidationErrors.Clear();
         foreach (var field in formSchema.Fields)
         {
             if (!ValidateField(field))
@@ -503,9 +531,10 @@
             }
         }
         
-        if (hasValidationErrors)
+        if (hasValidationErrors || fieldValidationErrors.Any())
         {
             Snackbar.Add("Por favor corrige los errores del formulario resaltados en rojo antes de guardar.", Severity.Error);
+            StateHasChanged();
             return;
         }
 
