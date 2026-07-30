@@ -282,6 +282,13 @@
                 try
                 {
                     var client = HttpClientFactory.CreateClient("BackendApi");
+                    var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                    var token = authState.User.FindFirst("access_token")?.Value;
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                    }
+
                     var result = await client.GetFromJsonAsync<List<OrderStatusDto>>($"/api/campaigns/{selectedCampaignId}/statuses");
                     if (result != null)
                     {
@@ -293,6 +300,7 @@
                     Snackbar.Add($"Error al cargar estados: {ex.Message}", Severity.Error);
                 }
             }
+            StateHasChanged();
         }
     }
 
@@ -308,6 +316,12 @@
                 try
                 {
                     var client = HttpClientFactory.CreateClient("BackendApi");
+                    var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                    var token = authState.User.FindFirst("access_token")?.Value;
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                    }
                     
                     // 1. Get templates for this campaign and stage
                     var templatesResponse = await client.GetAsync($"/api/forms/campaign/{selectedCampaignId}/stage/{selectedStatusId}");
@@ -324,7 +338,7 @@
                             if (fieldsResponse.IsSuccessStatusCode)
                             {
                                 var fields = await fieldsResponse.Content.ReadFromJsonAsync<List<FormFieldDto>>();
-                                if (fields != null)
+                                if (fields != null && fields.Any())
                                 {
                                     formSchema = new FormSchemaDto 
                                     {
@@ -339,16 +353,17 @@
                     
                     if (formSchema == null)
                     {
-                        // No schema found or error occurred but handled gracefully
+                        Snackbar.Add("No hay campos dinámicos específicos configurados para esta etapa.", Severity.Info);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Snackbar.Add($"Error de red: {ex.Message}", Severity.Error);
+                    Snackbar.Add($"Error de red al cargar el formulario: {ex.Message}", Severity.Error);
                 }
                 finally
                 {
                     isLoadingSchema = false;
+                    StateHasChanged();
                 }
             }
         }
