@@ -78,7 +78,7 @@ Este documento detalla los problemas de seguridad, rendimiento, arquitectura y t
     1. **Supervisor**: Endpoint `GET /api/supervisor/orders` en [SupervisorController.cs](file:///c:/Users/RRHH/Downloads/newCRM/CRM.ApiHub/Api/Controllers/SupervisorController.cs).
     2. **Backoffice**: Endpoint `GET /api/backoffice/orders` en [BackofficeController.cs](file:///c:/Users/RRHH/Downloads/newCRM/CRM.ApiHub/Api/Controllers/BackofficeController.cs).
     3. **Asesor / Órdenes**: Endpoint `GET /api/orders` en [SalesOrderController.cs](file:///c:/Users/RRHH/Downloads/newCRM/CRM.ApiHub/Api/Controllers/SalesOrderController.cs).
-  - Los repositorios calculan de manera eficiente el `COUNT` total de los registros y el desplazamiento (`OFFSET` y `LIMIT`) en SQL para evitar transferencias innecesarias de datos desde la base.
+  - **Selección de Estrategia**: Se implementó la **Opción A (Offset Pagination con COUNT Window Function)**. Esta opción es ideal para el volumen de registros actual del sistema (recomendado para menos de 500k registros), permitiendo recuperar los registros requeridos con `LIMIT` y `OFFSET` y calcular el total de coincidencias en una sola consulta SQL utilizando la función de ventana `COUNT(*) OVER() AS TotalCount`, optimizando los tiempos de respuesta y simplificando el flujo de datos.
 
 ---
 
