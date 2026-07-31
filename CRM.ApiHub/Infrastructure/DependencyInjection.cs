@@ -81,10 +81,21 @@ public static class DependencyInjection
         var redisConnStr = config["RedisSettings:ConnectionString"];
         if (!string.IsNullOrEmpty(redisConnStr))
         {
-            signalRBuilder.AddStackExchangeRedis(redisConnStr, options =>
+            try
             {
-                options.Configuration.ChannelPrefix = RedisChannel.Literal("NyxCRM");
-            });
+                using var redisTest = ConnectionMultiplexer.Connect(redisConnStr);
+                if (redisTest.IsConnected)
+                {
+                    signalRBuilder.AddStackExchangeRedis(redisConnStr, options =>
+                    {
+                        options.Configuration.ChannelPrefix = RedisChannel.Literal("NyxCRM");
+                    });
+                }
+            }
+            catch
+            {
+                // Fallback a SignalR en memoria si Redis no está disponible localmente
+            }
         }
         services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CRM.ApiHub.Infrastructure.Authentication.CustomUserIdProvider>();
         // Use Cases
