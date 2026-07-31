@@ -8,12 +8,23 @@ public class NotificationHub : Hub
 {
     public override async Task OnConnectedAsync()
     {
-        // Aquí podríamos añadir lógica de conexión adicional (grupos, etc)
+        var userId = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                     ?? Context.User?.FindFirst("sub")?.Value;
+        if (userId != null)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"user-{userId}");
+        }
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        var userId = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                     ?? Context.User?.FindFirst("sub")?.Value;
+        if (userId != null)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user-{userId}");
+        }
         await base.OnDisconnectedAsync(exception);
     }
 }

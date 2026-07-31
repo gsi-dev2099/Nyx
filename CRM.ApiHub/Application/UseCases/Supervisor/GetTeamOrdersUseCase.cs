@@ -16,15 +16,17 @@ public class GetTeamOrdersUseCase
         _repository = repository;
     }
 
-    public async Task<IEnumerable<SalesOrder>> ExecuteAsync(
+    public async Task<CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>> ExecuteAsync(
         long supervisorId,
         long? userId,
         long? statusId,
         long? campaignId,
         DateTime? dateFrom,
         DateTime? dateTo,
+        int page,
+        int pageSize,
         CancellationToken ct = default)
     {
-        return await _repository.GetTeamOrdersAsync(supervisorId, userId, statusId, campaignId, dateFrom, dateTo, ct);
+        return await _repository.GetTeamOrdersAsync(supervisorId, userId, statusId, campaignId, dateFrom, dateTo, page, pageSize, ct);
     }
 }

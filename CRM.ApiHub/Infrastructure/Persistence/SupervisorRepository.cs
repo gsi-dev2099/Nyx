@@ -9,17 +9,20 @@ using CRM.ApiHub.Application.DTOs;
 using CRM.ApiHub.Domain.Entities;
 using CRM.ApiHub.Domain.Repositories;
 using Dapper;
+using Microsoft.Extensions.Logging;
 
 namespace CRM.ApiHub.Infrastructure.Persistence;
 
 public class SupervisorRepository : ISupervisorRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ILogger<SupervisorRepository> _logger;
     private const int PENDING_BACKOFFICE_STATUS_ID = 3;
 
-    public SupervisorRepository(IDbConnectionFactory connectionFactory)
+    public SupervisorRepository(IDbConnectionFactory connectionFactory, ILogger<SupervisorRepository> logger)
     {
         _connectionFactory = connectionFactory;
+        _logger = logger;
     }
 
     private async Task<List<long>> GetEligibleAdvisorIdsAsync(IDbConnection connection, long supervisorId, CancellationToken ct = default)
@@ -52,61 +55,104 @@ public class SupervisorRepository : ISupervisorRepository
         return result.ToList();
     }
 
-    public async Task<IEnumerable<SalesOrder>> GetTeamOrdersAsync(
+    private class SalesOrderWithCount : SalesOrder
+    {
+        public int TotalCount { get; set; }
+    }
+
+    public async Task<CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>> GetTeamOrdersAsync(
         long supervisorId,
         long? userId,
         long? statusId,
         long? campaignId,
         DateTime? dateFrom,
         DateTime? dateTo,
+        int page,
+        int pageSize,
         CancellationToken ct = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var advisorIds = await GetEligibleAdvisorIdsAsync(connection, supervisorId, ct);
-        if (advisorIds.Count == 0)
+        try
         {
-            return Array.Empty<SalesOrder>();
-        }
+            using var connection = _connectionFactory.CreateConnection();
+            var advisorIds = await GetEligibleAdvisorIdsAsync(connection, supervisorId, ct);
+            if (advisorIds.Count == 0)
+            {
+                return new CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>
+                {
+                    Items = Array.Empty<SalesOrder>(),
+                    TotalCount = 0,
+                    Page = page,
+                    PageSize = pageSize
+                };
+            }
 
-        var sql = new StringBuilder(@"
-            SELECT o.* 
-            FROM sales_service.sales_order o
-            WHERE o.id_user = ANY(@AdvisorIds)");
+            var sql = new StringBuilder(@"
+                SELECT o.*, COUNT(*) OVER() AS TotalCount
+                FROM sales_service.sales_order o
+                WHERE o.id_user = ANY(@AdvisorIds)");
 
-        var parameters = new DynamicParameters();
-        parameters.Add("AdvisorIds", advisorIds.ToArray());
+            var parameters = new DynamicParameters();
+            parameters.Add("AdvisorIds", advisorIds.ToArray());
 
-        if (userId.HasValue)
-        {
-            sql.Append(" AND o.id_user = @UserId");
-            parameters.Add("UserId", userId.Value);
-        }
-        if (statusId.HasValue)
-        {
-            sql.Append(" AND o.id_status = @StatusId");
-            parameters.Add("StatusId", statusId.Value);
-        }
-        if (campaignId.HasValue)
-        {
-            sql.Append(" AND o.id_cmpg = @CampaignId");
-            parameters.Add("CampaignId", campaignId.Value);
-        }
-        if (dateFrom.HasValue)
-        {
-            sql.Append(" AND o.sales_date >= @DateFrom AND o.register >= @DateFrom");
-            parameters.Add("DateFrom", dateFrom.Value);
-        }
-        if (dateTo.HasValue)
-        {
-            sql.Append(" AND o.sales_date <= @DateTo AND o.register <= @DateTo");
-            parameters.Add("DateTo", dateTo.Value);
-        }
+            if (userId.HasValue)
+            {
+                sql.Append(" AND o.id_user = @UserId");
+                parameters.Add("UserId", userId.Value);
+            }
+            if (statusId.HasValue)
+            {
+                sql.Append(" AND o.id_status = @StatusId");
+                parameters.Add("StatusId", statusId.Value);
+            }
+            if (campaignId.HasValue)
+            {
+                sql.Append(" AND o.id_cmpg = @CampaignId");
+                parameters.Add("CampaignId", campaignId.Value);
+            }
+            if (dateFrom.HasValue)
+            {
+                sql.Append(" AND o.sales_date >= @DateFrom AND o.register >= @DateFrom");
+                parameters.Add("DateFrom", dateFrom.Value);
+            }
+            if (dateTo.HasValue)
+            {
+                sql.Append(" AND o.sales_date <= @DateTo AND o.register <= @DateTo");
+                parameters.Add("DateTo", dateTo.Value);
+            }
 
-        sql.Append(" ORDER BY o.sales_date DESC;");
+            sql.Append(" ORDER BY o.sales_date DESC");
+            
+            var offset = (page - 1) * pageSize;
+            sql.Append(" LIMIT @Limit OFFSET @Offset;");
+            parameters.Add("Limit", pageSize);
+            parameters.Add("Offset", offset);
 
-        return await connection.QueryAsync<SalesOrder>(
-            new CommandDefinition(sql.ToString(), parameters, cancellationToken: ct)
-        );
+            var results = await connection.QueryAsync<SalesOrderWithCount>(
+                new CommandDefinition(sql.ToString(), parameters, cancellationToken: ct)
+            );
+
+            var items = new List<SalesOrder>();
+            int totalCount = 0;
+            foreach (var r in results)
+            {
+                items.Add(r);
+                totalCount = r.TotalCount;
+            }
+
+            return new CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error en {Method} — supervisorId={SupervisorId}, userId={UserId}, statusId={StatusId}, campaignId={CampaignId}, page={Page}, pageSize={PageSize}", 
+                nameof(GetTeamOrdersAsync), supervisorId, userId, statusId, campaignId, page, pageSize);
+            throw;
+        }
     }
 
     public async Task<SupervisorStatsDto> GetTeamStatsAsync(
@@ -266,10 +312,11 @@ public class SupervisorRepository : ISupervisorRepository
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error en {Method} — supervisorId={SupervisorId}, backofficeUserId={BackofficeUserId}, orderIdsCount={Count}", 
+                nameof(BulkTransferToBackofficeAsync), supervisorId, backofficeUserId, orderIds.Length);
             transaction.Rollback();
-            // Si toda la transacción falla, todas las órdenes se marcan como fallidas
             foreach (var orderId in orderIds)
             {
                 result.FailedCount++;

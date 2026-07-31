@@ -254,6 +254,30 @@
             </div>
         </div>
     }
+
+    @* Paginación *@
+    @if (totalPages > 1)
+    {
+        <div class="d-flex justify-content-center mt-4">
+            <nav aria-label="Navegación de páginas">
+                <ul class="pagination mb-0">
+                    <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Anterior</button>
+                    </li>
+                    @for (int i = 1; i <= totalPages; i++)
+                    {
+                        var pageNum = i;
+                        <li class="page-item @(currentPage == pageNum ? "active" : "")">
+                            <button class="page-link" @onclick="() => ChangePage(pageNum)">@pageNum</button>
+                        </li>
+                    }
+                    <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Siguiente</button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    }
 </div>
 
 @* ───── Detail Modal ───── *@
@@ -394,6 +418,10 @@
     private bool isLoading = true;
     private bool isUpdatingStatus = false;
     private bool isNavigating = false;
+    private int currentPage = 1;
+    private int pageSize = 50;
+    private int totalCount = 0;
+    private int totalPages = 0;
 
     private List<CampaignLookup> campaigns = new();
     private List<StatusDto> statuses = new();
@@ -485,15 +513,17 @@
 
             var client = await GetAuthenticatedClient();
 
-            var query = "/api/supervisor/orders?";
+            var query = $"/api/supervisor/orders?page={currentPage}&pageSize={pageSize}&";
             if (selectedCampaignId > 0) query += $"campaignId={selectedCampaignId}&";
             if (filterDateFrom.HasValue) query += $"dateFrom={filterDateFrom.Value:yyyy-MM-dd}&";
             if (filterDateTo.HasValue) query += $"dateTo={filterDateTo.Value:yyyy-MM-dd}&";
 
-            var result = await client.GetFromJsonAsync<List<TeamOrderDto>>(query.TrimEnd('&', '?'));
-            if (result != null)
+            var pagedResult = await client.GetFromJsonAsync<CRM.WebFrontend.Client.Models.PagedResult<TeamOrderDto>>(query.TrimEnd('&', '?'));
+            if (pagedResult != null)
             {
-                result = result.Where(x => x.IdLead != 99998).ToList();
+                totalCount = pagedResult.TotalCount;
+                totalPages = pagedResult.TotalPages;
+                var result = pagedResult.Items.Where(x => x.IdLead != 99998).ToList();
                 
                 // Enrich with campaign names
                 foreach (var o in result)
@@ -584,8 +614,15 @@
 
 
 
+    private async Task ChangePage(int newPage)
+    {
+        currentPage = newPage;
+        await LoadOrdersAsync();
+    }
+
     private async Task ClearFilters()
     {
+        currentPage = 1;
         selectedAdvisorId = 0;
         filterDateFrom = null;
         filterDateTo = null;

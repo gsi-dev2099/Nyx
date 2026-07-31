@@ -19,6 +19,6 @@ public class NotificationService : INotificationService
     public async Task SendNotificationAsync(long userId, string title, string message, string? module = null, string? actionData = null)
     {
         await _notificationRepository.CreateAsync(userId, title, message, module, actionData);
-        await _hubContext.Clients.User(userId.ToString()).SendAsync("ReceiveNotification", title, message);
+        await _hubContext.Clients.Group($"user-{userId}").SendAsync("ReceiveNotification", title, message);
     }
 }

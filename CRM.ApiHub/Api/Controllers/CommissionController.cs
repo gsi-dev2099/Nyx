@@ -90,6 +90,22 @@ public class CommissionController : ControllerBase
     {
         try
         {
+            var actorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+            if (actorIdClaim == null || !long.TryParse(actorIdClaim.Value, out long authenticatedUserId))
+            {
+                return Unauthorized(new { message = "Usuario no autorizado." });
+            }
+
+            var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? User.FindFirst("role")?.Value;
+            if (userRole == "ASESOR")
+            {
+                if (userId.HasValue && userId.Value != authenticatedUserId)
+                {
+                    return StatusCode(403, new { message = "No tienes permisos para consultar las liquidaciones de otro usuario." });
+                }
+                userId = authenticatedUserId;
+            }
+
             var list = await _getSettlementsUseCase.GetListAsync(userId, ct);
             return Ok(list);
         }
@@ -110,6 +126,18 @@ public class CommissionController : ControllerBase
                 return NotFound(new { message = $"No se encontró la liquidación de comisión con ID {id}." });
             }
 
+            var actorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+            if (actorIdClaim == null || !long.TryParse(actorIdClaim.Value, out long authenticatedUserId))
+            {
+                return Unauthorized(new { message = "Usuario no autorizado." });
+            }
+
+            var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? User.FindFirst("role")?.Value;
+            if (userRole == "ASESOR" && result.Value.Settlement.IdUser != authenticatedUserId)
+            {
+                return StatusCode(403, new { message = "No tienes permisos para consultar esta liquidación de comisión." });
+            }
+
             return Ok(new
             {
                 settlement = result.Value.Settlement,
@@ -127,6 +155,18 @@ public class CommissionController : ControllerBase
     {
         try
         {
+            var actorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+            if (actorIdClaim == null || !long.TryParse(actorIdClaim.Value, out long authenticatedUserId))
+            {
+                return Unauthorized(new { message = "Usuario no autorizado." });
+            }
+
+            var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? User.FindFirst("role")?.Value;
+            if (userRole == "ASESOR" && dto.UserId != authenticatedUserId)
+            {
+                return StatusCode(403, new { message = "No tienes permisos para crear liquidaciones para otro usuario." });
+            }
+
             var id = await _createSettlementUseCase.ExecuteAsync(dto, ct);
             return CreatedAtAction(nameof(GetSettlementById), new { id = id }, new { id_settlement = id, message = "Liquidación creada en borrador (DRAFT) correctamente." });
         }

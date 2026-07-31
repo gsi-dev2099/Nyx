@@ -21,9 +21,8 @@ public class BackofficeService : IBackofficeService
     {
         try
         {
-            // Use backoffice/orders endpoint which returns all orders assigned to this BAC analyst
-            // Then filter to only BAC-stage statuses: EN_BACKOFFICE (3) and EN_GESTION (4)
-            var allOrders = await _httpClient.GetFromJsonAsync<List<BackofficeOrderDto>>("api/backoffice/orders");
+            var pagedResult = await _httpClient.GetFromJsonAsync<CRM.WebFrontend.Client.Models.PagedResult<BackofficeOrderDto>>("api/backoffice/orders?page=1&pageSize=1000");
+            var allOrders = pagedResult?.Items?.ToList() ?? new List<BackofficeOrderDto>();
             if (allOrders == null || allOrders.Count == 0) return Enumerable.Empty<SalesQueueItem>();
 
             // Only show orders the supervisor has derived to BackOffice

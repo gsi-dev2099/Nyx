@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using CRM.ApiHub.Domain.Entities;
 using CRM.ApiHub.Domain.Repositories;
 using CRM.ApiHub.Application.Interfaces;
+using System.Security.Claims;
 
 namespace CRM.ApiHub.Api.Controllers;
 
@@ -56,6 +57,13 @@ public class IncidentController : ControllerBase
     public async Task<IActionResult> Create([FromBody] OrderIncident incident)
     {
         if (incident == null) return BadRequest("Datos de incidencia inválidos.");
+
+        var actorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        if (actorIdClaim == null || !long.TryParse(actorIdClaim.Value, out var actorId))
+        {
+            return Unauthorized(new { message = "Usuario no autenticado o no identificado." });
+        }
+        incident.DetectedBy = actorId;
 
         var newIncidentId = await _incidentRepository.CreateAsync(incident);
         var suggestedArticles = await _incidentRepository.GetKbSuggestionsAsync(incident.IdIncident);
@@ -113,7 +121,13 @@ public class IncidentController : ControllerBase
     {
         if (request == null) return BadRequest("Datos de respuesta inválidos.");
 
-        await _incidentRepository.CreateResponseAsync(id, request.ResponseText, request.ResponseType, request.RespondedBy);
+        var actorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        if (actorIdClaim == null || !long.TryParse(actorIdClaim.Value, out var actorId))
+        {
+            return Unauthorized(new { message = "Usuario no autenticado o no identificado." });
+        }
+
+        await _incidentRepository.CreateResponseAsync(id, request.ResponseText, request.ResponseType, actorId);
 
         // Send alert / notification
         var incident = await _incidentRepository.GetByIdAsync(id);
@@ -140,7 +154,13 @@ public class IncidentController : ControllerBase
     {
         if (request == null) return BadRequest("Datos de resolución inválidos.");
 
-        await _incidentRepository.ResolveAsync(id, request.Notes, request.ResolvedBy);
+        var actorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        if (actorIdClaim == null || !long.TryParse(actorIdClaim.Value, out var actorId))
+        {
+            return Unauthorized(new { message = "Usuario no autenticado o no identificado." });
+        }
+
+        await _incidentRepository.ResolveAsync(id, request.Notes, actorId);
 
         // Send alert / notification
         var incident = await _incidentRepository.GetByIdAsync(id);

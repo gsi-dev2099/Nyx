@@ -7,63 +7,103 @@ using System.Threading.Tasks;
 using CRM.ApiHub.Domain.Entities;
 using CRM.ApiHub.Domain.Repositories;
 using Dapper;
+using Microsoft.Extensions.Logging;
 
 namespace CRM.ApiHub.Infrastructure.Persistence;
 
 public class BackofficeRepository : IBackofficeRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ILogger<BackofficeRepository> _logger;
 
-    public BackofficeRepository(IDbConnectionFactory connectionFactory)
+    public BackofficeRepository(IDbConnectionFactory connectionFactory, ILogger<BackofficeRepository> logger)
     {
         _connectionFactory = connectionFactory;
+        _logger = logger;
     }
 
-    public async Task<IEnumerable<SalesOrder>> GetAssignedOrdersAsync(
+    private class SalesOrderWithCount : SalesOrder
+    {
+        public int TotalCount { get; set; }
+    }
+
+    public async Task<CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>> GetAssignedOrdersAsync(
         long backofficeId,
         long? userId,
         long? statusId,
         long? campaignId,
         DateTime? dateFrom,
         DateTime? dateTo,
+        int page,
+        int pageSize,
         CancellationToken ct = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var sql = new StringBuilder("SELECT * FROM sales_service.sales_order WHERE custody_user_id = @BackofficeId");
-        var parameters = new DynamicParameters();
-        parameters.Add("BackofficeId", backofficeId);
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            var sql = new StringBuilder("SELECT *, COUNT(*) OVER() AS TotalCount FROM sales_service.sales_order WHERE custody_user_id = @BackofficeId");
+            var parameters = new DynamicParameters();
+            parameters.Add("BackofficeId", backofficeId);
 
-        if (userId.HasValue)
-        {
-            sql.Append(" AND id_user = @UserId");
-            parameters.Add("UserId", userId.Value);
-        }
-        if (statusId.HasValue)
-        {
-            sql.Append(" AND id_status = @StatusId");
-            parameters.Add("StatusId", statusId.Value);
-        }
-        if (campaignId.HasValue)
-        {
-            sql.Append(" AND id_cmpg = @CampaignId");
-            parameters.Add("CampaignId", campaignId.Value);
-        }
-        if (dateFrom.HasValue)
-        {
-            sql.Append(" AND sales_date >= @DateFrom AND register >= @DateFrom");
-            parameters.Add("DateFrom", dateFrom.Value);
-        }
-        if (dateTo.HasValue)
-        {
-            sql.Append(" AND sales_date <= @DateTo AND register <= @DateTo");
-            parameters.Add("DateTo", dateTo.Value);
-        }
+            if (userId.HasValue)
+            {
+                sql.Append(" AND id_user = @UserId");
+                parameters.Add("UserId", userId.Value);
+            }
+            if (statusId.HasValue)
+            {
+                sql.Append(" AND id_status = @StatusId");
+                parameters.Add("StatusId", statusId.Value);
+            }
+            if (campaignId.HasValue)
+            {
+                sql.Append(" AND id_cmpg = @CampaignId");
+                parameters.Add("CampaignId", campaignId.Value);
+            }
+            if (dateFrom.HasValue)
+            {
+                sql.Append(" AND sales_date >= @DateFrom AND register >= @DateFrom");
+                parameters.Add("DateFrom", dateFrom.Value);
+            }
+            if (dateTo.HasValue)
+            {
+                sql.Append(" AND sales_date <= @DateTo AND register <= @DateTo");
+                parameters.Add("DateTo", dateTo.Value);
+            }
 
-        sql.Append(" ORDER BY sales_date DESC;");
+            sql.Append(" ORDER BY sales_date DESC");
+            
+            var offset = (page - 1) * pageSize;
+            sql.Append(" LIMIT @Limit OFFSET @Offset;");
+            parameters.Add("Limit", pageSize);
+            parameters.Add("Offset", offset);
 
-        return await connection.QueryAsync<SalesOrder>(
-            new CommandDefinition(sql.ToString(), parameters, cancellationToken: ct)
-        );
+            var results = await connection.QueryAsync<SalesOrderWithCount>(
+                new CommandDefinition(sql.ToString(), parameters, cancellationToken: ct)
+            );
+
+            var items = new List<SalesOrder>();
+            int totalCount = 0;
+            foreach (var r in results)
+            {
+                items.Add(r);
+                totalCount = r.TotalCount;
+            }
+
+            return new CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error en {Method} — backofficeId={BackofficeId}, userId={UserId}, statusId={StatusId}, campaignId={CampaignId}, page={Page}, pageSize={PageSize}", 
+                nameof(GetAssignedOrdersAsync), backofficeId, userId, statusId, campaignId, page, pageSize);
+            throw;
+        }
     }
 
     public async Task<IEnumerable<OrderDocument>> GetPendingVerificationAsync(long backofficeId, CancellationToken ct = default)

@@ -257,7 +257,7 @@
     // Paginación
     private int currentPage = 1;
     private int pageSize = 10;
-    private int totalPages => (int)Math.Ceiling((double)allOrders.Count / pageSize);
+    private int totalPages = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -311,16 +311,17 @@
         {
             var client = HttpClientFactory.CreateClient("BackendApi");
             
-            var query = $"/api/orders?userId={currentUserId}";
+            var query = $"/api/orders?userId={currentUserId}&page={currentPage}&pageSize={pageSize}";
             if (filterStatusId.HasValue) query += $"&statusId={filterStatusId}";
             if (filterCampaignId.HasValue) query += $"&campaignId={filterCampaignId}";
             if (filterDateFrom.HasValue) query += $"&dateFrom={filterDateFrom.Value:yyyy-MM-dd}";
             if (filterDateTo.HasValue) query += $"&dateTo={filterDateTo.Value:yyyy-MM-dd}";
 
-            var result = await client.GetFromJsonAsync<List<SalesOrderListDto>>(query);
-            if (result != null)
+            var pagedResult = await client.GetFromJsonAsync<CRM.WebFrontend.Client.Models.PagedResult<SalesOrderListDto>>(query);
+            if (pagedResult != null)
             {
-                result = result.Where(x => x.IdLead != 99998).ToList();
+                totalPages = pagedResult.TotalPages;
+                var result = pagedResult.Items.Where(x => x.IdLead != 99998).ToList();
 
                 foreach (var o in result)
                 {
@@ -401,15 +402,15 @@
 
     private void UpdatePagedOrders()
     {
-        pagedOrders = allOrders.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList();
+        pagedOrders = allOrders;
     }
 
-    private void ChangePage(int newPage)
+    private async Task ChangePage(int newPage)
     {
         if (newPage >= 1 && newPage <= totalPages)
         {
             currentPage = newPage;
-            UpdatePagedOrders();
+            await LoadOrdersAsync();
         }
     }
 

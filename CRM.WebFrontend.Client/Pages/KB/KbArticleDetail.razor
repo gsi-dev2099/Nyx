@@ -136,6 +136,7 @@
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[KbArticleDetail] Error al cargar el artículo: {ex.Message}");
             Snackbar.Add("Error al cargar el artículo", Severity.Error);
         }
         finally

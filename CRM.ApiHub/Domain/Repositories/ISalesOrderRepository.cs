@@ -8,12 +8,14 @@ namespace CRM.ApiHub.Domain.Repositories;
 
 public interface ISalesOrderRepository
 {
-    Task<IEnumerable<SalesOrder>> GetByFiltersAsync(
+    Task<CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>> GetByFiltersAsync(
         long? userId,
         long? statusId,
         long? campaignId,
         DateTime? dateFrom,
         DateTime? dateTo,
+        int page,
+        int pageSize,
         CancellationToken ct = default);
 
     Task<SalesOrder?> GetByIdAsync(long idOrder, CancellationToken ct = default);

@@ -41,7 +41,9 @@ public class SalesOrderController : ControllerBase
         [FromQuery] long? campaignId,
         [FromQuery] DateTime? dateFrom,
         [FromQuery] DateTime? dateTo,
-        CancellationToken ct)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
     {
         try
         {
@@ -72,8 +74,8 @@ public class SalesOrderController : ControllerBase
                 return Unauthorized(new { message = "El ID de usuario es requerido para realizar esta consulta." });
             }
 
-            var orders = await _getSalesOrdersUseCase.ExecuteAsync(userId, statusId, campaignId, dateFrom, dateTo, ct);
-            return Ok(orders);
+            var pagedResult = await _getSalesOrdersUseCase.ExecuteAsync(userId, statusId, campaignId, dateFrom, dateTo, page, pageSize, ct);
+            return Ok(pagedResult);
         }
         catch (Exception ex)
         {

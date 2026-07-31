@@ -9,13 +9,15 @@ namespace CRM.ApiHub.Domain.Repositories;
 
 public interface ISupervisorRepository
 {
-    Task<IEnumerable<SalesOrder>> GetTeamOrdersAsync(
+    Task<CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>> GetTeamOrdersAsync(
         long supervisorId,
         long? userId,
         long? statusId,
         long? campaignId,
         DateTime? dateFrom,
         DateTime? dateTo,
+        int page,
+        int pageSize,
         CancellationToken ct = default);
 
     Task<SupervisorStatsDto> GetTeamStatsAsync(

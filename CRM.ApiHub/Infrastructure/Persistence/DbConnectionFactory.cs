@@ -77,7 +77,7 @@ public class NpgsqlConnectionFactory : IDbConnectionFactory
         if (!decrypted.Contains("Pooling=", StringComparison.OrdinalIgnoreCase))
         {
             if (!decrypted.EndsWith(";")) decrypted += ";";
-            decrypted += "Pooling=true;Minimum Pool Size=10;Maximum Pool Size=100;Connection Lifetime=300;Timeout=15;";
+            decrypted += "Pooling=true;Minimum Pool Size=5;Maximum Pool Size=50;Connection Idle Lifetime=60;Timeout=15;";
         }
         
         _connectionString = decrypted;

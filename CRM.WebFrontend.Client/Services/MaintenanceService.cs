@@ -189,7 +189,7 @@ public class MaintenanceService : IMaintenanceService
     
     private class ErrorResponseDto
     {
-        public string Message { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 
     // ===== CAMPAIGNS (aux) =====
