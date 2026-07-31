@@ -39,7 +39,9 @@ public class SupervisorController : ControllerBase
         [FromQuery] long? campaignId,
         [FromQuery] DateTime? dateFrom,
         [FromQuery] DateTime? dateTo,
-        CancellationToken ct)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
     {
         var supervisorIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
         if (supervisorIdClaim == null || !long.TryParse(supervisorIdClaim.Value, out long supervisorId))
@@ -53,8 +55,8 @@ public class SupervisorController : ControllerBase
 
         try
         {
-            var orders = await _getTeamOrdersUseCase.ExecuteAsync(supervisorId, userId, statusId, campaignId, dateFrom, dateTo, ct);
-            return Ok(orders);
+            var pagedResult = await _getTeamOrdersUseCase.ExecuteAsync(supervisorId, userId, statusId, campaignId, dateFrom, dateTo, page, pageSize, ct);
+            return Ok(pagedResult);
         }
         catch (Exception ex)
         {

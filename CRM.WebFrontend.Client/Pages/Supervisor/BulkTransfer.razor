@@ -296,9 +296,10 @@
             if (statResult != null) statuses = statResult;
 
             // 5. Cargar órdenes del equipo
-            var ordersResult = await client.GetFromJsonAsync<List<SelectableOrder>>("/api/supervisor/orders");
+            var pagedResult = await client.GetFromJsonAsync<CRM.WebFrontend.Client.Models.PagedResult<SelectableOrder>>("/api/supervisor/orders?page=1&pageSize=1000");
+            var ordersResult = pagedResult?.Items?.ToList() ?? new List<SelectableOrder>();
             
-            if (ordersResult != null)
+            if (ordersResult != null && ordersResult.Count > 0)
             {
                 ordersResult = ordersResult.Where(x => x.IdLead != 99998).ToList();
                 

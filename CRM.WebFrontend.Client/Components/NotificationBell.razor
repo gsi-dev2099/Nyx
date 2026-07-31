@@ -3,7 +3,7 @@
 @using CRM.WebFrontend.Client.Models
 @using CRM.WebFrontend.Client.Services
 @using Microsoft.AspNetCore.SignalR.Client
-@rendermode InteractiveServer
+@rendermode InteractiveWebAssembly
 @inject NotificationService NotifService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavManager
@@ -269,11 +269,14 @@
         {
             await RefreshNotificationsAsync();
 
-            var baseUrl = Config["ApiSettings:BaseUrl"] ?? "http://localhost:5068";
             hubConnection = new HubConnectionBuilder()
-                .WithUrl($"{baseUrl}/notificationHub", options =>
+                .WithUrl(NavManager.ToAbsoluteUri("/notificationHub"), options =>
                 {
-                    options.AccessTokenProvider = () => Task.FromResult(accessToken);
+                    options.AccessTokenProvider = async () =>
+                    {
+                        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                        return authState.User.FindFirst("access_token")?.Value;
+                    };
                 })
                 .WithAutomaticReconnect()
                 .Build();

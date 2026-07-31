@@ -23,85 +23,138 @@ public class SalesOrderRepository : ISalesOrderRepository
         _logger = logger;
     }
 
-    public async Task<IEnumerable<SalesOrder>> GetByFiltersAsync(
+    private class SalesOrderWithCount : SalesOrder
+    {
+        public int TotalCount { get; set; }
+    }
+
+    public async Task<CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>> GetByFiltersAsync(
         long? userId,
         long? statusId,
         long? campaignId,
         DateTime? dateFrom,
         DateTime? dateTo,
+        int page,
+        int pageSize,
         CancellationToken ct = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var sql = new StringBuilder("SELECT * FROM sales_service.sales_order WHERE 1=1");
-        var parameters = new DynamicParameters();
-
-        if (userId.HasValue)
+        try
         {
-            sql.Append(" AND id_user = @UserId");
-            parameters.Add("UserId", userId.Value);
-        }
+            using var connection = _connectionFactory.CreateConnection();
+            var sql = new StringBuilder("SELECT *, COUNT(*) OVER() AS TotalCount FROM sales_service.sales_order WHERE 1=1");
+            var parameters = new DynamicParameters();
 
-        if (statusId.HasValue)
+            if (userId.HasValue)
+            {
+                sql.Append(" AND id_user = @UserId");
+                parameters.Add("UserId", userId.Value);
+            }
+
+            if (statusId.HasValue)
+            {
+                sql.Append(" AND id_status = @StatusId");
+                parameters.Add("StatusId", statusId.Value);
+            }
+
+            if (campaignId.HasValue)
+            {
+                sql.Append(" AND id_cmpg = @CampaignId");
+                parameters.Add("CampaignId", campaignId.Value);
+            }
+
+            if (dateFrom.HasValue)
+            {
+                sql.Append(" AND sales_date >= @DateFrom AND register >= @DateFrom");
+                parameters.Add("DateFrom", dateFrom.Value);
+            }
+            if (dateTo.HasValue)
+            {
+                sql.Append(" AND sales_date <= @DateTo AND register <= @DateTo");
+                parameters.Add("DateTo", dateTo.Value);
+            }
+
+            sql.Append(" ORDER BY sales_date DESC");
+            
+            var offset = (page - 1) * pageSize;
+            sql.Append(" LIMIT @Limit OFFSET @Offset;");
+            parameters.Add("Limit", pageSize);
+            parameters.Add("Offset", offset);
+
+            var results = await connection.QueryAsync<SalesOrderWithCount>(
+                new CommandDefinition(sql.ToString(), parameters, cancellationToken: ct)
+            );
+
+            var items = new List<SalesOrder>();
+            int totalCount = 0;
+            foreach (var r in results)
+            {
+                items.Add(r);
+                totalCount = r.TotalCount;
+            }
+
+            return new CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+        catch (Exception ex)
         {
-            sql.Append(" AND id_status = @StatusId");
-            parameters.Add("StatusId", statusId.Value);
+            _logger.LogError(ex, "Error en {Method} — userId={UserId}, statusId={StatusId}, campaignId={CampaignId}, page={Page}, pageSize={PageSize}", 
+                nameof(GetByFiltersAsync), userId, statusId, campaignId, page, pageSize);
+            throw;
         }
-
-        if (campaignId.HasValue)
-        {
-            sql.Append(" AND id_cmpg = @CampaignId");
-            parameters.Add("CampaignId", campaignId.Value);
-        }
-
-        if (dateFrom.HasValue)
-        {
-            sql.Append(" AND sales_date >= @DateFrom AND register >= @DateFrom");
-            parameters.Add("DateFrom", dateFrom.Value);
-        }
-        if (dateTo.HasValue)
-        {
-            sql.Append(" AND sales_date <= @DateTo AND register <= @DateTo");
-            parameters.Add("DateTo", dateTo.Value);
-        }
-
-        sql.Append(" ORDER BY sales_date DESC;");
-
-        return await connection.QueryAsync<SalesOrder>(
-            new CommandDefinition(sql.ToString(), parameters, cancellationToken: ct)
-        );
     }
 
     public async Task<SalesOrder?> GetByIdAsync(long idOrder, CancellationToken ct = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = "SELECT * FROM sales_service.sales_order WHERE id_order = @IdOrder;";
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            const string sql = "SELECT * FROM sales_service.sales_order WHERE id_order = @IdOrder;";
 
-        return await connection.QueryFirstOrDefaultAsync<SalesOrder>(
-            new CommandDefinition(sql, new { IdOrder = idOrder }, cancellationToken: ct)
-        );
+            return await connection.QueryFirstOrDefaultAsync<SalesOrder>(
+                new CommandDefinition(sql, new { IdOrder = idOrder }, cancellationToken: ct)
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error en {Method} — idOrder={IdOrder}", nameof(GetByIdAsync), idOrder);
+            throw;
+        }
     }
 
     public async Task<long> CreateAsync(SalesOrder order, CancellationToken ct = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = @"
-            INSERT INTO sales_service.sales_order (
-                id_lead, id_cmpg, id_user, owner_user_id, custody_user_id,
-                id_status, id_substatus, currency_code, commission_currency,
-                status, sales_date, total_products, total_value, is_alternate,
-                register, last_update
-            )
-            VALUES (
-                @IdLead, @IdCmpg, @IdUser, @OwnerUserId, @CustodyUserId,
-                @IdStatus, @IdSubstatus, @CurrencyCode, @CommissionCurrency,
-                @Status, @SalesDate, @TotalProducts, @TotalValue, @IsAlternate,
-                @Register, @LastUpdate
-            )
-            RETURNING id_order;";
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            const string sql = @"
+                INSERT INTO sales_service.sales_order (
+                    id_lead, id_cmpg, id_user, owner_user_id, custody_user_id,
+                    id_status, id_substatus, currency_code, commission_currency,
+                    status, sales_date, total_products, total_value, is_alternate,
+                    register, last_update
+                )
+                VALUES (
+                    @IdLead, @IdCmpg, @IdUser, @OwnerUserId, @CustodyUserId,
+                    @IdStatus, @IdSubstatus, @CurrencyCode, @CommissionCurrency,
+                    @Status, @SalesDate, @TotalProducts, @TotalValue, @IsAlternate,
+                    @Register, @LastUpdate
+                )
+                RETURNING id_order;";
 
-        return await connection.ExecuteScalarAsync<long>(
-            new CommandDefinition(sql, order, cancellationToken: ct)
-        );
+            return await connection.ExecuteScalarAsync<long>(
+                new CommandDefinition(sql, order, cancellationToken: ct)
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error en {Method} — idLead={IdLead}, idUser={IdUser}", nameof(CreateAsync), order?.IdLead, order?.IdUser);
+            throw;
+        }
     }
 
     public async Task<bool> UpdateStatusAsync(
@@ -223,8 +276,10 @@ public class SalesOrderRepository : ISalesOrderRepository
             transaction.Commit();
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error en {Method} — idOrder={IdOrder}, toStatusId={ToStatusId}, actorId={ActorId}", 
+                nameof(UpdateStatusAsync), idOrder, toStatusId, actorId);
             transaction.Rollback();
             throw;
         }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.AspNetCore.Components.Authorization;
 using CRM.WebFrontend.Client.Providers;
+using Polly;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
@@ -9,7 +10,9 @@ builder.Services.AddTransient<CRM.WebFrontend.Client.Services.MockBackendHandler
 builder.Services.AddHttpClient("BackendApi", client =>
 {
     client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
-}).AddHttpMessageHandler<CRM.WebFrontend.Client.Services.MockBackendHandler>();
+}).AddHttpMessageHandler<CRM.WebFrontend.Client.Services.MockBackendHandler>()
+  .AddTransientHttpErrorPolicy(p => p.WaitAndRetryAsync(3, _ => TimeSpan.FromSeconds(2)))
+  .AddTransientHttpErrorPolicy(p => p.CircuitBreakerAsync(5, TimeSpan.FromSeconds(30)));
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddCascadingAuthenticationState();

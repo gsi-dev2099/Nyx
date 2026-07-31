@@ -38,7 +38,9 @@ public class BackofficeController : ControllerBase
         [FromQuery] long? campaignId,
         [FromQuery] DateTime? dateFrom,
         [FromQuery] DateTime? dateTo,
-        CancellationToken ct)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
     {
         var backofficeIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
         if (backofficeIdClaim == null || !long.TryParse(backofficeIdClaim.Value, out long backofficeId))
@@ -52,8 +54,8 @@ public class BackofficeController : ControllerBase
 
         try
         {
-            var orders = await _getAssignedOrdersUseCase.ExecuteAsync(backofficeId, userId, statusId, campaignId, dateFrom, dateTo, ct);
-            return Ok(orders);
+            var pagedResult = await _getAssignedOrdersUseCase.ExecuteAsync(backofficeId, userId, statusId, campaignId, dateFrom, dateTo, page, pageSize, ct);
+            return Ok(pagedResult);
         }
         catch (Exception ex)
         {

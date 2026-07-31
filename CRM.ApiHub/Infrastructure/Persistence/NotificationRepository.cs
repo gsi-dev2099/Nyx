@@ -37,11 +37,11 @@ public class NotificationRepository : INotificationRepository
         return await connection.QueryAsync<UserAlert>(sql, new { UserId = userId, Limit = limit });
     }
 
-    public async Task MarkReadAsync(int idAlert)
+    public async Task MarkReadAsync(int idAlert, long userId)
     {
         using var connection = _connectionFactory.CreateConnection();
-        const string sql = "UPDATE notification_service.user_alerts SET is_read = true, read_at = NOW() WHERE id_alert = @IdAlert;";
-        await connection.ExecuteAsync(sql, new { IdAlert = idAlert });
+        const string sql = "UPDATE notification_service.user_alerts SET is_read = true, read_at = NOW() WHERE id_alert = @IdAlert AND id_user = @UserId;";
+        await connection.ExecuteAsync(sql, new { IdAlert = idAlert, UserId = userId });
     }
 
     public async Task MarkAllReadAsync(long userId)

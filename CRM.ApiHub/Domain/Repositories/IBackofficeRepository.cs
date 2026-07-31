@@ -8,13 +8,15 @@ namespace CRM.ApiHub.Domain.Repositories;
 
 public interface IBackofficeRepository
 {
-    Task<IEnumerable<SalesOrder>> GetAssignedOrdersAsync(
+    Task<CRM.ApiHub.Application.DTOs.PagedResult<SalesOrder>> GetAssignedOrdersAsync(
         long backofficeId,
         long? userId,
         long? statusId,
         long? campaignId,
         DateTime? dateFrom,
         DateTime? dateTo,
+        int page,
+        int pageSize,
         CancellationToken ct = default);
 
     Task<IEnumerable<OrderDocument>> GetPendingVerificationAsync(long backofficeId, CancellationToken ct = default);

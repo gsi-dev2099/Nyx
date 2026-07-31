@@ -76,8 +76,16 @@ public static class DependencyInjection
         
         services.AddScoped<INotificationService, Application.Services.NotificationService>();
 
-        // SignalR & Custom UserId
-        services.AddSignalR();
+        // SignalR & Custom UserId & Redis Backplane
+        var signalRBuilder = services.AddSignalR();
+        var redisConnStr = config["RedisSettings:ConnectionString"];
+        if (!string.IsNullOrEmpty(redisConnStr))
+        {
+            signalRBuilder.AddStackExchangeRedis(redisConnStr, options =>
+            {
+                options.Configuration.ChannelPrefix = RedisChannel.Literal("NyxCRM");
+            });
+        }
         services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CRM.ApiHub.Infrastructure.Authentication.CustomUserIdProvider>();
         // Use Cases
         services.AddScoped<LoginUseCase>();
