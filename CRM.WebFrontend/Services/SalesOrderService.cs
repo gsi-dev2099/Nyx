@@ -22,8 +22,8 @@ public class SalesOrderService : ISalesOrderService
         try
         {
             var url = $"api/orders?userId={userId}&statusId={statusId}&campaignId={campaignId}";
-            var result = await _httpClient.GetFromJsonAsync<List<SalesOrderViewModel>>(url);
-            return result ?? new List<SalesOrderViewModel>();
+            var pagedResult = await _httpClient.GetFromJsonAsync<CRM.WebFrontend.Client.Models.PagedResult<SalesOrderViewModel>>(url);
+            return pagedResult?.Items ?? new List<SalesOrderViewModel>();
         }
         catch (Exception ex)
         {

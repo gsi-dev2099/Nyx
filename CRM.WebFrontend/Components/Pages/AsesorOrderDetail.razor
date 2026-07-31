@@ -209,10 +209,22 @@
                     <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Estado Actual</span>
                     <span class="badge bg-dark fs-6 px-3 py-1 mt-1">@_order.Status</span>
                 </div>
-                @if (_isEditable)
+                @if (_order.IdStatus == 1 && _isEditable)
                 {
                     <button class="btn btn-premium btn-sm mt-3" @onclick="SendToSupervisor" disabled="@_isSaving">
                         Enviar a Supervisor
+                    </button>
+                }
+                else if (_order.IdStatus == 2)
+                {
+                    <button class="btn btn-secondary btn-sm mt-3" disabled title="Esta orden ya fue enviada al supervisor y se encuentra en revisión.">
+                        ✓ Enviado a Supervisor
+                    </button>
+                }
+                else if (_order.IdStatus.HasValue && _order.IdStatus.Value >= 3)
+                {
+                    <button class="btn btn-outline-secondary btn-sm mt-3" disabled>
+                        En Etapa Posterior (@(_order.Status ?? "Procesada"))
                     </button>
                 }
             </div>
@@ -796,7 +808,7 @@
 
     private async Task SendToSupervisor()
     {
-        if (_order == null || !_isEditable) return;
+        if (_order == null || !_isEditable || _order.IdStatus != 1) return;
         
         _isSaving = true;
         try

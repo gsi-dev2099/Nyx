@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
     "http": {
@@ -7,7 +7,9 @@
       "launchBrowser": false,
       "applicationUrl": "http://localhost:5068",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "NYX_DB_ENCRYPTION_KEY": "NyxCRMDatabaseKeySecret2026Secur",
+        "NYX_DB_ENCRYPTION_IV": "NyxCRMInitVector"
       }
     },
     "https": {
@@ -16,7 +18,9 @@
       "launchBrowser": false,
       "applicationUrl": "https://localhost:7058;http://localhost:5068",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "NYX_DB_ENCRYPTION_KEY": "NyxCRMDatabaseKeySecret2026Secur",
+        "NYX_DB_ENCRYPTION_IV": "NyxCRMInitVector"
       }
     }
   }
