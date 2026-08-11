@@ -87,16 +87,20 @@ public class SupervisorRepository : ISupervisorRepository
             }
 
             var sql = new StringBuilder(@"
-                SELECT o.*, COUNT(*) OVER() AS TotalCount
+                SELECT o.*, 
+                       nxf_sla.calcular_minutos_sla_colaborador(o.id_user, o.sales_date, NOW()) AS SlaMinutes,
+                       COUNT(*) OVER() AS TotalCount
                 FROM sales_service.sales_order o
-                WHERE o.id_user = ANY(@AdvisorIds)");
+                WHERE (o.id_user = ANY(@AdvisorIds) OR o.custody_user_id = ANY(@AdvisorIds) OR o.custody_user_id = @SupervisorId)");
+
 
             var parameters = new DynamicParameters();
             parameters.Add("AdvisorIds", advisorIds.ToArray());
+            parameters.Add("SupervisorId", supervisorId);
 
             if (userId.HasValue)
             {
-                sql.Append(" AND o.id_user = @UserId");
+                sql.Append(" AND (o.id_user = @UserId OR o.custody_user_id = @UserId)");
                 parameters.Add("UserId", userId.Value);
             }
             if (statusId.HasValue)

@@ -57,7 +57,69 @@ public class MaintenanceService : IMaintenanceService
         }
     }
 
+    public async Task<List<OrderSubstatusMaintenanceDto>> GetAllSubstatusesAsync()
+    {
+        try
+        {
+            await SetAuthHeaderAsync();
+            var result = await _httpClient.GetFromJsonAsync<List<OrderSubstatusMaintenanceDto>>("api/maintenance/substatuses");
+            return result ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MaintenanceService] Error fetching substatuses: {ex.Message}");
+            return new();
+        }
+    }
+
+    public async Task<bool> ToggleSubstatusAsync(int id, bool isActive)
+    {
+        try
+        {
+            await SetAuthHeaderAsync();
+            var response = await _httpClient.PatchAsJsonAsync($"api/maintenance/substatuses/{id}/toggle", new { isActive });
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MaintenanceService] Error toggling substatus: {ex.Message}");
+            return false;
+        }
+    }
+
+
+    public async Task<List<UserWorkShiftMaintenanceDto>> GetUserWorkShiftsAsync()
+    {
+        try
+        {
+            await SetAuthHeaderAsync();
+            var result = await _httpClient.GetFromJsonAsync<List<UserWorkShiftMaintenanceDto>>("api/maintenance/work-shifts");
+            return result ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MaintenanceService] Error fetching work shifts: {ex.Message}");
+            return new();
+        }
+    }
+
+    public async Task<bool> SaveUserWorkShiftAsync(SaveUserWorkShiftDto dto)
+    {
+        try
+        {
+            await SetAuthHeaderAsync();
+            var response = await _httpClient.PostAsJsonAsync("api/maintenance/work-shifts", dto);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MaintenanceService] Error saving work shift: {ex.Message}");
+            return false;
+        }
+    }
+
     // ===== PRODUCTS =====
+
     public async Task<List<ProductMaintenanceDto>> GetAllProductsAsync()
     {
         try

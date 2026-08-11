@@ -20,11 +20,11 @@ public class OrderIncident
     [Column("custom_solution")]
     public string? CustomSolution { get; set; }
     [Column("incident_status")]
-    public string? IncidentStatus { get; set; }
+    public string? IncidentStatus { get; set; } = "OPEN";
     [Column("detected_by")]
     public long DetectedBy { get; set; }
     [Column("assigned_to_role")]
-    public string? AssignedToRole { get; set; }
+    public string? AssignedToRole { get; set; } = "BACKOFFICE";
     [Column("resolved_by")]
     public long? ResolvedBy { get; set; }
     [Column("resolved_at")]
@@ -40,7 +40,7 @@ public class OrderIncident
     [Column("due_at")]
     public DateTime? DueAt { get; set; }
     [Column("register")]
-    public DateTime Register { get; set; }
+    public DateTime Register { get; set; } = DateTime.UtcNow;
 
     [NotMapped]
     public short? Priority { get; set; }

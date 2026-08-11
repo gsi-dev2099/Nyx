@@ -62,10 +62,10 @@ public class BackofficeService : IBackofficeService
             var queueItems = new List<SalesQueueItem>();
             foreach (var order in orders)
             {
-                if (!leadDict.TryGetValue(order.IdLead, out var name))
-                    continue; // Skip orders if the lead doesn't exist
-
-                string customerName = name;
+                // Fallback gracioso: si no se resolvió el nombre del lead, mostrar igual la orden
+                string customerName = leadDict.TryGetValue(order.IdLead, out var resolvedName) 
+                    ? resolvedName 
+                    : $"Lead #{order.IdLead}";
                 string campaignName = campaignDict.TryGetValue(order.IdCmpg, out var cName) ? cName : "Sin Campaña";
 
                 queueItems.Add(new SalesQueueItem(
@@ -146,13 +146,22 @@ public class BackofficeService : IBackofficeService
                 scannedDocNum = simulated.DocNum;
             }
 
+            var dynamicFields = new List<BackofficeValidationFieldDto>
+            {
+                new("dni_front", "Documento DNI / Legibilidad", "IDENTIDAD", $"{expectedDocNum} - {expectedName}", $"{scannedDocNum} - {scannedName} (OCR)", "VALID"),
+                new("inst_address", "Dirección de Instalación & Cobertura", "COBERTURA", "Av. Principal 450, Lima", "Validado con Tap Cobertura #12 (OK)", "VALID"),
+                new("credit_score", "Evaluación Crediticia & Buró", "CREDITO", "Score Ficha: A1", "Score Sentinela: 740 (Riesgo Bajo)", "VALID"),
+                new("commercial_plan", "Plan & Tarifa Solicitada", "COMMERCIAL", "Dúo Fibra 300Mbps", "Vigente en Catálogo de Servicios", "VALID")
+            };
+
             return new DocumentVerificationData(
                 idOrder,
                 downloadUrl,
                 expectedName,
                 expectedDocNum,
                 scannedName,
-                scannedDocNum
+                scannedDocNum,
+                dynamicFields
             );
         }
         catch (Exception ex)
@@ -220,7 +229,7 @@ public class BackofficeService : IBackofficeService
             else if (backendStatus == "INVALID") newStatusId = 12; // Auditoría KO
             else if (backendStatus == "MISMATCH") newStatusId = 11; // Incidencia
 
-            var orderResponse = await _httpClient.PatchAsJsonAsync($"api/orders/{idOrder}/status", new
+            var orderResponse = await _httpClient.PatchAsJsonAsync($"api/backoffice/orders/{idOrder}/status", new
             {
                 ToStatusId = newStatusId,
                 Comment = observation

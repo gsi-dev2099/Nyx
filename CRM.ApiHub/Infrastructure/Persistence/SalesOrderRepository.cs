@@ -41,12 +41,13 @@ public class SalesOrderRepository : ISalesOrderRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            var sql = new StringBuilder("SELECT *, COUNT(*) OVER() AS TotalCount FROM sales_service.sales_order WHERE 1=1");
+            var sql = new StringBuilder("SELECT *, nxf_sla.calcular_minutos_sla_colaborador(id_user, sales_date, NOW()) AS SlaMinutes, COUNT(*) OVER() AS TotalCount FROM sales_service.sales_order WHERE 1=1");
+
             var parameters = new DynamicParameters();
 
             if (userId.HasValue)
             {
-                sql.Append(" AND id_user = @UserId");
+                sql.Append(" AND (id_user = @UserId OR custody_user_id = @UserId OR owner_user_id = @UserId)");
                 parameters.Add("UserId", userId.Value);
             }
 
@@ -412,6 +413,25 @@ public class SalesOrderRepository : ISalesOrderRepository
             LEFT JOIN ext_ecosystem.collaborators col ON col.id_user = d.verified_by
             WHERE d.id_order = @IdOrder AND d.verified_at IS NOT NULL AND d.is_active = true
 
+            UNION ALL
+
+            SELECT 
+                COALESCE(od.validated_at, o.last_update) AS timestamp,
+                'FORM_DATA_UPDATED' AS event_type,
+                COALESCE(od.validated_by, o.id_user) AS actor_id,
+                TRIM(CONCAT(col.name, ' ', col.paternal_surname, ' ', col.maternal_surname)) AS actor_name,
+                CONCAT('Ficha de venta actualizada (', COUNT(od.id_fld)::text, ' campos guardados)') AS description,
+                json_build_object(
+                    'fields_count', COUNT(od.id_fld),
+                    'summary', string_agg(CONCAT(f.label, ': ', od.value_text), ' | ')
+                )::text AS details_json
+            FROM sales_service.sales_order_data od
+            JOIN sales_service.sales_order o ON o.id_order = od.id_order
+            LEFT JOIN sales_service.sales_form_field f ON f.id_fld = od.id_fld
+            LEFT JOIN ext_ecosystem.collaborators col ON col.id_user = COALESCE(od.validated_by, o.id_user)
+            WHERE od.id_order = @IdOrder
+            GROUP BY COALESCE(od.validated_at, o.last_update), COALESCE(od.validated_by, o.id_user), col.name, col.paternal_surname, col.maternal_surname
+
             ORDER BY timestamp ASC;";
 
         try
@@ -547,6 +567,25 @@ public class SalesOrderRepository : ISalesOrderRepository
                 FROM sales_service.order_document d
                 LEFT JOIN user_service.users col ON col.id_user = d.verified_by
                 WHERE d.id_order = @IdOrder AND d.verified_at IS NOT NULL AND d.is_active = true
+
+                UNION ALL
+
+                SELECT 
+                    COALESCE(od.validated_at, o.last_update) AS timestamp,
+                    'FORM_DATA_UPDATED' AS event_type,
+                    COALESCE(od.validated_by, o.id_user) AS actor_id,
+                    col.username AS actor_name,
+                    CONCAT('Ficha de venta actualizada (', COUNT(od.id_fld)::text, ' campos guardados)') AS description,
+                    json_build_object(
+                        'fields_count', COUNT(od.id_fld),
+                        'summary', string_agg(CONCAT(f.label, ': ', od.value_text), ' | ')
+                    )::text AS details_json
+                FROM sales_service.sales_order_data od
+                JOIN sales_service.sales_order o ON o.id_order = od.id_order
+                LEFT JOIN sales_service.sales_form_field f ON f.id_fld = od.id_fld
+                LEFT JOIN user_service.users col ON col.id_user = COALESCE(od.validated_by, o.id_user)
+                WHERE od.id_order = @IdOrder
+                GROUP BY COALESCE(od.validated_at, o.last_update), COALESCE(od.validated_by, o.id_user), col.username
 
                 ORDER BY timestamp ASC;";
 

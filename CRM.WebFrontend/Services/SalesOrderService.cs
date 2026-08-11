@@ -212,6 +212,29 @@ public class SalesOrderService : ISalesOrderService
         }
     }
 
+    public async Task<(byte[] Bytes, string ContentType, string FileName)?> DownloadDocumentAsync(long idDocument)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"api/documents/{idDocument}/download");
+            if (!response.IsSuccessStatusCode) return null;
+
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+            var fileName = response.Content.Headers.ContentDisposition?.FileNameStar 
+                        ?? response.Content.Headers.ContentDisposition?.FileName 
+                        ?? $"documento_{idDocument}";
+            
+            fileName = fileName.Trim('"');
+            return (bytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in DownloadDocumentAsync: {ex.Message}");
+            return null;
+        }
+    }
+
     public async Task<bool> UpdateOrderStatusAsync(long idOrder, long toStatusId, long? toSubstatusId = null, string? comment = null)
     {
         try

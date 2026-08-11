@@ -11,8 +11,7 @@ builder.Services.AddHttpClient("BackendApi", client =>
 {
     client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
 }).AddHttpMessageHandler<CRM.WebFrontend.Client.Services.MockBackendHandler>()
-  .AddTransientHttpErrorPolicy(p => p.WaitAndRetryAsync(3, _ => TimeSpan.FromSeconds(2)))
-  .AddTransientHttpErrorPolicy(p => p.CircuitBreakerAsync(5, TimeSpan.FromSeconds(30)));
+  .AddTransientHttpErrorPolicy(p => p.WaitAndRetryAsync(3, _ => TimeSpan.FromSeconds(2)));
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddCascadingAuthenticationState();

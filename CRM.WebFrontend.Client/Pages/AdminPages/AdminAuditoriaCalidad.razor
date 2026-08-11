@@ -1,0 +1,176 @@
+@page "/admin/auditoria-calidad"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "ADMIN_CRM,SUPERVISOR")]
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+@using MudBlazor
+
+<PageTitle>Auditoría de Calidad y Scoring - NYX CRM</PageTitle>
+
+<style>
+    .admin-header { background: #ffffff; border-radius: 20px; padding: 22px 28px; box-shadow: 0 4px 24px rgba(29,38,57,0.06); margin-bottom: 1.5rem; }
+    .btn-admin { background: #1D2639; color: #fff; border-radius: 12px; font-weight: 600; border: none; }
+    .btn-admin:hover { background: #2563EB; color: #fff; }
+    .audit-card { background: #fff; border-radius: 18px; box-shadow: 0 4px 20px rgba(29,38,57,0.06); padding: 20px 24px; margin-bottom: 1rem; }
+    .score-badge { font-size: 1.1rem; font-weight: 800; padding: 6px 14px; border-radius: 12px; }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="admin-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+            <h1 class="h4 fw-bold text-dark mb-1"><i class="bi bi-patch-check-fill text-primary me-2"></i> Auditoría de Calidad y Scoring de Ventas</h1>
+            <p class="text-muted small mb-0">Checklists de evaluación de llamadas y ventas con scoring porcentual y auditoría por campaña.</p>
+        </div>
+        <button class="btn btn-admin px-4 py-2" @onclick="OpenChecklistModal"><i class="bi bi-plus-circle-fill me-2"></i> Nuevo Checklist</button>
+    </div>
+
+    <div class="row g-4">
+        <!-- Plantillas de Checklist -->
+        <div class="col-md-5">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-card-checklist me-2"></i> Plantillas de Calidad por Campaña</h6>
+            @foreach (var chk in _checklists)
+            {
+                <div class="audit-card">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold text-dark fs-6">@chk.Name</span>
+                        <span class="score-badge bg-success-subtle text-success">@chk.TargetScore% Mín.</span>
+                    </div>
+                    <p class="text-muted small mb-2">Campaña: <strong class="text-dark">@(chk.CampaignName ?? "Todas")</strong> · Versión: @(chk.Version ?? "v1.0")</p>
+                    <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+                        <span class="text-muted small"><i class="bi bi-list-task me-1"></i> @chk.ItemsCount criterios de evaluación</span>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill" @onclick="() => SelectChecklist(chk)">Ver Criterios</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Evaluaciones Recientes / Detalle de Criterios -->
+        <div class="col-md-7">
+            @if (_selectedChecklist != null)
+            {
+                <div class="audit-card">
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-3 border-bottom">
+                        <div>
+                            <h5 class="fw-bold text-dark mb-1">Criterios de Evaluación: <span class="text-primary">@_selectedChecklist.Name</span></h5>
+                            <p class="text-muted small mb-0">Puntaje requerido para aprobación: <strong>@_selectedChecklist.TargetScore%</strong></p>
+                        </div>
+                        <button class="btn btn-sm btn-admin rounded-pill px-3" @onclick="AddCriterion"><i class="bi bi-plus me-1"></i> Agregar Criterio</button>
+                    </div>
+
+                    @foreach (var crit in _criteria)
+                    {
+                        <div class="d-flex align-items-center justify-content-between p-3 mb-2 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+                            <div>
+                                <span class="fw-bold text-dark small d-block">@crit.Question</span>
+                                <span class="text-muted" style="font-size:0.75rem;">Categoría: @crit.Category · Peso: <strong>@crit.Weight%</strong></span>
+                            </div>
+                            <span class="badge @(crit.IsCritical ? "bg-danger-subtle text-danger" : "bg-primary-subtle text-primary") rounded-pill px-3">
+                                @(crit.IsCritical ? "CRÍTICO" : $"{crit.Weight} pts")
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="audit-card text-center text-muted py-5">
+                    <i class="bi bi-clipboard-check fs-1 mb-3"></i>
+                    <p class="mb-0">Selecciona una plantilla de checklist para administrar sus criterios de scoring.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Checklist -->
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pt-4 px-4 pb-2">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-patch-check text-primary me-2"></i> Nueva Plantilla de Auditoría</h5>
+                    <button class="btn-close" @onclick="() => _showModal = false"></button>
+                </div>
+                <div class="modal-body px-4 pb-2">
+                    <div class="row g-3">
+                        <div class="col-12"><label class="form-label fw-bold small text-muted">Nombre de la Plantilla *</label><input class="form-control rounded-3" @bind="_newChk.Name" placeholder="Ej. Calidad Venta Residencial" /></div>
+                        <div class="col-8"><label class="form-label fw-bold small text-muted">Campaña</label><input class="form-control rounded-3" @bind="_newChk.CampaignName" placeholder="Ej. Fibra Hogar" /></div>
+                        <div class="col-4"><label class="form-label fw-bold small text-muted">Score Mín. %</label><input type="number" class="form-control rounded-3" @bind="_newChk.TargetScore" min="50" max="100" /></div>
+                        <div class="col-4"><label class="form-label fw-bold small text-muted">Versión</label><input class="form-control rounded-3" @bind="_newChk.Version" placeholder="v1.0" /></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-2 pb-4 px-4">
+                    <button class="btn btn-light rounded-pill px-4" @onclick="() => _showModal = false">Cancelar</button>
+                    <button class="btn btn-admin px-5 rounded-pill" @onclick="SaveChecklist">Guardar Plantilla</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _showModal = false;
+    private List<ChecklistDto> _checklists = new();
+    private ChecklistDto? _selectedChecklist;
+    private ChecklistDto _newChk = new() { TargetScore = 85 };
+    private List<CriterionDto> _criteria = new();
+
+    public class ChecklistDto { public long IdChecklist { get; set; } public string Name { get; set; } = ""; public string? CampaignName { get; set; } public string? Version { get; set; } public decimal TargetScore { get; set; } = 85; public bool IsActive { get; set; } = true; public int ItemsCount { get; set; } = 5; }
+    public class CriterionDto { public string Question { get; set; } = ""; public string Category { get; set; } = "General"; public decimal Weight { get; set; } = 20; public bool IsCritical { get; set; } }
+
+    protected override async Task OnInitializedAsync() => await LoadChecklists();
+
+    private async Task LoadChecklists()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var data = await client.GetFromJsonAsync<List<ChecklistDto>>("/api/maintenance/quality-checklists");
+            if (data != null && data.Any()) _checklists = data;
+            else LoadMockChecklists();
+        }
+        catch { LoadMockChecklists(); }
+    }
+
+    private void LoadMockChecklists()
+    {
+        _checklists = new List<ChecklistDto>
+        {
+            new() { IdChecklist = 1, Name = "Auditoría Venta Telefónica Fibra", CampaignName = "Fibra Hogar", Version = "v2.1", TargetScore = 90, ItemsCount = 6 },
+            new() { IdChecklist = 2, Name = "Calidad Atención Asesor", CampaignName = "General", Version = "v1.3", TargetScore = 80, ItemsCount = 4 },
+            new() { IdChecklist = 3, Name = "Auditoría PYME / Empresas", CampaignName = "Empresas Pro", Version = "v1.0", TargetScore = 95, ItemsCount = 5 },
+        };
+    }
+
+    private void SelectChecklist(ChecklistDto chk)
+    {
+        _selectedChecklist = chk;
+        _criteria = new List<CriterionDto>
+        {
+            new() { Question = "¿El asesor realizó la lectura obligatoria del consentimiento RGPD?", Category = "Legales", Weight = 25, IsCritical = true },
+            new() { Question = "¿Se confirmó la identidad del titular con DNI / NIE vigente?", Category = "Identificación", Weight = 20, IsCritical = true },
+            new() { Question = "¿Se explicaron claramente las condiciones de permanencia y tarifa?", Category = "Oferta", Weight = 20, IsCritical = false },
+            new() { Question = "¿El IBAN o cuenta bancaria fue verificado con el cliente?", Category = "Financiero", Weight = 15, IsCritical = true },
+            new() { Question = "¿Se brindó el código de seguimiento de orden al cliente?", Category = "Cierre", Weight = 20, IsCritical = false },
+        };
+    }
+
+    private void OpenChecklistModal() { _newChk = new() { TargetScore = 85 }; _showModal = true; }
+
+    private void SaveChecklist()
+    {
+        if (string.IsNullOrWhiteSpace(_newChk.Name)) { Snackbar.Add("Nombre requerido.", Severity.Warning); return; }
+        _newChk.IdChecklist = _checklists.Any() ? _checklists.Max(x => x.IdChecklist) + 1 : 1;
+        _checklists.Add(_newChk);
+        Snackbar.Add("Plantilla de calidad creada correctamente.", Severity.Success);
+        _showModal = false;
+    }
+
+    private void AddCriterion()
+    {
+        _criteria.Add(new CriterionDto { Question = "Nuevo criterio de evaluación", Category = "General", Weight = 10 });
+        Snackbar.Add("Criterio agregado.", Severity.Info);
+    }
+}

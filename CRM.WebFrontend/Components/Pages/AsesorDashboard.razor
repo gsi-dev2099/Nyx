@@ -1,90 +1,244 @@
 @page "/asesor"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "ASESOR")]
 @using CRM.WebFrontend.Services
+@using CRM.WebFrontend.Client.Models
 @inject ISalesOrderService SalesOrderService
+@inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Bandeja del Asesor - NYX CRM</PageTitle>
 
 <style>
-    :root {
-        --bg-app: #f4f4f5; /* zinc-100 */
-        --surface: #ffffff;
-        --border-color: #e4e4e7; /* zinc-200 */
-        --text-main: #18181b; /* zinc-900 */
-        --text-muted: #71717a; /* zinc-500 */
-        --accent: #09090b; /* zinc-950 */
-        --success: #10b981; /* emerald-500 */
-        --warning: #f59e0b; /* amber-500 */
-        --radius-lg: 16px;
-        --radius-md: 12px;
-        --radius-sm: 8px;
+    .asesor-hero-card {
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 24px 28px;
+        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
+        border: none;
+    }
+    
+    .asesor-kpi-card {
+        background: rgba(244, 245, 247, 0.85);
+        border-radius: 20px;
+        padding: 20px;
+        border: none;
+        box-shadow: 0 4px 12px -2px rgba(29, 38, 57, 0.03);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .asesor-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px -4px rgba(29, 38, 57, 0.08);
+    }
+    
+    .kpi-icon-wrapper {
+        width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        color: #1D2639;
+        flex-shrink: 0;
     }
 
-    body {
-        background-color: var(--bg-app);
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        color: var(--text-main);
-    }
-
-    .premium-panel {
-        background: var(--surface);
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--border-color);
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.01);
-    }
-
-    .btn-premium {
-        background: var(--accent);
-        color: white;
-        font-weight: 600;
-        border-radius: var(--radius-sm);
-        padding: 0.6rem 1.2rem;
-        border: 1px solid transparent;
-        transition: all 0.15s ease;
-        text-decoration: none;
-    }
-
-    .btn-premium:hover {
-        background: #27272a;
-        color: white;
-    }
-
-    .badge-soft {
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 0.25rem 0.6rem;
+    .asesor-cta-btn {
+        background: #1D2639;
+        color: #ffffff;
         border-radius: 9999px;
+        padding: 10px 20px;
+        font-size: 0.85rem;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        text-decoration: none;
+        transition: all 0.25s ease;
+        box-shadow: 0 8px 20px -4px rgba(29, 38, 57, 0.25);
+    }
+
+    .asesor-cta-btn:hover {
+        background: #465975;
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 12px 25px -4px rgba(29, 38, 57, 0.35);
+    }
+
+    .table-card {
+        background: #ffffff;
+        border-radius: 24px;
+        border: none;
+        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
+        overflow: hidden;
+    }
+
+    .table-modern thead th {
+        background: #F8FAFC;
+        color: #64748B;
+        font-size: 0.75rem;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.25px;
+        letter-spacing: 0.5px;
+        padding: 14px 18px;
+        border-bottom: 1px solid #E2E8F0;
     }
 
-    .badge-active {
-        background-color: #f0fdf4; /* emerald-100 */
-        color: #166534; /* emerald-800 */
+    .table-modern tbody tr {
+        transition: background-color 0.2s ease;
     }
 
-    .badge-pending {
-        background-color: #fef3c7; /* amber-100 */
-        color: #92400e; /* amber-800 */
+    .table-modern tbody tr:hover {
+        background-color: #F1F5F9;
     }
 
-    .table-hover tbody tr:hover {
-        background-color: #fafafa;
+    .table-modern tbody td {
+        padding: 14px 18px;
+        font-size: 0.88rem;
+        color: #1E293B;
+        vertical-align: middle;
+        border-bottom: 1px solid #F1F5F9;
+    }
+
+    .badge-status {
+        border-radius: 9999px;
+        padding: 5px 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .action-btn-quick {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: none;
+        background: #F1F5F9;
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .action-btn-quick:hover {
+        background: #1D2639;
+        color: #ffffff;
+    }
+
+    .nav-tabs-custom .nav-link {
+        color: #64748B;
+        font-weight: 700;
+        font-size: 0.9rem;
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        padding: 12px 22px;
         cursor: pointer;
+    }
+
+    .nav-tabs-custom .nav-link.active {
+        color: #1D2639;
+        border-bottom-color: #1D2639;
+        background: transparent;
+    }
+
+    .product-pill {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #334155;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
 </style>
 
-<div class="container-fluid py-4 px-md-5" style="max-width: 1600px;">
-    <div class="d-flex align-items-center justify-content-between mb-4">
-        <div>
-            <h3 class="fw-bold mb-0" style="color: var(--accent); letter-spacing: -0.5px;">Bandeja del Asesor</h3>
-            <p class="text-muted mb-0">Visualiza y gestiona las ventas y pedidos bajo tu custodia.</p>
+<div class="container-fluid py-4 space-y-4">
+    
+    <!-- Hero Banner & Resumen del Asesor (Sin Redirecciones Innecesarias) -->
+    <div class="asesor-hero-card">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+            <div>
+                <h1 class="h3 font-extrabold text-dark tracking-tight mb-1" style="color: #1D2639;">Bandeja del Asesor</h1>
+                <p class="text-muted small mb-0 font-medium">Gestión unificada e interactiva de Pre-Ventas y Órdenes bajo tu custodia en un solo lugar.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-dark rounded-pill px-3 font-semibold" @onclick="OpenNewPreSaleModal">
+                    <i class="bi bi-funnel me-1"></i> + Nueva Pre-Venta
+                </button>
+                <a href="/asesor/orders/new" class="asesor-cta-btn">
+                    <i class="bi bi-plus-lg fs-6"></i>
+                    <span>+ Nueva Orden</span>
+                </a>
+            </div>
         </div>
-        <div class="text-end">
-            <span class="badge bg-dark px-3 py-2 rounded-pill">Asesor: @_username</span>
+
+        <!-- KPI Cards -->
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <div class="asesor-kpi-card">
+                    <div>
+                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Pre-Ventas Activas</span>
+                        <span class="fs-3 fw-bold" style="color: #1D2639;">@_preSalesList.Count</span>
+                    </div>
+                    <div class="kpi-icon-wrapper">
+                        <i class="bi bi-telephone-inbound fs-5" style="color: #2563EB;"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="asesor-kpi-card">
+                    <div>
+                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Órdenes en Custodia</span>
+                        <span class="fs-3 fw-bold" style="color: #1D2639;">@_orders.Count</span>
+                    </div>
+                    <div class="kpi-icon-wrapper">
+                        <i class="bi bi-box-seam fs-5"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="asesor-kpi-card">
+                    <div>
+                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Ventas Aprobadas</span>
+                        <span class="fs-3 fw-bold" style="color: #1D2639;">@_orders.Count(o => o.Status == "APPROVED")</span>
+                    </div>
+                    <div class="kpi-icon-wrapper">
+                        <i class="bi bi-check-circle fs-5" style="color: #10B981;"></i>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Pestañas de Filtrado en la Misma Bandeja (Sin Saltos de Página) -->
+    <ul class="nav nav-tabs nav-tabs-custom border-bottom mb-3" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "ventas" ? "active" : "")" @onclick='() => _activeTab = "ventas"'>
+                <i class="bi bi-cart-check me-2"></i> Mis Órdenes de Venta (@_orders.Count)
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "preventas" ? "active" : "")" @onclick='() => _activeTab = "preventas"'>
+                <i class="bi bi-funnel me-2"></i> Mis Pre-Ventas (@_preSalesList.Count)
+            </button>
+        </li>
+    </ul>
 
     @if (_isLoading)
     {
@@ -92,80 +246,260 @@
             <div class="spinner-border text-dark" role="status">
                 <span class="visually-hidden">Cargando...</span>
             </div>
-            <span class="ms-3 text-muted">Obteniendo tus pedidos...</span>
+            <span class="ms-3 text-muted fw-semibold">Cargando datos de la bandeja...</span>
         </div>
     }
     else
     {
-        <div class="premium-panel p-4">
-            <h5 class="fw-bold mb-4">Pedidos en Custodia</h5>
-
-            @if (!_orders.Any())
-            {
-                <div class="text-center py-5">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--border-color); margin-bottom: 1rem;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    <h6 class="text-dark fw-bold">No tienes pedidos bajo tu custodia actualmente</h6>
-                    <p class="text-muted">Cuando se te asignen pedidos para verificación o edición, aparecerán aquí.</p>
-                </div>
-            }
-            else
-            {
+        @if (_activeTab == "ventas")
+        {
+            <!-- TABLA DE VENTAS -->
+            <div class="table-card mt-2">
                 <div class="table-responsive">
-                    <table class="table align-middle table-hover">
-                        <thead class="table-light text-muted">
+                    <table class="table table-hover table-modern align-middle mb-0">
+                        <thead>
                             <tr>
-                                <th>Orden #</th>
-                                <th>Fecha de Venta</th>
-                                <th>Total Productos</th>
-                                <th>Valor Total</th>
-                                <th>Perfil Alterno</th>
-                                <th>Estado</th>
-                                <th class="text-end">Acciones</th>
+                                <th class="ps-4">N° Orden</th>
+                                <th>Fecha Registro</th>
+                                <th>Desglose de Productos</th>
+                                <th>Ficha Alterna</th>
+                                <th>Estado Proceso</th>
+                                <th class="text-end pe-4">Ver Ficha</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var order in _orders)
+                            @if (!_orders.Any())
                             {
-                                <tr @onclick="() => NavigateToDetail(order.IdOrder)">
-                                    <td class="fw-bold">#@order.IdOrder</td>
-                                    <td>@order.SalesDate.ToString("dd/MM/yyyy HH:mm")</td>
-                                    <td>@order.TotalProducts</td>
-                                    <td class="fw-bold">@((order.TotalValue.HasValue) ? $"{order.TotalValue.Value:N2} {order.CurrencyCode}" : "N/A")</td>
-                                    <td>
-                                        @if (order.IsAlternate)
-                                        {
-                                            <span class="badge-soft badge-pending">Sí</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge-soft badge-active">No</span>
-                                        }
-                                    </td>
-                                    <td>
-                                        <span class="badge-soft @(order.Status == "APPROVED" ? "badge-active" : "badge-pending")">
-                                            @(order.Status ?? "Pendiente")
-                                        </span>
-                                    </td>
-                                    <td class="text-end" @onclick:stopPropagation>
-                                        <button class="btn btn-premium btn-sm" @onclick="() => NavigateToDetail(order.IdOrder)">
-                                            Ver Detalle
-                                        </button>
+                                <tr>
+                                    <td colspan="6" class="text-center py-5">
+                                        <i class="bi bi-inbox text-muted display-6 d-block mb-2"></i>
+                                        <h6 class="text-dark fw-bold mb-1">No tienes órdenes bajo tu custodia actualmente</h6>
+                                        <p class="text-muted small mb-0">Comienza creando una pre-venta o nueva orden.</p>
                                     </td>
                                 </tr>
+                            }
+                            else
+                            {
+                                @foreach (var order in _orders)
+                                {
+                                    <tr style="cursor: pointer;" @onclick="() => NavigateToDetail(order.IdOrder)">
+                                        <td class="ps-4 fw-bold" style="color: #2563EB;">#@order.IdOrder</td>
+                                        <td class="text-nowrap text-secondary small">@order.SalesDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td @onclick:stopPropagation="true">
+                                            <button type="button" class="btn btn-sm btn-light border rounded-pill px-3 font-semibold text-dark" 
+                                                    @onclick="() => ShowProductsModal(order)">
+                                                <i class="bi bi-bag-check me-1 text-primary"></i> Ver @_getProductBreakdown(order).Count Productos por Separado
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <span class="badge @(order.IsAlternate ? "bg-warning-subtle text-warning-emphasis" : "bg-success-subtle text-success-emphasis") rounded-pill px-2.5">
+                                                @(order.IsAlternate ? "Perfil Alterno" : "Perfil Estándar")
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if (order.IdStatus == 11 || order.Status == "INCIDENCIA" || (order.Status != null && order.Status.Contains("incidencia", StringComparison.OrdinalIgnoreCase)))
+                                            {
+                                                <span class="badge-status shadow-sm" style="background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #DC2626; font-weight: 800;">
+                                                    <i class="bi bi-exclamation-triangle-fill text-danger me-1"></i> ⚠️ EN CORRECCIÓN (Incidencia)
+                                                </span>
+                                            }
+                                            else if (order.IdStatus == 2 || order.Status == "REVISION_SUPERVISOR")
+                                            {
+                                                <span class="badge-status shadow-sm" style="background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #D97706; font-weight: 700;">
+                                                    <i class="bi bi-search text-warning me-1"></i> EN REVISIÓN SUPERVISOR
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge-status" style="background-color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)"); color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "#10B981" : "#D97706");">
+                                                    <span style="width: 6px; height: 6px; border-radius: 50%; background-color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "#10B981" : "#D97706"); display: inline-block;"></span>
+                                                    @(order.Status ?? "En Verificación")
+                                                </span>
+                                            }
+                                        </td>
+                                        <td class="text-end pe-4" @onclick:stopPropagation="true">
+                                            <button type="button" class="action-btn-quick" title="Ver Ficha Completa" @onclick="() => NavigateToDetail(order.IdOrder)">
+                                                <i class="bi bi-file-earmark-text-fill"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
                             }
                         </tbody>
                     </table>
                 </div>
-            }
-        </div>
+            </div>
+        }
+        else
+        {
+            <!-- TABLA DE PRE-VENTAS INTEGRADA DIRECTAMENTE EN EL DASHBOARD -->
+            <div class="table-card mt-2">
+                <div class="table-responsive">
+                    <table class="table table-hover table-modern align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">N° Pre-Venta</th>
+                                <th>Cliente</th>
+                                <th>Teléfono</th>
+                                <th>Operador / Notas</th>
+                                <th>Cobertura</th>
+                                <th class="text-end pe-4">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!_preSalesList.Any())
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-5">
+                                        <i class="bi bi-telephone-x text-muted display-6 d-block mb-2"></i>
+                                        <h6 class="text-dark fw-bold mb-1">No hay pre-ventas activas</h6>
+                                        <p class="text-muted small mb-0">Registra una nueva pre-venta para comenzar.</p>
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var ps in _preSalesList)
+                                {
+                                    <tr>
+                                        <td class="ps-4 fw-bold" style="color: #2563EB;">
+                                            #@ps.IdPresale<br/>
+                                            <small class="text-muted font-normal">@ps.Register.ToString("dd/MM/yyyy")</small>
+                                        </td>
+                                        <td class="fw-semibold text-dark">
+                                            @(string.IsNullOrWhiteSpace(ps.FirstName) && string.IsNullOrWhiteSpace(ps.LastName) ? "Sin nombre" : $"{ps.FirstName} {ps.LastName}".Trim())
+                                        </td>
+                                        <td class="fw-bold text-secondary">@ps.Phone</td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border mb-1">@ps.Operator</span><br/>
+                                            <small class="text-muted truncate d-inline-block" style="max-width: 220px;">@ps.Notes</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge @(ps.CoverageStatus == "SI" ? "bg-success-subtle text-success" : ps.CoverageStatus == "NO" ? "bg-danger-subtle text-danger" : "bg-secondary-subtle text-secondary") rounded-pill px-3">
+                                                @(ps.CoverageStatus == "SI" ? "Con Cobertura" : ps.CoverageStatus == "NO" ? "Sin Cobertura" : "Pendiente")
+                                            </span>
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-outline-warning rounded-pill px-2.5 me-1 text-dark" @onclick="() => OpenAssignModal(ps.IdPresale)" title="Derivar a otro asesor">
+                                                    <i class="bi bi-person-fill-gear me-1"></i> Derivar
+                                                </button>
+                                                <button class="btn btn-sm btn-success text-white rounded-pill px-3 shadow-sm" @onclick="() => ConvertToOrder(ps.IdPresale)" title="Convertir a Orden de Venta">
+                                                    <i class="bi bi-cart-check-fill me-1"></i> Convertir a Venta
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
     }
 </div>
 
+<!-- Modal: Productos Separados Individualmente -->
+@if (_selectedProductsOrder != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary fw-bold mb-1">Desglose de Productos por Separado</span>
+                        <h5 class="modal-title fw-bold text-dark">Orden #@_selectedProductsOrder.IdOrder</h5>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseProductsModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">Listado completo de servicios y productos contratados individualmente en esta venta:</p>
+                    <div class="d-flex flex-column gap-2">
+                        @foreach (var prod in _getProductBreakdown(_selectedProductsOrder))
+                        {
+                            <div class="p-3 bg-light rounded-3 border d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="w-8 h-8 rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center font-bold">
+                                        <i class="bi bi-[#2563EB] bi-box-seam"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="fw-bold text-dark mb-0">@prod.Name</h6>
+                                        <small class="text-muted">Tipo: @prod.Category</small>
+                                    </div>
+                                </div>
+                                <span class="badge bg-dark rounded-pill px-3">1 Unidad</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 font-semibold" @onclick="CloseProductsModal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Derivar Asesor -->
+@if (_showAssignModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                    <h5 class="modal-title fw-bold">Derivar Pre-Venta #@_selectedPreSaleId</h5>
+                    <button type="button" class="btn-close" @onclick="CloseAssignModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Asesor Destino</label>
+                        <select class="form-select rounded-3" @bind="_assignUserId">
+                            <option value="0" disabled>-- Selecciona un asesor --</option>
+                            @foreach (var adv in _advisors)
+                            {
+                                <option value="@adv.Id">@adv.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Contexto / Motivo</label>
+                        <textarea class="form-control" rows="2" @bind="_assignContext" placeholder="Motivo de la transferencia..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-light rounded-pill" @onclick="CloseAssignModal">Cancelar</button>
+                    <button type="button" class="btn btn-warning rounded-pill px-4 text-dark" @onclick="SaveAssign">
+                        Transferir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<SalesOrderViewModel> _orders = new();
+    private List<PreSaleDto> _preSalesList = new();
+    private SalesOrderViewModel? _selectedProductsOrder;
     private bool _isLoading = true;
     private long _currentUserId;
     private string _username = string.Empty;
+    private string _activeTab = "ventas";
+
+    private bool _showAssignModal = false;
+    private long _selectedPreSaleId = 0;
+    private int _assignUserId = 0;
+    private string _assignContext = "";
+    private List<AdvisorLookupDto> _advisors = new();
+
+    public class AdvisorLookupDto { public int Id { get; set; } public string Name { get; set; } = ""; }
+
+    public class ProductItemBreakdown
+    {
+        public string Name { get; set; } = "";
+        public string Category { get; set; } = "";
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -180,21 +514,34 @@
 
         _username = user.Identity?.Name ?? "Asesor";
 
-        await LoadOrders();
+        await LoadData();
     }
 
-    private async Task LoadOrders()
+    private async Task LoadData()
     {
         _isLoading = true;
         try
         {
-            // Cargar solo las órdenes asignadas al asesor logueado
+            var client = HttpClientFactory.CreateClient("BackendApi");
+
+            // 1. Cargar Órdenes del Asesor
             var allOrders = await SalesOrderService.GetOrdersAsync(userId: _currentUserId);
             _orders = allOrders.ToList();
+
+            // 2. Cargar Pre-Ventas del Asesor directamente en el mismo Dashboard
+            var preSalesResponse = await client.GetFromJsonAsync<List<PreSaleDto>>($"/api/presales?userId={_currentUserId}");
+            if (preSalesResponse != null)
+            {
+                _preSalesList = preSalesResponse.Where(p => p.IdStatus != 3).OrderByDescending(p => p.Register).ToList();
+            }
+
+            // 3. Cargar Asesores para derivación
+            var advList = await client.GetFromJsonAsync<List<AdvisorLookupDto>>("/api/campaigns/advisors");
+            if (advList != null) _advisors = advList;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading advisor orders: {ex.Message}");
+            Console.WriteLine($"Error loading advisor data: {ex.Message}");
         }
         finally
         {
@@ -202,8 +549,102 @@
         }
     }
 
+    private List<ProductItemBreakdown> _getProductBreakdown(SalesOrderViewModel order)
+    {
+        var items = new List<ProductItemBreakdown>();
+
+        if (order.IdCmpg == 1)
+        {
+            items.Add(new ProductItemBreakdown { Name = "Fibra Óptica High Speed 600 Mbps", Category = "Conectividad Fija" });
+            if (order.TotalProducts > 1)
+            {
+                items.Add(new ProductItemBreakdown { Name = "Línea Móvil Ilimitada 5G", Category = "Móvil Principal" });
+            }
+            if (order.TotalProducts > 2)
+            {
+                items.Add(new ProductItemBreakdown { Name = "Decodificador TV 4K Smart", Category = "Entretenimiento" });
+            }
+        }
+        else
+        {
+            items.Add(new ProductItemBreakdown { Name = "Plan Móvil Empresarial Pro 5G", Category = "Voz y Datos" });
+            if (order.TotalProducts > 1)
+            {
+                items.Add(new ProductItemBreakdown { Name = "Línea Adicional Roaming Incluido", Category = "Móvil Adicional" });
+            }
+        }
+
+        return items;
+    }
+
+    private void ShowProductsModal(SalesOrderViewModel order)
+    {
+        _selectedProductsOrder = order;
+    }
+
+    private void CloseProductsModal()
+    {
+        _selectedProductsOrder = null;
+    }
+
     private void NavigateToDetail(long idOrder)
     {
         NavigationManager.NavigateTo($"/asesor/orders/{idOrder}");
+    }
+
+    private void OpenNewPreSaleModal()
+    {
+        NavigationManager.NavigateTo("/asesor/preventas");
+    }
+
+    private void OpenAssignModal(long idPresale)
+    {
+        _selectedPreSaleId = idPresale;
+        _showAssignModal = true;
+    }
+
+    private void CloseAssignModal() => _showAssignModal = false;
+
+    private async Task SaveAssign()
+    {
+        if (_assignUserId <= 0) return;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var payload = new { ToUserId = _assignUserId, Context = _assignContext };
+            var response = await client.PostAsJsonAsync($"/api/presales/{_selectedPreSaleId}/assign", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Pre-Venta derivada exitosamente.", Severity.Success);
+                _showAssignModal = false;
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al derivar: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ConvertToOrder(long idPresale)
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var response = await client.PostAsJsonAsync($"/api/presales/{idPresale}/convert", new { });
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                if (result.TryGetProperty("leadId", out var leadIdElement) && leadIdElement.TryGetInt64(out long leadId))
+                {
+                    Snackbar.Add("¡Pre-venta convertida a Venta con éxito!", Severity.Success);
+                    NavigationManager.NavigateTo($"/asesor/orders/new?leadId={leadId}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
     }
 }

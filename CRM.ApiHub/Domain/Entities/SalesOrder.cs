@@ -59,4 +59,7 @@ public class SalesOrder
 
     [Column("last_update")]
     public DateTime LastUpdate { get; set; } = DateTime.UtcNow;
-}
+
+    [NotMapped]
+    public int SlaMinutes { get; set; }
+}

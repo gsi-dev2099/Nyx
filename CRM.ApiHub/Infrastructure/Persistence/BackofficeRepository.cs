@@ -41,7 +41,7 @@ public class BackofficeRepository : IBackofficeRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            var sql = new StringBuilder("SELECT *, COUNT(*) OVER() AS TotalCount FROM sales_service.sales_order WHERE custody_user_id = @BackofficeId");
+            var sql = new StringBuilder("SELECT *, COUNT(*) OVER() AS TotalCount FROM sales_service.sales_order WHERE (custody_user_id = @BackofficeId OR id_status = 3)");
             var parameters = new DynamicParameters();
             parameters.Add("BackofficeId", backofficeId);
 
@@ -181,7 +181,10 @@ public class BackofficeRepository : IBackofficeRepository
             // 4. Actualizar el estado y subestado en la orden (disparará el trigger fn_log_order_status_change)
             const string updateSql = @"
                 UPDATE sales_service.sales_order 
-                SET id_status = @ToStatusId, id_substatus = @ToSubstatusId, last_update = NOW()
+                SET id_status = @ToStatusId, 
+                    id_substatus = COALESCE(@ToSubstatusId, CASE WHEN @ToStatusId IN (11, 12) THEN 23 ELSE id_substatus END),
+                    custody_user_id = CASE WHEN @ToStatusId IN (2, 11, 12) THEN id_user ELSE custody_user_id END,
+                    last_update = NOW()
                 WHERE id_order = @IdOrder;";
 
             var rowsAffected = await connection.ExecuteAsync(

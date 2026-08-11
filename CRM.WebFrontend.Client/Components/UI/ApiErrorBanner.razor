@@ -7,7 +7,7 @@
         </div>
         <h5 class="fw-bold text-danger mb-2">@Title</h5>
         <p class="text-secondary small mb-4 max-w-md mx-auto" style="max-width: 450px;">
-            @(string.IsNullOrEmpty(Message) ? "Ocurrió un problema de comunicación con el servidor. Por favor verifica tu conexión e inténtalo de nuevo." : Message)
+            @GetFriendlyMessage()
         </p>
         @if (OnRetry.HasDelegate)
         {
@@ -22,6 +22,29 @@
 @code {
     [Parameter] public string Title { get; set; } = "Error de conexión o servidor";
     [Parameter] public string? Message { get; set; }
+    [Parameter] public int? StatusCode { get; set; }
     [Parameter] public string RetryButtonText { get; set; } = "Reintentar conexión";
     [Parameter] public EventCallback OnRetry { get; set; }
+
+    private string GetFriendlyMessage()
+    {
+        // Si hay mensaje explícito no técnico, usarlo tal cual
+        if (!string.IsNullOrWhiteSpace(Message) && StatusCode == null)
+            return Message;
+
+        // Mapear código HTTP a mensaje amigable en español
+        return StatusCode switch
+        {
+            400 => "La solicitud no pudo procesarse. Verifica que los datos ingresados sean correctos e inténtalo de nuevo.",
+            401 => "Tu sesión ha expirado o no estás autenticado. Por favor, inicia sesión nuevamente.",
+            403 => "No tienes permisos para realizar esta acción. Contacta a tu supervisor si crees que es un error.",
+            404 => "El recurso que buscas no existe o fue eliminado.",
+            422 => "La operación no pudo completarse porque hay una regla de negocio que lo impide. Verifica el estado actual del registro.",
+            429 => "Demasiadas solicitudes en poco tiempo. Espera unos segundos e inténtalo de nuevo.",
+            500 => "Ocurrió un error interno en el servidor. Nuestro equipo ya fue notificado. Inténtalo de nuevo en unos minutos.",
+            502 or 503 or 504 => "El servicio no está disponible en este momento. Por favor, inténtalo más tarde.",
+            _ when !string.IsNullOrWhiteSpace(Message) => Message!,
+            _ => "Ocurrió un problema de comunicación con el servidor. Por favor verifica tu conexión e inténtalo de nuevo."
+        };
+    }
 }

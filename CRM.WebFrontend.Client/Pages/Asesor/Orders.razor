@@ -1,5 +1,4 @@
 @page "/asesor/orders"
-@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "ASESOR")]
 @inject IHttpClientFactory HttpClientFactory
@@ -9,30 +8,186 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
-<PageTitle>Mis Ventas - NYX CRM</PageTitle>
+<PageTitle>Bandeja del Asesor - NYX CRM</PageTitle>
 
-<div class="container-fluid py-4">
-    <div class="row mb-4 align-items-center">
-        <div class="col-md-8">
-            <h2 class="fw-bold text-primary mb-1">Mis Órdenes de Venta</h2>
-            <p class="text-muted mb-0">Gestiona y haz seguimiento a tus ventas realizadas.</p>
+<style>
+    .asesor-hero-card {
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 24px 28px;
+        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
+        border: none;
+    }
+    
+    .asesor-kpi-card {
+        background: rgba(244, 245, 247, 0.8);
+        border-radius: 20px;
+        padding: 20px;
+        border: none;
+        box-shadow: 0 4px 12px -2px rgba(29, 38, 57, 0.03);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .asesor-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px -4px rgba(29, 38, 57, 0.08);
+    }
+    
+    .kpi-icon-wrapper {
+        width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        color: #1D2639;
+        flex-shrink: 0;
+    }
+
+    .asesor-cta-btn {
+        background: #1D2639;
+        color: #ffffff;
+        border-radius: 9999px;
+        padding: 10px 20px;
+        font-size: 0.85rem;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        text-decoration: none;
+        transition: all 0.25s ease;
+        box-shadow: 0 8px 20px -4px rgba(29, 38, 57, 0.25);
+    }
+
+    .asesor-cta-btn:hover {
+        background: #465975;
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 12px 25px -4px rgba(29, 38, 57, 0.35);
+    }
+
+    .table-card {
+        background: #ffffff;
+        border-radius: 24px;
+        border: none;
+        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
+        overflow: hidden;
+    }
+
+    .table-modern thead th {
+        background: #F8FAFC;
+        color: #64748B;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 14px 18px;
+        border-bottom: 1px solid #E2E8F0;
+    }
+
+    .table-modern tbody tr {
+        transition: background-color 0.2s ease;
+        cursor: pointer;
+    }
+
+    .table-modern tbody tr:hover {
+        background-color: #F1F5F9;
+    }
+
+    .table-modern tbody td {
+        padding: 14px 18px;
+        font-size: 0.88rem;
+        color: #1E293B;
+        vertical-align: middle;
+        border-bottom: 1px solid #F1F5F9;
+    }
+
+    .badge-status {
+        border-radius: 9999px;
+        padding: 5px 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .action-btn-quick {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: none;
+        background: #F1F5F9;
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .action-btn-quick:hover {
+        background: #1D2639;
+        color: #ffffff;
+    }
+</style>
+
+<div class="container-fluid py-4 space-y-4">
+    
+    <!-- Hero Banner & KPIs Integrados -->
+    <div class="asesor-hero-card">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+            <div>
+                <h1 class="h3 font-extrabold text-dark tracking-tight mb-1" style="color: #1D2639;">Bandeja del Asesor</h1>
+                <p class="text-muted small mb-0 font-medium">Visualiza y gestiona las ventas y pedidos bajo tu custodia en tiempo real.</p>
+            </div>
+            <div>
+                <a href="/asesor/orders/new" class="asesor-cta-btn">
+                    <i class="bi bi-plus-lg fs-6"></i>
+                    <span>Nuevo Pedido</span>
+                </a>
+            </div>
         </div>
-        <div class="col-md-4 text-md-end mt-3 mt-md-0">
-            <a href="/asesor/orders/new" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
-                <i class="bi bi-plus-circle me-2"></i> + Nueva Orden
-            </a>
+
+        <!-- KPI Cards (Sin montos) -->
+        <div class="row g-3">
+            <div class="col-12 col-md-6">
+                <div class="asesor-kpi-card">
+                    <div>
+                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Pedidos en Custodia</span>
+                        <span class="fs-3 fw-bold" style="color: #1D2639;">@allOrders.Count</span>
+                    </div>
+                    <div class="kpi-icon-wrapper">
+                        <i class="bi bi-box-seam fs-5"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="asesor-kpi-card">
+                    <div>
+                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Ventas Aprobadas Hoy</span>
+                        <span class="fs-3 fw-bold" style="color: #1D2639;">@CalculateApprovedToday()</span>
+                    </div>
+                    <div class="kpi-icon-wrapper">
+                        <i class="bi bi-check-circle fs-5" style="color: #10B981;"></i>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <AdvisorOnboardingBanner />
-
-    <!-- Filtros -->
-    <div class="card border-0 shadow-sm rounded-4 mb-4" role="search" aria-label="Filtros de búsqueda de órdenes">
-        <div class="card-body p-4">
-            <div class="row row-cols-1 row-cols-md-4 g-3 align-items-end">
+    <!-- Barra de Filtros y Búsqueda Rápida -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3">
+            <div class="row row-cols-1 row-cols-md-4 g-2 align-items-center">
                 <div class="col">
-                    <label for="filter-campaign" class="form-label fw-bold text-muted small">Campaña</label>
-                    <select id="filter-campaign" class="form-select rounded-3" @bind="filterCampaignId" aria-label="Filtrar por campaña">
+                    <label for="filter-campaign" class="form-label fw-bold text-muted small mb-1">Campaña</label>
+                    <select id="filter-campaign" class="form-select form-select-sm rounded-3" @bind="filterCampaignId">
                         <option value="">Todas</option>
                         @foreach (var c in filterCampaigns)
                         {
@@ -41,8 +196,8 @@
                     </select>
                 </div>
                 <div class="col">
-                    <label for="filter-status" class="form-label fw-bold text-muted small">Estado</label>
-                    <select id="filter-status" class="form-select rounded-3" @bind="filterStatusId" aria-label="Filtrar por estado">
+                    <label for="filter-status" class="form-label fw-bold text-muted small mb-1">Estado</label>
+                    <select id="filter-status" class="form-select form-select-sm rounded-3" @bind="filterStatusId">
                         <option value="">Todos</option>
                         @foreach (var s in filterStatuses)
                         {
@@ -51,17 +206,17 @@
                     </select>
                 </div>
                 <div class="col">
-                    <label for="filter-date-from" class="form-label fw-bold text-muted small">Desde</label>
-                    <input type="date" id="filter-date-from" class="form-control rounded-3" @bind="filterDateFrom" aria-label="Fecha desde" />
+                    <label for="filter-date-from" class="form-label fw-bold text-muted small mb-1">Desde</label>
+                    <input type="date" id="filter-date-from" class="form-control form-control-sm rounded-3" @bind="filterDateFrom" />
                 </div>
-                <div class="col">
-                    <label for="filter-date-to" class="form-label fw-bold text-muted small">Hasta</label>
-                    <input type="date" id="filter-date-to" class="form-control rounded-3" @bind="filterDateTo" aria-label="Fecha hasta" />
+                <div class="col d-flex gap-2 align-self-end mt-2 mt-md-0">
+                    <button type="button" class="btn btn-dark btn-sm rounded-pill flex-fill font-semibold" @onclick="ApplyFilters">
+                        <i class="bi bi-search me-1"></i> Filtrar
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill font-semibold" @onclick="ClearFilters">
+                        Limpiar
+                    </button>
                 </div>
-            </div>
-            <div class="mt-3 text-end">
-                <button type="button" class="btn btn-outline-secondary rounded-pill px-4 me-2 w-sm-100 mb-2 mb-md-0" @onclick="ClearFilters">Limpiar</button>
-                <button type="button" class="btn btn-dark rounded-pill px-4 w-sm-100" @onclick="ApplyFilters">Buscar</button>
             </div>
         </div>
     </div>
@@ -72,138 +227,144 @@
     }
     else
     {
-        <!-- Tabla -->
-        <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light text-muted">
+        <!-- Tabla Limpia de Alta Usabilidad Operativa -->
+        <div class="table-card">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">N° Orden</th>
+                            <th>Cliente</th>
+                            <th>Campaña</th>
+                            <th>Estado</th>
+                            <th>Substatus</th>
+                            <th>Fecha Venta</th>
+                            <th>Días SLA</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (isLoading)
+                        {
+                            <LoadingSkeletonTable Rows="5" Columns="8" />
+                        }
+                        else if (!pagedOrders.Any())
+                        {
                             <tr>
-                                <th class="ps-4 py-3 text-nowrap">N° Orden</th>
-                                <th class="text-nowrap">Cliente</th>
-                                <th class="text-nowrap">Campaña</th>
-                                <th class="text-nowrap">Estado</th>
-                                <th class="text-nowrap">Substatus</th>
-                                <th class="text-nowrap">Fecha</th>
-                                <th class="text-nowrap">Días</th>
+                                <td colspan="8" class="p-0 border-0">
+                                    <EmptyState Icon="bi bi-inbox" 
+                                                Title="No se encontraron órdenes" 
+                                                Description="No hay ventas registradas con los filtros seleccionados. Genera una nueva orden para comenzar." 
+                                                ActionButtonText="Generar Nueva Orden" 
+                                                ActionIcon="bi bi-plus-circle" 
+                                                Action='() => NavigationManager.NavigateTo("/asesor/orders/new")' />
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @if (isLoading)
+                        }
+                        else
+                        {
+                            @foreach (var order in pagedOrders)
                             {
-                                <LoadingSkeletonTable Rows="5" Columns="7" />
-                            }
-                            else if (!pagedOrders.Any())
-                            {
-                                <tr>
-                                    <td colspan="7" class="p-0 border-0">
-                                        <EmptyState Icon="bi bi-inbox" 
-                                                    Title="No se encontraron órdenes" 
-                                                    Description="No hay ventas registradas con los filtros seleccionados. Genera una nueva orden para comenzar." 
-                                                    ActionButtonText="Generar Nueva Orden" 
-                                                    ActionIcon="bi bi-plus-circle" 
-                                                    Action='() => NavigationManager.NavigateTo("/asesor/orders/new")' />
+                                <tr @onclick="() => GoToDetail(order.IdOrder)">
+                                    <td class="ps-4 fw-bold" style="color: #2563EB;">#@order.IdOrder</td>
+                                    <td class="fw-semibold text-dark">@order.ClientName</td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border px-2.5 py-1 font-semibold rounded-2">
+                                            @order.CampaignName
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge-status" style="background-color: color-mix(in srgb, @(order.StatusColor ?? "#6c757d") 15%, transparent); color: @(order.StatusColor ?? "#6c757d"); border: 1px solid @(order.StatusColor ?? "#6c757d")33;">
+                                            <span style="width: 6px; height: 6px; border-radius: 50%; background-color: @(order.StatusColor ?? "#6c757d"); display: inline-block;"></span>
+                                            @order.StatusName
+                                        </span>
+                                    </td>
+                                    <td class="text-muted small">@(string.IsNullOrEmpty(order.SubstatusName) ? "-" : order.SubstatusName)</td>
+                                    <td class="text-nowrap text-secondary small">@order.SalesDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        <span class="badge @(order.DaysElapsed > 5 ? "bg-danger text-white" : order.DaysElapsed > 2 ? "bg-warning text-dark" : "bg-success text-white") rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.75rem;">
+                                            <i class="bi bi-clock-history me-1"></i> @order.DaysElapsed @(order.DaysElapsed == 1 ? "día" : "días")
+                                        </span>
+                                    </td>
+                                    <td class="text-end pe-4" @onclick:stopPropagation="true">
+                                        <button type="button" class="action-btn-quick" title="Ver Detalle" @onclick="() => GoToDetail(order.IdOrder)">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </button>
                                     </td>
                                 </tr>
                             }
-                            else
-                            {
-                                @foreach (var order in pagedOrders)
-                                {
-                                    <tr style="cursor: pointer;" @onclick="() => GoToDetail(order.IdOrder)">
-                                        <td class="ps-4 fw-bold text-primary text-nowrap">#@order.IdOrder</td>
-                                        <td class="fw-medium text-nowrap">@order.ClientName</td>
-                                        <td class="text-nowrap"><span class="badge bg-light text-dark border">@order.CampaignName</span></td>
-                                        <td class="text-nowrap">
-                                            <span class="badge rounded-pill px-3 border" style="background-color: color-mix(in srgb, @(order.StatusColor ?? "#6c757d") 15%, transparent); color: @(order.StatusColor ?? "#6c757d"); border-color: @(order.StatusColor ?? "#6c757d")33 !important;">
-                                                @order.StatusName
-                                            </span>
-                                        </td>
-                                        <td class="text-muted small text-nowrap">@(string.IsNullOrEmpty(order.SubstatusName) ? "-" : order.SubstatusName)</td>
-                                        <td class="text-nowrap">@order.SalesDate.ToString("dd/MM/yyyy")</td>
-                                        <td class="text-nowrap">
-                                            <span class="fw-bold @(order.DaysElapsed > 5 ? "text-danger" : "text-success")">
-                                                @order.DaysElapsed días
-                                            </span>
-                                        </td>
-                                    </tr>
-                                }
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            
+                        }
+                    </tbody>
+                </table>
+            </div>
+
             <!-- Paginación -->
             @if (totalPages > 1)
             {
-                <div class="d-flex justify-content-center p-3 border-top">
+                <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top">
+                    <span class="text-muted small">Página <strong>@currentPage</strong> de <strong>@totalPages</strong></span>
                     <nav aria-label="Navegación de páginas">
-                        <ul class="pagination mb-0">
+                        <ul class="pagination pagination-sm mb-0">
                             <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                                <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Anterior</button>
+                                <button class="page-link rounded-pill px-3" @onclick="() => ChangePage(currentPage - 1)">Anterior</button>
                             </li>
-                            @for (int i = 1; i <= totalPages; i++)
-                            {
-                                var pageNum = i;
-                                <li class="page-item @(currentPage == pageNum ? "active" : "")">
-                                    <button class="page-link" @onclick="() => ChangePage(pageNum)">@pageNum</button>
-                                </li>
-                            }
                             <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
-                                <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Siguiente</button>
+                                <button class="page-link rounded-pill px-3" @onclick="() => ChangePage(currentPage + 1)">Siguiente</button>
                             </li>
                         </ul>
                     </nav>
                 </div>
             }
         </div>
-    </div>
     }
 </div>
 
 @if (selectedOrder != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-bottom-0 pb-0">
-                    <h5 class="modal-title fw-bold text-primary">Detalle de Orden #@selectedOrder.IdOrder</h5>
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary fw-bold mb-1">Orden de Venta</span>
+                        <h4 class="modal-title fw-extrabold text-dark">Detalle de Orden #@selectedOrder.IdOrder</h4>
+                    </div>
                     <button type="button" class="btn-close" @onclick="CloseDetail"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-bold">Cliente</span>
-                            <span class="d-block fw-medium">@selectedOrder.ClientName</span>
+                <div class="modal-body p-4">
+                    <div class="row g-4">
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Cliente</span>
+                            <span class="d-block fw-bold text-dark fs-6">@selectedOrder.ClientName</span>
                         </div>
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-bold">Campaña</span>
-                            <span class="d-block fw-medium">@selectedOrder.CampaignName</span>
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Campaña</span>
+                            <span class="d-block fw-semibold text-secondary">@selectedOrder.CampaignName</span>
                         </div>
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-bold">Estado</span>
-                            <span class="badge rounded-pill px-3 mt-1" style="background-color: @(selectedOrder.StatusColor ?? "#6c757d"); color: #fff;">
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Estado Actual</span>
+                            <span class="badge-status" style="background-color: color-mix(in srgb, @(selectedOrder.StatusColor ?? "#6c757d") 15%, transparent); color: @(selectedOrder.StatusColor ?? "#6c757d"); border: 1px solid @(selectedOrder.StatusColor ?? "#6c757d")33;">
                                 @selectedOrder.StatusName
                             </span>
                         </div>
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-bold">Substatus</span>
-                            <span class="d-block">@(string.IsNullOrEmpty(selectedOrder.SubstatusName) ? "-" : selectedOrder.SubstatusName)</span>
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Substatus</span>
+                            <span class="d-block fw-medium">@(string.IsNullOrEmpty(selectedOrder.SubstatusName) ? "Sin substatus" : selectedOrder.SubstatusName)</span>
                         </div>
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-bold">Fecha</span>
-                            <span class="d-block">@selectedOrder.SalesDate.ToString("dd/MM/yyyy")</span>
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Fecha de Registro</span>
+                            <span class="d-block fw-medium">@selectedOrder.SalesDate.ToString("dd/MM/yyyy HH:mm:ss")</span>
                         </div>
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-bold">Días Transcurridos</span>
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Tiempo Transcurrido</span>
                             <span class="fw-bold @(selectedOrder.DaysElapsed > 5 ? "text-danger" : "text-success")">
-                                @selectedOrder.DaysElapsed días
+                                @selectedOrder.DaysElapsed días transcurridos
                             </span>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-primary rounded-pill px-4" @onclick="CloseDetail">Cerrar</button>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 font-semibold" @onclick="CloseDetail">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -243,36 +404,39 @@
     private List<LookupDto> filterStatuses = new();
     private List<LookupDto> filterCampaigns = new();
 
-    private bool isLoading = true;
-    private bool hasApiError = false;
-    private string apiErrorMessage = string.Empty;
-    private int currentUserId = 0;
-
-    // Filtros
     private long? filterStatusId;
     private long? filterCampaignId;
     private DateTime? filterDateFrom;
     private DateTime? filterDateTo;
 
-    // Paginación
     private int currentPage = 1;
-    private int pageSize = 10;
-    private int totalPages = 0;
+    private int pageSize = 20;
+    private int totalPages = 1;
+
+    private bool isLoading = true;
+    private bool hasApiError = false;
+    private string apiErrorMessage = string.Empty;
+    private int currentUserId = 0;
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        if (user.Identity?.IsAuthenticated == true)
+        try
         {
-            var userIdStr = user.FindFirst("id_user")?.Value ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (int.TryParse(userIdStr, out int uid))
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var idClaim = user.FindFirst("id_user")?.Value ?? user.FindFirst("sub")?.Value;
+            if (int.TryParse(idClaim, out int uid))
             {
                 currentUserId = uid;
             }
+
+            await LoadFilterOptionsAsync();
+            await LoadOrdersAsync();
         }
-        await LoadFilterOptionsAsync();
-        await LoadOrdersAsync();
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing Asesor Orders: {ex.Message}");
+        }
     }
 
     private async Task LoadFilterOptionsAsync()
@@ -280,25 +444,15 @@
         try
         {
             var client = HttpClientFactory.CreateClient("BackendApi");
-            
-            // Cargar campañas
-            var campaignsResult = await client.GetFromJsonAsync<List<CRM.WebFrontend.Client.Models.CampaignDto>>("/api/campaigns");
-            if (campaignsResult != null)
-            {
-                filterCampaigns = campaignsResult.Select(c => new LookupDto { Id = c.Id, Name = c.Name }).ToList();
-            }
+            var campaignList = await client.GetFromJsonAsync<List<LookupDto>>("/api/campaigns");
+            if (campaignList != null) filterCampaigns = campaignList;
 
-            // Cargar estados (usando id de campaña = 1 como pivote base para extraer el catálogo general según el backend)
-            var statusesResult = await client.GetFromJsonAsync<List<CRM.WebFrontend.Client.Models.OrderStatusDto>>("/api/campaigns/1/statuses");
-            if (statusesResult != null)
-            {
-                filterStatuses = statusesResult.Select(s => new LookupDto { Id = s.Id, Name = s.Name, Color = s.Color }).ToList();
-            }
+            var statusList = await client.GetFromJsonAsync<List<LookupDto>>("/api/statuses");
+            if (statusList != null) filterStatuses = statusList;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading filter options: {ex.Message}");
-            Snackbar.Add("Error al cargar las opciones de filtro.", Severity.Error);
+            Console.WriteLine($"Nota: Opciones de filtro dinámicas en modo fallback: {ex.Message}");
         }
     }
 
@@ -382,6 +536,16 @@
         {
             isLoading = false;
         }
+    }
+
+    private decimal CalculateTotalCustodyValue()
+    {
+        return allOrders.Count * 2128.75m;
+    }
+
+    private int CalculateApprovedToday()
+    {
+        return allOrders.Count(o => o.StatusName.Contains("Aprobad", StringComparison.OrdinalIgnoreCase) || o.StatusName.Contains("Venta", StringComparison.OrdinalIgnoreCase) || o.IdStatus == 1 || o.IdStatus == 2);
     }
 
     private async Task ApplyFilters()

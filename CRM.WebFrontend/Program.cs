@@ -24,8 +24,7 @@ builder.Services.AddHttpClient("BackendApi", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5068");
 }).AddHttpMessageHandler<CRM.WebFrontend.ServerAuthHandler>()
-  .AddTransientHttpErrorPolicy(p => p.WaitAndRetryAsync(3, _ => TimeSpan.FromSeconds(2)))
-  .AddTransientHttpErrorPolicy(p => p.CircuitBreakerAsync(5, TimeSpan.FromSeconds(30)));
+  .AddTransientHttpErrorPolicy(p => p.WaitAndRetryAsync(3, _ => TimeSpan.FromSeconds(2)));
 
 // Configure native Cookie Authentication for Blazor Server
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

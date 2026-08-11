@@ -5,20 +5,21 @@
 @using System.Net.Http.Json
 @using System.Text.Json
 @using MudBlazor
-@attribute [Authorize(Roles = "SUPERVISOR")]
+@attribute [Authorize(Roles = "SUPERVISOR,COORDINADOR")]
+
 @inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ISnackbar Snackbar
 @inject NavigationManager NavManager
 
-<PageTitle>Kanban de Ventas - Supervisor</PageTitle>
+<PageTitle>Bandeja de Ventas - Supervisor</PageTitle>
 
 <div class="container-fluid py-4">
     @* ───── Header ───── *@
     <div class="row mb-3 align-items-center">
         <div class="col-md-6">
-            <h2 class="fw-bold text-primary mb-1">Kanban de Ventas</h2>
-            <p class="text-muted mb-0">Vista del equipo por estado de venta.</p>
+            <h2 class="fw-bold text-primary mb-1">Bandeja de Ventas</h2>
+            <p class="text-muted mb-0">Gestión y control de ventas del equipo.</p>
         </div>
         <div class="col-md-6 text-md-end">
             <button class="btn btn-outline-primary rounded-pill px-4 me-3" @onclick="NavigateToBulkTransfer" disabled="@isNavigating">
@@ -33,23 +34,23 @@
                 }
             </button>
             <div class="btn-group rounded-pill border" role="group">
-                <button class="btn @(viewMode == "kanban" ? "btn-primary" : "btn-light") rounded-start-pill px-4"
-                        @onclick='() => viewMode = "kanban"'>
-                    <span class="me-1">📋</span> Kanban
-                </button>
-                <button class="btn @(viewMode == "table" ? "btn-primary" : "btn-light") rounded-end-pill px-4"
+                <button class="btn @(viewMode == "table" ? "btn-primary" : "btn-light") rounded-start-pill px-4"
                         @onclick='() => viewMode = "table"'>
                     <span class="me-1">📄</span> Tabla
+                </button>
+                <button class="btn @(viewMode == "kanban" ? "btn-primary" : "btn-light") rounded-end-pill px-4"
+                        @onclick='() => viewMode = "kanban"'>
+                    <span class="me-1">📋</span> Kanban
                 </button>
             </div>
         </div>
     </div>
 
-    @* ───── Contadores por estado ───── *@
+    @* ───── Contadores por estado relevante de Supervisión ───── *@
     @if (statuses.Any())
     {
         <div class="d-flex flex-wrap align-items-center gap-2 mb-4 p-3 rounded-4 bg-white" style="box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);">
-            @foreach (var st in statuses)
+            @foreach (var st in FilteredSupervisorStatuses)
             {
                 var count = allOrders.Count(o => o.IdStatus == st.Id);
                 <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill" style="background: #F4F6F9; border: 1px solid #E5E7EB;">
@@ -59,13 +60,22 @@
                 </div>
             }
             <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill ms-auto" style="background: #003B5C; color: #FFFFFF;">
-                <span style="font-size: 0.8rem; font-weight: 700;">Total</span>
+                <span style="font-size: 0.8rem; font-weight: 700;">Total Equipo</span>
                 <span class="badge rounded-pill bg-white text-dark px-2" style="font-size: 0.75rem; font-weight: 800;">@allOrders.Count</span>
             </div>
         </div>
     }
 
     @* ───── Filtros Sueltos (Píldoras Horizontal) ───── *@
+    <!-- Filtros Express de Toma de Decisiones -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <span class="fw-bold small text-muted me-1"><i class="bi bi-lightning-charge-fill text-warning me-1"></i> Filtro Express:</span>
+        <button class="btn btn-sm @(expressFilter == "ALL" ? "btn-dark" : "btn-light border") rounded-pill px-3" @onclick='() => SetExpressFilter("ALL")'>Todos (@allOrders.Count)</button>
+        <button class="btn btn-sm @(expressFilter == "CRITICAL_SLA" ? "btn-danger text-white" : "btn-light border text-danger") rounded-pill px-3" @onclick='() => SetExpressFilter("CRITICAL_SLA")'>⚠️ SLA Crítico / Excedido (@allOrders.Count(o => o.SlaMinutes > 120))</button>
+        <button class="btn btn-sm @(expressFilter == "PENDING_SUPER" ? "btn-warning text-dark" : "btn-light border") rounded-pill px-3" @onclick='() => SetExpressFilter("PENDING_SUPER")'>⏳ Pendiente Supervisión (@allOrders.Count(o => o.IdStatus == 2))</button>
+        <button class="btn btn-sm @(expressFilter == "IN_BACKOFFICE" ? "btn-info text-white" : "btn-light border") rounded-pill px-3" @onclick='() => SetExpressFilter("IN_BACKOFFICE")'>🏢 En Backoffice (@allOrders.Count(o => o.IdStatus == 3))</button>
+    </div>
+
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 p-2">
         <div class="d-flex align-items-center gap-3 flex-grow-1 flex-wrap">
             <div class="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-pill shadow-sm" style="border: 1px solid #E5E7EB; min-width: 210px;">
@@ -162,10 +172,16 @@
                             <div class="card-body p-3">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <a href="/supervisor/orders/@order.IdOrder" class="fw-bold text-primary small text-decoration-none" @onclick:stopPropagation="true">#@order.IdOrder <i class="bi bi-box-arrow-up-right" style="font-size: 0.7rem;"></i></a>
-                                    <span class="fw-bold small @(order.DaysElapsed > 5 ? "text-danger" : "text-success")">
-                                        @order.DaysElapsed d
-                                    </span>
+                                    <div class="d-flex flex-column align-items-end">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle small fw-bold" title="Tiempo laborable neto consumido segun horario del colaborador">
+                                            ⏱️ @(order.SlaMinutes < 60 ? $"{order.SlaMinutes}m" : $"{order.SlaMinutes / 60}h {order.SlaMinutes % 60}m") SLA
+                                        </span>
+                                        <span class="fw-bold small text-muted" style="font-size: 0.7rem;">
+                                            @order.DaysElapsed d transcurridos
+                                        </span>
+                                    </div>
                                 </div>
+
                                 <p class="mb-1 fw-medium small text-truncate" title="@order.ClientName">@order.ClientName</p>
                                 <div class="d-flex justify-content-between align-items-center mt-2">
                                     <span class="badge bg-light text-dark border small">@order.CampaignName</span>
@@ -210,7 +226,8 @@
                                 <th>Campaña</th>
                                 <th>Estado</th>
                                 <th>Fecha</th>
-                                <th>Días</th>
+                                <th>SLA / Días</th>
+                                <th class="text-end pe-4">Acciones Express</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -241,11 +258,26 @@
                                         </td>
                                         <td>@order.SalesDate.ToString("dd/MM/yyyy")</td>
                                         <td>
-                                            <span class="fw-bold @(order.DaysElapsed > 5 ? "text-danger" : "text-success")">
-                                                @order.DaysElapsed días
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 fw-bold">
+                                                ⏱️ @(order.SlaMinutes < 60 ? $"{order.SlaMinutes}m" : $"{order.SlaMinutes / 60}h {order.SlaMinutes % 60}m") SLA
                                             </span>
+                                            <small class="text-muted d-block" style="font-size: 0.75rem;">@order.DaysElapsed d reales</small>
+                                        </td>
+                                        <td class="text-end pe-4" @onclick:stopPropagation="true">
+                                            <div class="btn-group">
+                                                <button type="button" class="btn btn-sm btn-success rounded-pill px-2.5 me-1" @onclick="() => ExpressApprove(order)" title="Aprobar y pasar a BackOffice">
+                                                    <i class="bi bi-check-circle-fill me-1"></i> Aprobar
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2.5 me-1" @onclick="() => OpenExpressDevolverModal(order)" title="Devolver a Asesor con motivo">
+                                                    <i class="bi bi-arrow-return-left me-1"></i> Devolver
+                                                </button>
+                                                <a href="/supervisor/orders/@order.IdOrder" class="btn btn-sm btn-outline-secondary rounded-pill px-2" title="Ficha 360°">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
+
                                 }
                             }
                         </tbody>
@@ -322,20 +354,30 @@
                         </div>
                     </div>
 
-                    @* Quick status change from modal *@
+                    @* Quick status change from modal filtered by workflow transition rules *@
                     <hr class="my-3" />
                     <div>
-                        <label class="form-label fw-bold small text-muted">Mover a estado:</label>
-                        <div class="d-flex flex-wrap gap-2">
-                            @foreach (var st in statuses.Where(s => s.Id != selectedOrder.IdStatus))
+                        <label class="form-label fw-bold small text-muted">Transiciones Permitidas para esta Venta (Flujo Supervisor):</label>
+                        <div class="d-flex flex-wrap gap-2 mt-1">
+                            @{
+                                var allowedStatuses = GetAllowedTargetStatuses(selectedOrder.IdStatus);
+                            }
+                            @if (allowedStatuses.Any())
                             {
-                                var targetStatusId = st.Id;
-                                <button class="btn btn-sm rounded-pill px-3"
-                                        style="background-color: @(st.Color ?? "#6c757d"); color: #fff; border: none;"
-                                        disabled="@isUpdatingStatus"
-                                        @onclick="() => ChangeOrderStatus(selectedOrder, targetStatusId)">
-                                    @st.Name
-                                </button>
+                                @foreach (var st in allowedStatuses)
+                                {
+                                    var targetStatusId = st.Id;
+                                    <button class="btn btn-sm rounded-pill px-3 shadow-sm"
+                                            style="background-color: @(st.Color ?? "#6c757d"); color: #fff; border: none;"
+                                            disabled="@isUpdatingStatus"
+                                            @onclick="() => ChangeOrderStatus(selectedOrder, targetStatusId)">
+                                        ➡️ @st.Name
+                                    </button>
+                                }
+                            }
+                            else
+                            {
+                                <span class="badge bg-light text-muted border p-2 small">No hay más transiciones de estado válidas desde el estado actual.</span>
                             }
                         </div>
                     </div>
@@ -345,6 +387,65 @@
                         <i class="bi bi-box-arrow-up-right me-1"></i> Ver Ficha Completa 360°
                     </a>
                     <button type="button" class="btn btn-primary rounded-pill px-4" @onclick="() => selectedOrder = null">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal: Devolución Express de Orden -->
+@if (_showDevolverModal && _expressOrderTarget != null)
+{
+    <div class="modal fade show d-block bg-dark bg-opacity-50" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <h5 class="modal-title fw-bold text-danger">
+                            <i class="bi bi-arrow-return-left me-2"></i> Devolución Express al Asesor
+                        </h5>
+                        <p class="text-muted small mb-0">Orden #@_expressOrderTarget.IdOrder — @_expressOrderTarget.ClientName (Asesor: @_expressOrderTarget.AdvisorName)</p>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseExpressDevolverModal"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <label class="form-label fw-bold small text-secondary">Motivo Predeterminado de Devolución *</label>
+                    <div class="d-flex flex-column gap-2 mb-3">
+                        <label class="p-2.5 rounded-3 border d-flex align-items-center gap-2 cursor-pointer bg-white">
+                            <input type="radio" name="rejectionReason" value="Documentación Ilegible / Falta DNI" checked="@(_expressReason == "Documentación Ilegible / Falta DNI")" @onchange='() => _expressReason = "Documentación Ilegible / Falta DNI"' />
+                            <span class="small fw-semibold">📄 Documentación Ilegible / Falta DNI</span>
+                        </label>
+                        <label class="p-2.5 rounded-3 border d-flex align-items-center gap-2 cursor-pointer bg-white">
+                            <input type="radio" name="rejectionReason" value="Grabación de Audio Incompleta / Sin Consentimiento" checked="@(_expressReason == "Grabación de Audio Incompleta / Sin Consentimiento")" @onchange='() => _expressReason = "Grabación de Audio Incompleta / Sin Consentimiento"' />
+                            <span class="small fw-semibold">🎙️ Grabación de Audio Incompleta / Sin Consentimiento</span>
+                        </label>
+                        <label class="p-2.5 rounded-3 border d-flex align-items-center gap-2 cursor-pointer bg-white">
+                            <input type="radio" name="rejectionReason" value="Firma de Contrato Pendiente / Datos Erróneos" checked="@(_expressReason == "Firma de Contrato Pendiente / Datos Erróneos")" @onchange='() => _expressReason = "Firma de Contrato Pendiente / Datos Erróneos"' />
+                            <span class="small fw-semibold">✍️ Firma de Contrato Pendiente / Datos Erróneos</span>
+                        </label>
+                        <label class="p-2.5 rounded-3 border d-flex align-items-center gap-2 cursor-pointer bg-white">
+                            <input type="radio" name="rejectionReason" value="Score / Cobertura KO" checked="@(_expressReason == "Score / Cobertura KO")" @onchange='() => _expressReason = "Score / Cobertura KO"' />
+                            <span class="small fw-semibold">❌ Score de Crédito / Cobertura KO</span>
+                        </label>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small text-secondary">Instrucción Adicional para el Asesor</label>
+                        <textarea class="form-control rounded-3" rows="2" @bind="_expressNotes" placeholder="Describe qué debe corregir el asesor..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill" @onclick="CloseExpressDevolverModal" disabled="@isUpdatingStatus">Cancelar</button>
+                    <button type="button" class="btn btn-danger rounded-pill px-4 text-white shadow-sm" @onclick="ConfirmExpressDevolver" disabled="@isUpdatingStatus">
+                        @if (isUpdatingStatus)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span><span>Devolviendo...</span>
+                        }
+                        else
+                        {
+                            <span>Confirmar Devolución</span>
+                        }
+                    </button>
                 </div>
             </div>
         </div>
@@ -404,8 +505,10 @@
         public string? StatusColor { get; set; }
         public string AdvisorName { get; set; } = "";
         public string BackofficeName { get; set; } = "";
+        public int SlaMinutes { get; set; }
         public int DaysElapsed => (DateTime.UtcNow - SalesDate).Days;
     }
+
 
     public class StatusDto { public int Id { get; set; } public string Name { get; set; } = ""; public string? Color { get; set; } }
     public class CampaignLookup { public int Id { get; set; } public string Name { get; set; } = ""; }
@@ -414,7 +517,7 @@
     public class AdvisorDto { public long Id { get; set; } public string Name { get; set; } = ""; }
 
     // ── State ──
-    private string viewMode = "kanban";
+    private string viewMode = "table";
     private bool isLoading = true;
     private bool isUpdatingStatus = false;
     private bool isNavigating = false;
@@ -422,6 +525,8 @@
     private int pageSize = 50;
     private int totalCount = 0;
     private int totalPages = 0;
+
+    private IEnumerable<StatusDto> FilteredSupervisorStatuses => statuses.Where(s => s.Id == 1 || s.Id == 2 || s.Id == 5 || s.Name.Contains("Superv", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Borrador", StringComparison.OrdinalIgnoreCase));
 
     private List<CampaignLookup> campaigns = new();
     private List<StatusDto> statuses = new();
@@ -435,6 +540,87 @@
     // Filters
     private int selectedCampaignId = 0;
     private long selectedAdvisorId = 0;
+
+    private string expressFilter = "ALL";
+    private bool _showDevolverModal = false;
+    private TeamOrderDto? _expressOrderTarget;
+    private string _expressReason = "Documentación Ilegible / Falta DNI";
+    private string _expressNotes = "";
+
+    private IEnumerable<StatusDto> GetAllowedTargetStatuses(long? currentStatusId)
+    {
+        if (!currentStatusId.HasValue) return Enumerable.Empty<StatusDto>();
+
+        var allowedIds = currentStatusId.Value switch
+        {
+            2 => new long[] { 1, 3, 13 }, // En revisión supervisor -> Borrador/Devuelto, En BackOffice, Cancelado
+            1 => new long[] { 2 },       // Borrador -> En revisión supervisor
+            3 => new long[] { 2 },       // En BackOffice -> En revisión supervisor
+            10 => new long[] { 3 },      // Enviado KO -> En BackOffice
+            11 => new long[] { 3 },      // En incidencia -> En BackOffice
+            12 => new long[] { 4 },      // Auditoría KO -> En gestión
+            4 => new long[] { 13 },      // En gestión -> Cancelado
+            7 => new long[] { 8 },       // Contrato enviado -> Contrato firmado
+            9 => new long[] { 14 },      // Activado -> Baja
+            _ => new long[] { 1, 2, 3 }  // Fallback seguro
+        };
+
+        return statuses.Where(s => allowedIds.Contains(s.Id) && s.Id != currentStatusId.Value);
+    }
+
+    private void SetExpressFilter(string filterKey)
+    {
+        expressFilter = filterKey;
+        ApplyFiltersLocal();
+    }
+
+    private async Task ExpressApprove(TeamOrderDto order)
+    {
+        isUpdatingStatus = true;
+        try
+        {
+            await ChangeOrderStatus(order, 3);
+            Snackbar.Add($"Orden #{order.IdOrder} aprobada express y transferida a BackOffice.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al aprobar orden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isUpdatingStatus = false;
+        }
+    }
+
+    private void OpenExpressDevolverModal(TeamOrderDto order)
+    {
+        _expressOrderTarget = order;
+        _expressReason = "Documentación Ilegible / Falta DNI";
+        _expressNotes = "";
+        _showDevolverModal = true;
+    }
+
+    private void CloseExpressDevolverModal() => _showDevolverModal = false;
+
+    private async Task ConfirmExpressDevolver()
+    {
+        if (_expressOrderTarget == null) return;
+        isUpdatingStatus = true;
+        try
+        {
+            await ChangeOrderStatus(_expressOrderTarget, 1);
+            Snackbar.Add($"Orden #{_expressOrderTarget.IdOrder} devuelta al asesor. Motivo: «{_expressReason}».", Severity.Warning);
+            _showDevolverModal = false;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al devolver orden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isUpdatingStatus = false;
+        }
+    }
     private DateTime? filterDateFrom;
     private DateTime? filterDateTo;
 
@@ -597,19 +783,33 @@
         }
     }
 
+    private void ApplyFiltersLocal() => ApplyLocalFilters();
+
     private void ApplyLocalFilters()
     {
-        filteredOrders = allOrders;
+        var temp = allOrders.AsEnumerable();
+
         if (selectedAdvisorId > 0)
         {
-            filteredOrders = filteredOrders.Where(o => 
+            temp = temp.Where(o => 
                 (o.CustodyUserId.HasValue && o.CustodyUserId > 0 ? o.CustodyUserId.Value : o.IdUser) == selectedAdvisorId
-            ).ToList();
+            );
         }
-        else
+
+        if (expressFilter == "CRITICAL_SLA")
         {
-            filteredOrders = filteredOrders.ToList();
+            temp = temp.Where(o => o.SlaMinutes > 120);
         }
+        else if (expressFilter == "PENDING_SUPER")
+        {
+            temp = temp.Where(o => o.IdStatus == 2);
+        }
+        else if (expressFilter == "IN_BACKOFFICE")
+        {
+            temp = temp.Where(o => o.IdStatus == 3);
+        }
+
+        filteredOrders = temp.ToList();
     }
 
 

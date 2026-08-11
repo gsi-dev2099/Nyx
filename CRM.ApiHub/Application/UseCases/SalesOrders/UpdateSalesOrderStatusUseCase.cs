@@ -21,6 +21,15 @@ public class UpdateSalesOrderStatusUseCase
 
     public async Task<bool> ExecuteAsync(long idOrder, SalesOrderUpdateStatusDto dto, long actorId, CancellationToken ct = default)
     {
+        var existingOrder = await _salesOrderRepository.GetByIdAsync(idOrder, ct);
+        if (existingOrder == null) return false;
+
+        // Si la orden está en estado >= 3 (EN BACKOFFICE en adelante) y el actor no es el usuario en custodia ni posee el rol correspondiente, rechazar la modificación.
+        if (existingOrder.IdStatus >= 3 && existingOrder.CustodyUserId.HasValue && existingOrder.CustodyUserId.Value != actorId)
+        {
+            throw new InvalidOperationException($"Transición de estado no permitida. La orden #{idOrder} se encuentra en custodia del usuario {existingOrder.CustodyUserId.Value}.");
+        }
+
         var success = await _salesOrderRepository.UpdateStatusAsync(
             idOrder,
             dto.ToStatusId,
@@ -44,6 +53,23 @@ public class UpdateSalesOrderStatusUseCase
                     module: "SalesOrder",
                     actionData: idOrder.ToString()
                 );
+
+                // When sent to Supervisor for revision (Status 2), notify custody supervisor
+                const int SUPERVISOR_STATUS_ID = 2;
+                if (dto.ToStatusId == SUPERVISOR_STATUS_ID)
+                {
+                    long targetSupervisorId = order.CustodyUserId.HasValue && order.CustodyUserId.Value != order.IdUser
+                        ? order.CustodyUserId.Value
+                        : 9; // Default Supervisor ID fallback (cnaranjo)
+
+                    await _notificationService.SendNotificationAsync(
+                        userId: targetSupervisorId,
+                        title: $"Nueva Orden #{idOrder} lista para revisión",
+                        message: $"El asesor ha enviado la orden #{idOrder} para revisión.",
+                        module: "SUPERVISOR_REVISION",
+                        actionData: idOrder.ToString()
+                    );
+                }
 
                 // When sent to BackOffice individually, also notify the custody holder
                 const int BACKOFFICE_STATUS_ID = 3;

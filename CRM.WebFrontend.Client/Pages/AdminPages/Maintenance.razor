@@ -3,7 +3,8 @@
 @using CRM.WebFrontend.Client.Models
 @using CRM.WebFrontend.Client.Services
 @inject IMaintenanceService MaintenanceService
-@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "ADMIN_CRM,COORDINADOR")]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "ADMIN_CRM")]
+
 
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -20,6 +21,11 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == 4 ? "active" : "")" @onclick="() => SetTab(4)">
+                <i class="bi bi-tags me-1"></i> Subestados de Venta
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
             <button class="nav-link @(activeTab == 1 ? "active" : "")" @onclick="() => SetTab(1)">
                 <i class="bi bi-box-seam me-1"></i> Productos / Tarifas
             </button>
@@ -30,11 +36,13 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link @(activeTab == 3 ? "active" : "")" @onclick="() => SetTab(3)">
-                <i class="bi bi-currency-exchange me-1"></i> Tipos de Cambio
+            <button class="nav-link @(activeTab == 5 ? "active" : "")" @onclick="() => SetTab(5)">
+                <i class="bi bi-clock-history me-1"></i> Horarios Laborales (NxFortress SLA)
             </button>
         </li>
     </ul>
+
+
 
     @* ===== TAB CONTENT ===== *@
     @if (isLoading)
@@ -111,6 +119,116 @@
                 </div>
             </div>
         }
+
+        @* ===== TAB 4: SUBESTADOS DE VENTA ===== *@
+        @if (activeTab == 4)
+        {
+            <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-tags text-primary me-2"></i>Subestados de Venta</h5>
+                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">@substatuses.Count registros</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4 text-muted fw-bold">ID</th>
+                                <th class="text-muted fw-bold">Estado Padre</th>
+                                <th class="text-muted fw-bold">Código</th>
+                                <th class="text-muted fw-bold">Nombre</th>
+                                <th class="text-muted fw-bold">Descripción</th>
+                                <th class="text-muted fw-bold text-center">Activo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var sub in substatuses)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-bold text-secondary">@sub.IdSubstatus</td>
+                                    <td><span class="badge bg-secondary-subtle text-dark border">@sub.StatusName</span></td>
+                                    <td><code>@sub.Code</code></td>
+                                    <td class="fw-semibold">@sub.Name</td>
+                                    <td class="text-muted">@(sub.Description ?? "—")</td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-block">
+                                            <input class="form-check-input" type="checkbox" checked="@sub.IsActive"
+                                                   @onchange="async () => await ToggleSubstatus(sub)" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* ===== TAB 5: HORARIOS LABORALES (NXFORTRESS SLA) ===== *@
+        @if (activeTab == 5)
+        {
+            <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history text-primary me-2"></i>Horarios Laborales por Colaborador</h5>
+                        <small class="text-muted">NxFortress SLA Engine — Control dinámico de reloj contractual por colaborador</small>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">@userShifts.Count registros</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4 text-muted fw-bold">Colaborador</th>
+                                <th class="text-muted fw-bold">Día de la Semana</th>
+                                <th class="text-muted fw-bold">Hora Inicio</th>
+                                <th class="text-muted fw-bold">Hora Fin / Corte</th>
+                                <th class="text-muted fw-bold text-center">Estado Shift</th>
+                                <th class="text-muted fw-bold text-end pe-4">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var shift in userShifts)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-bold text-dark">
+                                        <i class="bi bi-person-circle text-primary me-1"></i> @shift.Username
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="shift.DayOfWeek" style="max-width: 140px;">
+                                            <option value="1">Lunes</option>
+                                            <option value="2">Martes</option>
+                                            <option value="3">Miércoles</option>
+                                            <option value="4">Jueves</option>
+                                            <option value="5">Viernes</option>
+                                            <option value="6">Sábado</option>
+                                            <option value="0">Domingo</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" @bind="shift.StartTime" placeholder="08:00:00" style="max-width: 130px;" />
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" @bind="shift.EndTime" placeholder="17:00:00" style="max-width: 130px;" />
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-block">
+                                            <input class="form-check-input" type="checkbox" @bind="shift.IsActive" />
+                                        </div>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm" @onclick="async () => await SaveWorkShift(shift)">
+                                            <i class="bi bi-save me-1"></i> Guardar Shift
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+
 
         @* ===== TAB 1: PRODUCTOS / TARIFAS ===== *@
         @if (activeTab == 1)
@@ -524,7 +642,11 @@
 
     // Data
     private List<OrderStatusMaintenanceDto> statuses = new();
+    private List<OrderSubstatusMaintenanceDto> substatuses = new();
+    private List<UserWorkShiftMaintenanceDto> userShifts = new();
     private List<ProductMaintenanceDto> products = new();
+
+
     private List<IncidentCatalogMaintenanceDto> incidentCatalog = new();
     private List<ExchangeRateMaintenanceDto> exchangeRates = new();
     private List<CampaignSimpleDto> campaigns = new();
@@ -578,27 +700,72 @@
             case 3:
                 exchangeRates = await MaintenanceService.GetExchangeRatesAsync();
                 break;
+            case 4:
+                substatuses = await MaintenanceService.GetAllSubstatusesAsync();
+                break;
+            case 5:
+                userShifts = await MaintenanceService.GetUserWorkShiftsAsync();
+                break;
         }
+
+
 
         isLoading = false;
         StateHasChanged();
     }
 
-    // ===== STATUS TOGGLE =====
-    private async Task ToggleStatus(OrderStatusMaintenanceDto s)
+    private async Task SaveWorkShift(UserWorkShiftMaintenanceDto shift)
     {
-        var newVal = !s.IsActive;
-        var success = await MaintenanceService.ToggleStatusAsync(s.Id, newVal);
+        var dto = new SaveUserWorkShiftDto
+        {
+            IdUser = shift.IdUser,
+            DayOfWeek = shift.DayOfWeek,
+            StartTime = shift.StartTime,
+            EndTime = shift.EndTime,
+            IsActive = shift.IsActive
+        };
+
+        var success = await MaintenanceService.SaveUserWorkShiftAsync(dto);
         if (success)
         {
-            s.IsActive = newVal;
-            ShowToast($"Estado '{s.Name}' {(newVal ? "activado" : "desactivado")}.", "success");
+            ShowToast($"Horario de {shift.Username} guardado correctamente (NxFortress SLA Engine).", "success");
         }
         else
         {
-            ShowToast("Error al cambiar el estado.", "danger");
+            ShowToast("Error al guardar horario de colaborador.", "danger");
         }
     }
+
+    // ===== STATUS TOGGLE =====
+
+    private async Task ToggleStatus(OrderStatusMaintenanceDto status)
+    {
+        var success = await MaintenanceService.ToggleStatusAsync(status.Id, !status.IsActive);
+        if (success)
+        {
+            status.IsActive = !status.IsActive;
+            ShowToast($"Estado {status.Name} actualizado.", "success");
+        }
+        else
+        {
+            ShowToast("Error al actualizar estado.", "danger");
+        }
+    }
+
+    private async Task ToggleSubstatus(OrderSubstatusMaintenanceDto substatus)
+    {
+        var success = await MaintenanceService.ToggleSubstatusAsync(substatus.IdSubstatus, !substatus.IsActive);
+        if (success)
+        {
+            substatus.IsActive = !substatus.IsActive;
+            ShowToast($"Subestado {substatus.Name} actualizado.", "success");
+        }
+        else
+        {
+            ShowToast("Error al actualizar subestado.", "danger");
+        }
+    }
+
 
     // ===== PRODUCT TOGGLE =====
     private async Task ToggleProduct(ProductMaintenanceDto p)

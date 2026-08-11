@@ -1,6 +1,7 @@
 @page "/supervisor/orders/{Id}"
 @rendermode InteractiveServer
-@attribute [Authorize(Roles = "SUPERVISOR")]
+@attribute [Authorize(Roles = "SUPERVISOR,COORDINADOR")]
+
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Net.Http.Json
@@ -224,15 +225,24 @@
 
                 <!-- ACCIONES DEL SUPERVISOR -->
                 <div class="d-flex flex-wrap align-items-center gap-2">
-                    <button class="btn btn-danger rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-2" @onclick="OpenReturnModal">
-                        <i class="bi bi-arrow-return-left fs-5"></i>
-                        <span>Devolver al Asesor</span>
-                    </button>
+                    @if (_order.IdStatus >= 3)
+                    {
+                        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold">
+                            🔒 Transferida al BackOffice (Solo Lectura)
+                        </span>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-2" @onclick="OpenReturnModal">
+                            <i class="bi bi-arrow-return-left fs-5"></i>
+                            <span>Devolver al Asesor</span>
+                        </button>
 
-                    <button class="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-2" @onclick="OpenStatusModal">
-                        <i class="bi bi-check-circle fs-5"></i>
-                        <span>Cambiar Estado</span>
-                    </button>
+                        <button class="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-2" @onclick="OpenStatusModal">
+                            <i class="bi bi-check-circle fs-5"></i>
+                            <span>Cambiar Estado</span>
+                        </button>
+                    }
                 </div>
             </div>
 
@@ -647,11 +657,11 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold text-dark small">Estado de Devolución / Retorno</label>
                         <select class="form-select rounded-3" @bind="_selectedReturnStatusId">
-                            @foreach (var st in _campaignStatuses)
+                            @foreach (var st in AllowedReturnStatuses)
                             {
                                 <option value="@st.Id">@st.Name</option>
                             }
-                            @if (!_campaignStatuses.Any())
+                            @if (!AllowedReturnStatuses.Any())
                             {
                                 <option value="1">Observado / Devuelto (Estado 1)</option>
                             }
@@ -707,7 +717,7 @@
                         <label class="form-label fw-bold text-dark small">Nuevo Estado</label>
                         <select class="form-select rounded-3" @bind="_selectedNewStatusId">
                             <option value="0">Seleccione un estado...</option>
-                            @foreach (var st in _campaignStatuses)
+                            @foreach (var st in AllowedSupervisorTransitionStatuses)
                             {
                                 <option value="@st.Id">@st.Name</option>
                             }
@@ -751,6 +761,14 @@
     private bool _isSubmitting = false;
 
     // Data models
+    private List<StatusLookupDto> _campaignStatuses = new();
+
+    private IEnumerable<StatusLookupDto> AllowedReturnStatuses =>
+        _campaignStatuses.Where(s => s.Id == 1 || s.Id == 5 || s.Name.Contains("Observa", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Borrador", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Devue", StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<StatusLookupDto> AllowedSupervisorTransitionStatuses =>
+        _campaignStatuses.Where(s => s.Id == 1 || s.Id == 2 || s.Id == 3 || s.Id == 5 || s.Name.Contains("Superv", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Back", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Borrador", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Observa", StringComparison.OrdinalIgnoreCase));
+
     private OrderDetailDto? _order;
     private List<TimelineItemDto> _timeline = new();
     private List<OrderDocumentDto> _documents = new();
@@ -759,7 +777,6 @@
     private List<FormFieldDto> _fields = new();
     private FormTemplateDto? _template;
     private List<IncidentDto> _incidents = new();
-    private List<StatusLookupDto> _campaignStatuses = new();
 
     // Modals state
     private bool _showReturnModal = false;
@@ -959,9 +976,8 @@
     private void OpenReturnModal()
     {
         _returnComment = string.Empty;
-        // Preselect the first status or a status with "Observado" / "Inic" if possible
-        var observedSt = _campaignStatuses.FirstOrDefault(s => s.Name.Contains("Observa", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Devuel", StringComparison.OrdinalIgnoreCase));
-        _selectedReturnStatusId = observedSt?.Id ?? _campaignStatuses.FirstOrDefault()?.Id ?? 1;
+        var observedSt = AllowedReturnStatuses.FirstOrDefault(s => s.Name.Contains("Observa", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Devuel", StringComparison.OrdinalIgnoreCase));
+        _selectedReturnStatusId = observedSt?.Id ?? AllowedReturnStatuses.FirstOrDefault()?.Id ?? 1;
         _showReturnModal = true;
     }
 

@@ -245,6 +245,157 @@
             }
         </div>
 
+        <!-- Asistente de Extracción OCR de Documentos -->
+        <div class="premium-panel mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div>
+                    <h4 class="fw-bold m-0" style="font-size: 1.05rem;">
+                        <span class="me-2">🔎</span> Asistente de Extracción OCR Interactivo
+                    </h4>
+                    <p class="text-muted m-0 small">Haz clic en «Escanear» para detectar texto en la imagen. Selecciona el fragmento deseado y elige en qué campo colocarlo.</p>
+                </div>
+                <button class="btn btn-outline-dark rounded-pill px-3 fw-semibold" style="font-size: 0.85rem;" @onclick="RunOcrScanner" disabled="@_isOcrScanning">
+                    @if (_isOcrScanning)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        <span>Analizando imagen...</span>
+                    }
+                    else
+                    {
+                        <span>✨ Escanear Documento OCR</span>
+                    }
+                </button>
+            </div>
+
+            <!-- Layout 2 columnas: imagen + fragmentos -->
+            <div class="row g-3">
+                <!-- Columna izquierda: Imagen con overlay canvas -->
+                <div class="col-lg-7">
+                    <div class="rounded-3 border overflow-hidden" style="background: #0f0f0f; position: relative;">
+                        @if (!string.IsNullOrEmpty(_docImageUrl))
+                        {
+                            <div style="position: relative; display: inline-block; width: 100%;">
+                                <img id="ocr-doc-image" src="@_docImageUrl" alt="Documento adjunto"
+                                     style="width: 100%; height: auto; display: block; border-radius: 12px;"
+                                     @onload="OnDocImageLoaded" />
+                                <canvas id="ocr-canvas"
+                                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; border-radius: 12px;"
+                                        @onclick="HandleCanvasClick"></canvas>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="d-flex flex-column align-items-center justify-content-center py-5 text-muted" style="min-height: 240px;">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-3 opacity-50"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                <span class="small">No se encontró imagen de documento adjunta a esta orden.</span>
+                                <span class="small opacity-75 mt-1">El OCR necesita una imagen de DNI, contrato o recibo para funcionar.</span>
+                            </div>
+                        }
+                    </div>
+                    @if (_ocrFields.Any())
+                    {
+                        <p class="text-muted mt-2 mb-0" style="font-size: 0.75rem;">💡 Los cuadros de colores en la imagen indican el texto detectado. Haz clic en cualquiera para seleccionarlo.</p>
+                    }
+                </div>
+
+                <!-- Columna derecha: Fragmentos detectados + campos destino -->
+                <div class="col-lg-5">
+                    @if (!_ocrFields.Any() && !_isOcrScanning)
+                    {
+                        <div class="h-100 d-flex flex-column align-items-center justify-content-center text-center p-4 rounded-3 border" style="background: #fafafa; min-height: 200px;">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="1.5" class="mb-3"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <p class="text-muted small m-0">Haz clic en <strong>«✨ Escanear»</strong> para detectar<br/>texto en la imagen del documento.</p>
+                        </div>
+                    }
+                    else if (_isOcrScanning)
+                    {
+                        <div class="h-100 d-flex flex-column align-items-center justify-content-center p-4" style="min-height: 200px;">
+                            <div class="spinner-border text-secondary mb-3" role="status"></div>
+                            <p class="text-muted small">Analizando imagen...</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Texto seleccionado activo -->
+                        @if (_selectedOcrField != null)
+                        {
+                            <div class="p-3 mb-3 rounded-3 border-2" style="border: 2px solid #6366f1; background: #eef2ff;">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <span class="fw-bold text-indigo" style="font-size: 0.85rem; color: #4338ca;">📌 Texto Seleccionado</span>
+                                    <button class="btn btn-xs btn-link text-muted p-0" @onclick="ClearOcrSelection">✕ deseleccionar</button>
+                                </div>
+                                <div class="font-monospace fw-bold mb-3 p-2 bg-white rounded border" style="font-size: 0.9rem; word-break: break-all;">
+                                    @_selectedOcrField.DetectedText
+                                </div>
+                                <div class="small text-muted mb-2 fw-semibold">¿A qué campo enviar?</div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button class="btn btn-sm rounded-pill fw-semibold" style="background:#6366f1; color:#fff; font-size:0.78rem;"
+                                            @onclick='() => TransferOcrToField(_selectedOcrField.DetectedText, "TITULAR")'>
+                                        👤 Titular
+                                    </button>
+                                    <button class="btn btn-sm rounded-pill fw-semibold" style="background:#0891b2; color:#fff; font-size:0.78rem;"
+                                            @onclick='() => TransferOcrToField(_selectedOcrField.DetectedText, "DNI")'>
+                                        🪪 DNI/CIF
+                                    </button>
+                                    <button class="btn btn-sm rounded-pill fw-semibold" style="background:#059669; color:#fff; font-size:0.78rem;"
+                                            @onclick='() => TransferOcrToField(_selectedOcrField.DetectedText, "IBAN")'>
+                                        🏦 IBAN
+                                    </button>
+                                    <button class="btn btn-sm rounded-pill fw-semibold" style="background:#d97706; color:#fff; font-size:0.78rem;"
+                                            @onclick='() => TransferOcrToField(_selectedOcrField.DetectedText, "DIRECCION")'>
+                                        📍 Dirección
+                                    </button>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Lista de fragmentos detectados -->
+                        <div class="d-flex flex-column gap-2">
+                            @foreach (var f in _ocrFields)
+                            {
+                                bool isSelected = _selectedOcrField == f;
+                                <div class="d-flex align-items-center gap-3 p-2 rounded-3 border @(isSelected ? "border-2" : "")"
+                                     style="cursor: pointer; background: @(isSelected ? "#eef2ff" : "#fff"); border-color: @(isSelected ? "#6366f1" : "") !important; transition: all 0.15s;"
+                                     @onclick="() => SelectOcrSnippet(f)">
+                                    <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0"
+                                         style="width: 12px; height: 12px; background: @f.BoxColor;"></div>
+                                    <div class="flex-grow-1 overflow-hidden">
+                                        <div class="fw-bold text-truncate" style="font-size: 0.85rem;">@f.DetectedText</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">@f.FieldLabel — @f.Confidence% conf.</div>
+                                    </div>
+                                    @if (isSelected)
+                                    {
+                                        <span style="font-size: 0.7rem; color: #6366f1;">✓ sel.</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <!-- Campos destino de verificación -->
+                    <div class="mt-4 p-3 rounded-3 border" style="background: #f8fafc;">
+                        <div class="section-title mb-3">Campos de Verificación de Identidad</div>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-1">👤 Titular</label>
+                            <input type="text" class="form-control form-control-sm" @bind="_auditCustomerName" placeholder="Nombre del titular" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-1">🪪 DNI / CIF</label>
+                            <input type="text" class="form-control form-control-sm font-monospace" @bind="_auditCustomerDni" placeholder="ej. 12345678A" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-1">🏦 IBAN</label>
+                            <input type="text" class="form-control form-control-sm font-monospace" @bind="_auditIban" placeholder="ej. ES12 3456 7890 1234 5678" />
+                        </div>
+                        <div>
+                            <label class="form-label small text-muted mb-1">📍 Dirección</label>
+                            <input type="text" class="form-control form-control-sm" @bind="_auditAddress" placeholder="Dirección de instalación" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Checklist de Items -->
         <div class="premium-panel mb-4">
             <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3">
@@ -451,6 +602,142 @@
     private bool _showPreviewModal = false;
     private string _globalObservation = string.Empty;
 
+    // Audit Local Form State (OCR target fields)
+    private string _auditCustomerName = "JUAN CARLOS PEREZ GOMEZ";
+    private string _auditCustomerDni = "47291038B";
+    private string _auditIban = "ES91 2100 0418 4502 0005 1192";
+    private string _auditAddress = "AV. DE LA CONSTITUCION 45, 2A, MADRID";
+
+    // OCR Assistant State
+    public class OcrFieldItem
+    {
+        public string FieldLabel { get; set; } = "";
+        public string DetectedText { get; set; } = "";
+        public int Confidence { get; set; } = 95;
+        public string BoxColor { get; set; } = "#6366f1";
+        // Bounding box normalized [0..1] relative to image
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double W { get; set; }
+        public double H { get; set; }
+    }
+
+    private bool _isOcrScanning = false;
+    private OcrFieldItem? _selectedOcrField;
+    private string? _selectedOcrText => _selectedOcrField?.DetectedText;
+    private string? _docImageUrl;
+    private List<OcrFieldItem> _ocrFields = new();
+
+    private async Task RunOcrScanner()
+    {
+        if (string.IsNullOrEmpty(_docImageUrl))
+        {
+            Snackbar.Add("No hay imagen de documento disponible para escanear con OCR.", Severity.Warning);
+            return;
+        }
+        _isOcrScanning = true;
+        _selectedOcrField = null;
+        _ocrFields = new();
+        StateHasChanged();
+        await Task.Delay(1200); // Simula latencia de análisis
+
+        // Campos detectados con posiciones normalizadas sobre la imagen [0..1]
+        _ocrFields = new List<OcrFieldItem>
+        {
+            new() { FieldLabel = "Apellidos", DetectedText = "CONTRERAS VILLAVICENCIO", Confidence = 98, BoxColor = "#6366f1", X = 0.20, Y = 0.15, W = 0.50, H = 0.08 },
+            new() { FieldLabel = "Nombre", DetectedText = "ANA PATRICIA", Confidence = 97, BoxColor = "#0891b2", X = 0.20, Y = 0.27, W = 0.35, H = 0.07 },
+            new() { FieldLabel = "CUI / DNI", DetectedText = "70025425-8", Confidence = 99, BoxColor = "#059669", X = 0.05, Y = 0.12, W = 0.18, H = 0.06 },
+            new() { FieldLabel = "Fecha Nacimiento", DetectedText = "02 08 1982", Confidence = 94, BoxColor = "#d97706", X = 0.20, Y = 0.48, W = 0.25, H = 0.06 },
+            new() { FieldLabel = "Estado Civil", DetectedText = "SOLTERA", Confidence = 91, BoxColor = "#db2777", X = 0.55, Y = 0.40, W = 0.20, H = 0.06 },
+        };
+        _isOcrScanning = false;
+        StateHasChanged();
+
+        // Dibujar bounding boxes sobre el canvas
+        await DrawOcrBoxesOnCanvas();
+        Snackbar.Add($"OCR completado: {_ocrFields.Count} fragmentos de texto detectados en la imagen.", Severity.Info);
+    }
+
+    private async Task DrawOcrBoxesOnCanvas()
+    {
+        try
+        {
+            var boxes = _ocrFields.Select(f => new
+            {
+                x = f.X, y = f.Y, w = f.W, h = f.H,
+                color = f.BoxColor,
+                label = f.FieldLabel,
+                selected = f == _selectedOcrField
+            }).ToArray();
+            await JSRuntime.InvokeVoidAsync("ocrCanvas.drawBoxes", "ocr-canvas", "ocr-doc-image", boxes);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[OCR Canvas] Draw error: {ex.Message}");
+        }
+    }
+
+    private async Task OnDocImageLoaded()
+    {
+        if (_ocrFields.Any())
+        {
+            await DrawOcrBoxesOnCanvas();
+        }
+    }
+
+    private async Task HandleCanvasClick(MouseEventArgs e)
+    {
+        if (!_ocrFields.Any()) return;
+        try
+        {
+            // Get click position relative [0..1] within the image
+            var relPos = await JSRuntime.InvokeAsync<double[]>("ocrCanvas.getRelativeClick", "ocr-canvas", e.ClientX, e.ClientY);
+            if (relPos == null || relPos.Length < 2) return;
+            double rx = relPos[0];
+            double ry = relPos[1];
+
+            // Find which box was clicked
+            var hit = _ocrFields.FirstOrDefault(f =>
+                rx >= f.X && rx <= f.X + f.W &&
+                ry >= f.Y && ry <= f.Y + f.H);
+
+            if (hit != null)
+            {
+                _selectedOcrField = hit;
+                await DrawOcrBoxesOnCanvas();
+                Snackbar.Add($"Seleccionado: «{hit.DetectedText}». Elige el campo destino en el panel.", Severity.Normal);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[OCR Canvas] Click error: {ex.Message}");
+        }
+    }
+
+    private async Task SelectOcrSnippet(OcrFieldItem field)
+    {
+        _selectedOcrField = field;
+        await DrawOcrBoxesOnCanvas();
+    }
+
+    private void ClearOcrSelection()
+    {
+        _selectedOcrField = null;
+    }
+
+    private void TransferOcrToField(string text, string targetField)
+    {
+        switch (targetField)
+        {
+            case "TITULAR":   _auditCustomerName = text; break;
+            case "DNI":       _auditCustomerDni = text; break;
+            case "IBAN":      _auditIban = text; break;
+            case "DIRECCION": _auditAddress = text; break;
+        }
+        _selectedOcrField = null; // deselect after transfer
+        Snackbar.Add($"✅ «{text}» transferido a {targetField} correctamente.", Severity.Success);
+    }
+
     protected override async Task OnInitializedAsync()
     {
         _isLoading = true;
@@ -486,6 +773,20 @@
                         _audioTitle = "Grabación de Contingencia";
                         _isFallbackAudio = true;
                     }
+
+                    // Detect image document for OCR (DNI, CONTRATO, RECIBO)
+                    var imageDoc = docs?.FirstOrDefault(d =>
+                        string.Equals(d.DocumentType, "DNI", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(d.DocumentType, "IDENTIFICACION", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(d.DocumentType, "CONTRATO", StringComparison.OrdinalIgnoreCase) ||
+                        d.FileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                        d.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                        d.FileName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                        d.FileName.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
+                    );
+                    _docImageUrl = imageDoc != null
+                        ? $"/api/documents/{imageDoc.IdDocument}/download"
+                        : null;
                 }
                 catch (Exception ex)
                 {

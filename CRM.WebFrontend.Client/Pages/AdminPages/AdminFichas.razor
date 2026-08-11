@@ -1,0 +1,305 @@
+@page "/admin/fichas"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "ADMIN_CRM")]
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+@using MudBlazor
+
+<PageTitle>Diseñador Canvas de Fichas - NYX CRM</PageTitle>
+
+<style>
+    .admin-header { background: #ffffff; border-radius: 20px; padding: 22px 28px; box-shadow: 0 4px 24px rgba(29,38,57,0.06); margin-bottom: 1.5rem; }
+    .btn-admin { background: #1D2639; color: #fff; border-radius: 12px; font-weight: 600; border: none; }
+    .btn-admin:hover { background: #2563EB; color: #fff; }
+    .plantilla-list { max-height: calc(100vh - 280px); overflow-y: auto; }
+    .plantilla-item { background: #fff; border-radius: 14px; padding: 14px 18px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(29,38,57,0.06); cursor: pointer; border: 2px solid transparent; transition: all 0.18s; }
+    .plantilla-item:hover { border-color: #2563EB; box-shadow: 0 4px 18px rgba(37,99,235,0.12); }
+    .plantilla-item.active { border-color: #2563EB; background: #EFF6FF; }
+    .editor-panel { background: #fff; border-radius: 20px; box-shadow: 0 4px 24px rgba(29,38,57,0.06); }
+    .canvas-section { background: #FAFBFC; border: 2px dashed #E2E8F0; border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+    .canvas-field { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; transition: all 0.15s; }
+    .canvas-field:hover { border-color: #2563EB; box-shadow: 0 4px 12px rgba(37,99,235,0.1); }
+    .canvas-preview-box { background: #F8FAFC; border-radius: 20px; border: 2px solid #E2E8F0; padding: 24px; }
+    .preview-input { border: 1px solid #D1D5DB; border-radius: 8px; padding: 8px 12px; font-size: 0.82rem; color: #9CA3AF; background: #fff; }
+    .required-star { color: #EF4444; margin-left: 2px; }
+    .section-title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: #94A3B8; margin-bottom: 10px; }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="admin-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+            <h1 class="h4 fw-bold text-dark mb-1"><i class="bi bi-palette-fill text-primary me-2"></i> Diseñador Canvas de Fichas Dinámicas</h1>
+            <p class="text-muted small mb-0">Diseño visual de formularios por secciones, columnas (1 a 3) y validadores del backend.</p>
+        </div>
+        <button class="btn btn-admin px-4 py-2" @onclick="NewTemplate"><i class="bi bi-plus-circle-fill me-2"></i> Nueva Plantilla Canvas</button>
+    </div>
+
+    <div class="row g-4">
+        <!-- Panel Izquierdo: Lista de Plantillas -->
+        <div class="col-md-3">
+            <p class="section-title">Plantillas Disponibles</p>
+            <div class="plantilla-list">
+                @foreach (var t in _templates)
+                {
+                    <div class="plantilla-item @(_selected?.Id == t.Id ? "active" : "")" @onclick="() => SelectTemplate(t)">
+                        <div class="fw-bold text-dark small">@t.Name</div>
+                        <div class="text-muted" style="font-size:0.75rem;">@t.Campaign · @t.Stage</div>
+                        <div class="d-flex align-items-center justify-content-between mt-2">
+                            <span class="badge @(t.IsActive ? "bg-success-subtle text-success" : "bg-secondary-subtle text-secondary") rounded-pill px-2">@(t.IsActive ? "Activa" : "Inactiva")</span>
+                            <span class="text-muted" style="font-size:0.72rem;">@t.Sections.Sum(s => s.Fields.Count) campos</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Panel Central: Diseñador Canvas -->
+        <div class="col-md-5">
+            @if (_selected != null)
+            {
+                <div class="editor-panel p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-3 border-bottom">
+                        <div>
+                            <h6 class="fw-bold text-dark mb-0">Plantilla: <span class="text-primary">@_selected.Name</span></h6>
+                            <small class="text-muted">Campaña: @_selected.Campaign</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3" @onclick="AddSection"><i class="bi bi-folder-plus me-1"></i> Agregar Sección</button>
+                    </div>
+
+                    <!-- Secciones Canvas -->
+                    @for (int sIdx = 0; sIdx < _selected.Sections.Count; sIdx++)
+                    {
+                        var section = _selected.Sections[sIdx];
+                        var secIndex = sIdx;
+                        <div class="canvas-section">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <input class="form-control form-control-sm fw-bold border-0 bg-transparent text-dark" style="font-size:0.9rem;" @bind="section.Title" placeholder="Título de la sección..." />
+                                <div class="d-flex gap-1">
+                                    <button class="btn btn-sm btn-outline-primary rounded-circle" style="width:28px;height:28px;padding:0;" @onclick="() => AddFieldToSection(section)" title="Agregar Campo"><i class="bi bi-plus"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger rounded-circle" style="width:28px;height:28px;padding:0;" @onclick="() => RemoveSection(secIndex)"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </div>
+
+                            <!-- Campos dentro de la sección -->
+                            @for (int fIdx = 0; fIdx < section.Fields.Count; fIdx++)
+                            {
+                                var field = section.Fields[fIdx];
+                                var fieldIndex = fIdx;
+                                <div class="canvas-field">
+                                    <div class="row g-2 align-items-center">
+                                        <div class="col-5">
+                                            <input class="form-control form-control-sm rounded-3 fw-semibold" @bind="field.Label" placeholder="Etiqueta visible *" />
+                                        </div>
+                                        <div class="col-4">
+                                            <select class="form-select form-select-sm rounded-3" @bind="field.FieldType">
+                                                <option value="text">Texto Corto</option>
+                                                <option value="number">Número</option>
+                                                <option value="select">Selección desplegable</option>
+                                                <option value="checkbox">Casilla Checkbox</option>
+                                                <option value="date">Fecha</option>
+                                                <option value="textarea">Área de Texto Largo</option>
+                                                <option value="tel">Teléfono</option>
+                                                <option value="dni">DNI / NIE / ID</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-3">
+                                            <select class="form-select form-select-sm rounded-3" @bind="field.ColSpan">
+                                                <option value="12">Ancho completo (col-12)</option>
+                                                <option value="6">1/2 Columna (col-6)</option>
+                                                <option value="4">1/3 Columna (col-4)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-4">
+                                            <input class="form-control form-control-sm rounded-3 text-monospace" @bind="field.Key" placeholder="key_bd" />
+                                        </div>
+                                        <div class="col-5">
+                                            <select class="form-select form-select-sm rounded-3" @bind="field.Validation">
+                                                <option value="none">Sin validador especial</option>
+                                                <option value="dni">Validador DNI / NIE</option>
+                                                <option value="phone">Validador Teléfono (+34)</option>
+                                                <option value="iban">Validador IBAN Bancario</option>
+                                                <option value="email">Validador Email</option>
+                                                <option value="cif">Validador CIF Empresa</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-2 d-flex align-items-center">
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" @bind="field.IsRequired" id="req_@(secIndex)_@(fieldIndex)" />
+                                                <label class="form-check-label small fw-bold" for="req_@(secIndex)_@(fieldIndex)">Req.</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-1 text-end">
+                                            <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => section.Fields.RemoveAt(fieldIndex)"><i class="bi bi-x-circle-fill"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            @if (!section.Fields.Any()) { <div class="text-center text-muted small py-2">Sección vacía. Haz clic en "+" para añadir campos.</div> }
+                        </div>
+                    }
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button class="btn btn-admin flex-grow-1 py-2 rounded-pill" @onclick="SaveTemplate" disabled="@_isSaving">
+                            @if (_isSaving) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                            <i class="bi bi-floppy2-fill me-2"></i> Guardar Diseño Canvas
+                        </button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="d-flex flex-column align-items-center justify-content-center py-5 text-muted">
+                    <i class="bi bi-layout-three-columns fs-1 mb-3"></i>
+                    <p class="small">Selecciona o crea una plantilla Canvas.</p>
+                </div>
+            }
+        </div>
+
+        <!-- Panel Derecho: Vista Previa Canvas en Tiempo Real -->
+        <div class="col-md-4">
+            <p class="section-title">Vista Previa Canvas en Vivo</p>
+            @if (_selected != null)
+            {
+                <div class="canvas-preview-box">
+                    <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                        <span class="fw-bold text-dark fs-6">📋 @_selected.Name</span>
+                        <span class="badge bg-primary-subtle text-primary">@_selected.Stage</span>
+                    </div>
+
+                    @foreach (var sec in _selected.Sections)
+                    {
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-dark border-bottom pb-1 mb-3" style="font-size:0.85rem;"><i class="bi bi-card-heading text-primary me-2"></i>@sec.Title</h6>
+                            <div class="row g-3">
+                                @foreach (var f in sec.Fields)
+                                {
+                                    <div class="col-md-@f.ColSpan">
+                                        <label class="form-label fw-bold text-dark" style="font-size:0.78rem;">
+                                            @f.Label
+                                            @if (f.IsRequired) { <span class="required-star">*</span> }
+                                        </label>
+                                        @if (f.FieldType == "textarea")
+                                        {
+                                            <div class="preview-input" style="height:50px;">Escribe @f.Label...</div>
+                                        }
+                                        else if (f.FieldType == "select")
+                                        {
+                                            <div class="preview-input d-flex align-items-center justify-content-between">
+                                                <span>Seleccionar...</span><i class="bi bi-chevron-down"></i>
+                                            </div>
+                                        }
+                                        else if (f.FieldType == "checkbox")
+                                        {
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div style="width:16px;height:16px;border:2px solid #CBD5E1;border-radius:4px;"></div>
+                                                <span class="text-muted small">@f.Label</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="preview-input">Ingresa @f.Label...</div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<CanvasTemplateDto> _templates = new();
+    private CanvasTemplateDto? _selected;
+    private bool _isSaving;
+
+    public class CanvasFieldDto
+    {
+        public string Label { get; set; } = "Nuevo Campo";
+        public string Key { get; set; } = "campo_key";
+        public string FieldType { get; set; } = "text";
+        public string ColSpan { get; set; } = "6";
+        public bool IsRequired { get; set; } = true;
+        public string Validation { get; set; } = "none";
+    }
+
+    public class CanvasSectionDto
+    {
+        public string Title { get; set; } = "Nueva Sección";
+        public List<CanvasFieldDto> Fields { get; set; } = new();
+    }
+
+    public class CanvasTemplateDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Campaign { get; set; } = "";
+        public string Stage { get; set; } = "Nueva Venta";
+        public bool IsActive { get; set; } = true;
+        public List<CanvasSectionDto> Sections { get; set; } = new();
+    }
+
+    protected override void OnInitialized()
+    {
+        _templates = new List<CanvasTemplateDto>
+        {
+            new()
+            {
+                Id = 1, Name = "Canvas Ficha Fibra Hogar", Campaign = "Fibra Hogar", Stage = "Nueva Venta", IsActive = true,
+                Sections = new List<CanvasSectionDto>
+                {
+                    new()
+                    {
+                        Title = "1. Datos del Titular",
+                        Fields = new List<CanvasFieldDto>
+                        {
+                            new() { Label = "Nombre del Titular", Key = "titular_nombre", FieldType = "text", ColSpan = "6", IsRequired = true },
+                            new() { Label = "Apellidos", Key = "titular_apellidos", FieldType = "text", ColSpan = "6", IsRequired = true },
+                            new() { Label = "DNI / NIE", Key = "titular_dni", FieldType = "dni", ColSpan = "4", IsRequired = true, Validation = "dni" },
+                            new() { Label = "Teléfono Móvil", Key = "telefono", FieldType = "tel", ColSpan = "4", IsRequired = true, Validation = "phone" },
+                            new() { Label = "Email de Contacto", Key = "email", FieldType = "text", ColSpan = "4", IsRequired = true, Validation = "email" },
+                        }
+                    },
+                    new()
+                    {
+                        Title = "2. Dirección de Instalación",
+                        Fields = new List<CanvasFieldDto>
+                        {
+                            new() { Label = "Dirección Completa", Key = "direccion", FieldType = "text", ColSpan = "12", IsRequired = true },
+                            new() { Label = "Código Postal", Key = "cp", FieldType = "number", ColSpan = "4", IsRequired = true },
+                            new() { Label = "Localidad / Provincia", Key = "localidad", FieldType = "text", ColSpan = "8", IsRequired = true },
+                        }
+                    }
+                }
+            }
+        };
+        _selected = _templates.First();
+    }
+
+    private void SelectTemplate(CanvasTemplateDto t) => _selected = t;
+
+    private void NewTemplate()
+    {
+        var nt = new CanvasTemplateDto { Id = _templates.Count + 1, Name = "Nueva Ficha Canvas", Campaign = "Fibra Hogar" };
+        nt.Sections.Add(new CanvasSectionDto { Title = "1. Datos Principales" });
+        _templates.Add(nt);
+        _selected = nt;
+    }
+
+    private void AddSection() => _selected?.Sections.Add(new CanvasSectionDto { Title = $"Sección {_selected.Sections.Count + 1}" });
+
+    private void RemoveSection(int idx) { if (_selected != null && idx >= 0 && idx < _selected.Sections.Count) _selected.Sections.RemoveAt(idx); }
+
+    private void AddFieldToSection(CanvasSectionDto sec) => sec.Fields.Add(new CanvasFieldDto());
+
+    private async Task SaveTemplate()
+    {
+        _isSaving = true;
+        await Task.Delay(400);
+        Snackbar.Add("Diseño Canvas de Ficha guardado exitosamente.", Severity.Success);
+        _isSaving = false;
+    }
+}

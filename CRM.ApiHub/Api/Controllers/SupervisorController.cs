@@ -10,9 +10,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CRM.ApiHub.Api.Controllers;
 
-[Authorize(Roles = "SUPERVISOR")]
+[Authorize(Roles = "SUPERVISOR,COORDINADOR")]
 [ApiController]
 [Route("api/supervisor")]
+
 public class SupervisorController : ControllerBase
 {
     private readonly GetTeamOrdersUseCase _getTeamOrdersUseCase;

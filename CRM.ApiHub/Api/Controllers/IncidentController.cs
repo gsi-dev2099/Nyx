@@ -8,8 +8,8 @@ using System.Security.Claims;
 namespace CRM.ApiHub.Api.Controllers;
 
 // DTOs para evitar el colapso de la URL por longitud
-public record IncidentResponseRequest(string ResponseText, string ResponseType, long RespondedBy);
-public record ResolveIncidentRequest(string Notes, long ResolvedBy);
+public record IncidentResponseRequest(string ResponseText, string ResponseType);
+public record ResolveIncidentRequest(string Notes);
 public record UpdateIncidentRequest(string CustomName, string CustomDescription, string? CustomSolution, string? AssignedToRole, DateTime? DueAt);
 
 [ApiController]

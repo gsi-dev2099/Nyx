@@ -17,7 +17,12 @@
     
     <!-- MudBlazor Styles & Fonts -->
     <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+
     
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
@@ -26,7 +31,6 @@
 
 <body>
     <Routes @rendermode="InteractiveServer" />
-    <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
@@ -79,6 +83,63 @@
                     return audio.currentTime;
                 }
                 return 0;
+            }
+        };
+
+        window.ocrCanvas = {
+            drawBoxes: function(canvasId, imgId, boxes) {
+                var canvas = document.getElementById(canvasId);
+                var img = document.getElementById(imgId);
+                if (!canvas || !img) return;
+
+                // Sync canvas pixel dimensions to rendered image dimensions
+                var rect = img.getBoundingClientRect();
+                canvas.width = img.naturalWidth || rect.width;
+                canvas.height = img.naturalHeight || rect.height;
+
+                var ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                var W = canvas.width;
+                var H = canvas.height;
+
+                boxes.forEach(function(box) {
+                    var x = box.x * W;
+                    var y = box.y * H;
+                    var w = box.w * W;
+                    var h = box.h * H;
+
+                    // Draw semi-transparent fill
+                    ctx.fillStyle = box.color + (box.selected ? '44' : '28');
+                    ctx.fillRect(x, y, w, h);
+
+                    // Draw border (thicker + glow if selected)
+                    ctx.strokeStyle = box.color;
+                    ctx.lineWidth = box.selected ? 3 : 1.5;
+                    ctx.setLineDash(box.selected ? [] : [5, 3]);
+                    ctx.strokeRect(x, y, w, h);
+                    ctx.setLineDash([]);
+
+                    // Draw label tag above box
+                    ctx.fillStyle = box.color;
+                    var labelX = x;
+                    var labelY = y - 4;
+                    var fontSize = Math.max(10, Math.min(13, W * 0.018));
+                    ctx.font = 'bold ' + fontSize + 'px system-ui, sans-serif';
+                    var textW = ctx.measureText(box.label).width + 8;
+                    ctx.fillRect(labelX, labelY - fontSize - 2, textW, fontSize + 4);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(box.label, labelX + 4, labelY - 2);
+                });
+            },
+
+            getRelativeClick: function(canvasId, clientX, clientY) {
+                var canvas = document.getElementById(canvasId);
+                if (!canvas) return [0, 0];
+                var rect = canvas.getBoundingClientRect();
+                var rx = (clientX - rect.left) / rect.width;
+                var ry = (clientY - rect.top) / rect.height;
+                return [Math.max(0, Math.min(1, rx)), Math.max(0, Math.min(1, ry))];
             }
         };
     </script>

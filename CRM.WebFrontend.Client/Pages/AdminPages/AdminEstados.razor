@@ -1,0 +1,1052 @@
+@page "/admin/estados"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "ADMIN_CRM")]
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@using MudBlazor
+
+<PageTitle>Estados y Flujos - NYX CRM</PageTitle>
+
+<style>
+    .admin-header { background:#fff; border-radius:20px; padding:22px 28px; box-shadow:0 4px 24px rgba(29,38,57,.06); margin-bottom:1.5rem; }
+    .btn-admin { background:#1D2639; color:#fff; border-radius:12px; font-weight:700; border:none; transition:background .18s; }
+    .btn-admin:hover { background:#2563EB; color:#fff; }
+    .catalog-tab { background:none; border:none; font-weight:700; font-size:.85rem; color:#94A3B8; padding:10px 20px; border-radius:12px; transition:all .18s; white-space:nowrap; }
+    .catalog-tab.active { background:#EFF6FF; color:#2563EB; }
+    .catalog-tab:hover:not(.active) { background:#F8FAFC; color:#475569; }
+    .tab-bar { background:#F1F5F9; border-radius:16px; padding:4px; display:flex; gap:2px; overflow-x:auto; margin-bottom:1.5rem; width:fit-content; }
+
+    /* TAB 1 — ESTADOS */
+    .estado-card { background:#fff; border-radius:16px; box-shadow:0 2px 16px rgba(29,38,57,.06); margin-bottom:14px; overflow:hidden; transition:box-shadow .2s; }
+    .estado-card:hover { box-shadow:0 6px 24px rgba(29,38,57,.12); }
+    .estado-hdr { display:flex; align-items:center; gap:12px; padding:14px 18px; background:#fff; border:none; width:100%; cursor:pointer; }
+    .color-dot { width:13px; height:13px; border-radius:50%; flex-shrink:0; border:2px solid rgba(0,0,0,.08); }
+    .flag-chip { font-size:.68rem; font-weight:700; padding:2px 7px; border-radius:8px; white-space:nowrap; }
+    .flag-yes { background:#DCFCE7; color:#16A34A; }
+    .flag-no  { background:#F1F5F9; color:#94A3B8; }
+    .flag-warn { background:#FEF3C7; color:#B45309; }
+    .code-badge { font-size:.72rem; font-weight:800; padding:2px 8px; border-radius:6px; background:#EFF6FF; color:#1D4ED8; font-family:monospace; }
+    .sub-row { display:flex; align-items:center; gap:10px; padding:9px 18px 9px 52px; border-top:1px solid #F1F5F9; background:#FAFBFC; }
+    .sub-row:hover { background:#EFF6FF; }
+    .add-sub-zone { padding:9px 18px 9px 52px; border-top:1px dashed #CBD5E1; background:#FAFBFC; }
+    .expand-chevron { transition:transform .2s; color:#94A3B8; }
+    .expand-chevron.open { transform:rotate(90deg); }
+    .category-badge { font-size:.7rem; font-weight:700; padding:2px 8px; border-radius:20px; }
+
+    /* TAB 2 — TRANSICIONES */
+    .trans-table thead th { background:#F8FAFC; color:#64748B; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:11px 14px; border-bottom:1px solid #E2E8F0; }
+    .trans-table tbody td { padding:11px 14px; font-size:.85rem; color:#1E293B; border-bottom:1px solid #F1F5F9; vertical-align:middle; }
+    .trans-table tbody tr:hover { background:#F8FAFC; }
+    .arrow-pill { display:inline-flex; align-items:center; gap:6px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:20px; padding:4px 12px; font-size:.8rem; }
+    .role-tag { font-size:.68rem; font-weight:700; padding:2px 8px; border-radius:20px; background:#EFF6FF; color:#1D4ED8; }
+
+    /* TAB 3 — PIPELINE */
+    .pipeline-camp-btn { border-radius:12px; border:2px solid transparent; padding:10px 16px; background:#fff; box-shadow:0 2px 8px rgba(29,38,57,.05); cursor:pointer; transition:all .18s; text-align:left; }
+    .pipeline-camp-btn.active { border-color:#2563EB; background:#EFF6FF; }
+    .pipeline-camp-btn:hover:not(.active) { border-color:#BFDBFE; }
+    .stage-card { background:#fff; border-radius:14px; border:1px solid #E2E8F0; padding:14px 18px; margin-bottom:10px; display:flex; align-items:flex-start; gap:14px; }
+    .stage-index { width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg,#2563EB,#1D2639); color:#fff; font-weight:800; font-size:.78rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px; }
+
+    /* TAB 4 — PROVEEDORES */
+    .provider-sect { background:#fff; border-radius:16px; box-shadow:0 2px 14px rgba(29,38,57,.06); overflow:hidden; margin-bottom:1.5rem; }
+    .auto-badge { font-size:.68rem; font-weight:800; padding:2px 8px; border-radius:20px; background:#DCFCE7; color:#16A34A; }
+    .manual-badge { font-size:.68rem; font-weight:800; padding:2px 8px; border-radius:20px; background:#F1F5F9; color:#64748B; }
+
+    /* General */
+    .modal-card { background:#fff; border-radius:24px; box-shadow:0 20px 60px rgba(15,23,42,.2); max-height:92vh; overflow-y:auto; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,.6); backdrop-filter:blur(4px); z-index:1050; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .form-label { font-size:.78rem; font-weight:700; color:#64748B; margin-bottom:4px; }
+    .section-lbl { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.7px; color:#94A3B8; margin-bottom:8px; }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="admin-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+            <h1 class="h4 fw-bold text-dark mb-1"><i class="bi bi-diagram-3-fill text-primary me-2"></i>Estados, Flujos y Proveedores</h1>
+            <p class="text-muted small mb-0">Control total del ciclo de vida de las ventas: estados, transiciones, pipelines por campaña y homologación de proveedores.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-primary rounded-pill px-4" @onclick='() => Nav.NavigateTo("/admin/fichas")'>
+                <i class="bi bi-layout-text-sidebar-reverse me-2"></i>Ir al Diseñador de Fichas
+            </button>
+            @if (_activeTab == 0)
+            {
+                <button class="btn btn-admin px-4 py-2" @onclick="() => OpenStatusModal(null)"><i class="bi bi-plus-circle-fill me-2"></i>Nuevo Estado</button>
+            }
+            else if (_activeTab == 1)
+            {
+                <button class="btn btn-admin px-4 py-2" @onclick="() => OpenTransitionModal(null)"><i class="bi bi-plus-circle-fill me-2"></i>Nueva Transición</button>
+            }
+            else if (_activeTab == 2 && _selectedCampaign != null)
+            {
+                <button class="btn btn-admin px-4 py-2" @onclick="() => OpenStageModal(null)"><i class="bi bi-plus-circle-fill me-2"></i>Nueva Etapa</button>
+            }
+            else if (_activeTab == 3)
+            {
+                <button class="btn btn-admin px-4 py-2" @onclick="() => OpenMappingModal(null)"><i class="bi bi-plus-circle-fill me-2"></i>Nuevo Mapeo</button>
+            }
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar mb-4">
+        <button class="catalog-tab @(_activeTab==0?"active":"")" @onclick="() => SetTab(0)">
+            <i class="bi bi-diagram-2 me-2"></i>Estados Globales
+        </button>
+        <button class="catalog-tab @(_activeTab==1?"active":"")" @onclick="() => SetTab(1)">
+            <i class="bi bi-arrow-left-right me-2"></i>Transiciones
+        </button>
+        <button class="catalog-tab @(_activeTab==2?"active":"")" @onclick="() => SetTab(2)">
+            <i class="bi bi-megaphone me-2"></i>Pipeline por Campaña
+        </button>
+        <button class="catalog-tab @(_activeTab==3?"active":"")" @onclick="() => SetTab(3)">
+            <i class="bi bi-plug me-2"></i>Mapeo de Proveedores
+        </button>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="text-muted mt-3">Cargando...</p></div>
+    }
+
+    <!-- ===== TAB 0: ESTADOS GLOBALES ===== -->
+    @if (!_isLoading && _activeTab == 0)
+    {
+        @foreach (var s in _statuses)
+        {
+            <div class="estado-card">
+                <button class="estado-hdr" @onclick="() => ToggleExpand(s.Id)">
+                    <i class="bi bi-chevron-right expand-chevron @(_expanded.Contains(s.Id)?"open":"")"></i>
+                    <span class="color-dot" style="background:@(s.Color??"#94A3B8");"></span>
+                    <div class="text-start flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="fw-bold text-dark">@s.Name</span>
+                            <span class="code-badge">@s.Code</span>
+                            <span class="category-badge @GetCategoryClass(s.Category)">@s.Category</span>
+                            @if (s.IsTerminal) { <span class="flag-chip flag-warn">TERMINAL</span> }
+                        </div>
+                        <div class="d-flex gap-2 mt-1 flex-wrap">
+                            <span class="flag-chip @(s.RequiresSubstatus?"flag-yes":"flag-no")" title="Requiere subestado">
+                                <i class="bi bi-@(s.RequiresSubstatus?"check":"dash")"></i> Req. Subestado
+                            </span>
+                            <span class="flag-chip @(s.RequiresComment?"flag-yes":"flag-no")" title="Requiere comentario">
+                                <i class="bi bi-@(s.RequiresComment?"check":"dash")"></i> Req. Comentario
+                            </span>
+                            <span class="flag-chip @(s.AllowsEditByAsesor?"flag-yes":"flag-no")" title="Asesor puede editar">
+                                <i class="bi bi-@(s.AllowsEditByAsesor?"check":"dash")"></i> Asesor edita
+                            </span>
+                            <span class="flag-chip @(s.AllowsEditBySupervisor?"flag-yes":"flag-no")" title="Supervisor puede editar">
+                                <i class="bi bi-@(s.AllowsEditBySupervisor?"check":"dash")"></i> Supervisor edita
+                            </span>
+                            <span class="flag-chip flag-no">Orden: @s.OrderIndex</span>
+                            <span class="text-muted" style="font-size:.72rem;">@(s.Substatuses.Count) subestado(s)</span>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2" @onclick:stopPropagation="true">
+                        <div class="form-check form-switch mb-0" title="Activo">
+                            <input class="form-check-input" type="checkbox" checked="@s.IsActive" @onchange="async () => await ToggleStatusActive(s)" />
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill" @onclick="() => OpenStatusModal(s)">
+                            <i class="bi bi-pencil-fill"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger rounded-pill" @onclick="() => ConfirmDeleteStatus(s)">
+                            <i class="bi bi-trash3-fill"></i>
+                        </button>
+                    </div>
+                </button>
+
+                @if (_expanded.Contains(s.Id))
+                {
+                    @if (s.Substatuses.Any())
+                    {
+                        @foreach (var sub in s.Substatuses)
+                        {
+                            <div class="sub-row">
+                                <span class="text-muted">↳</span>
+                                @if (!string.IsNullOrEmpty(sub.Color))
+                                {
+                                    <span class="color-dot" style="background:@sub.Color;width:10px;height:10px;"></span>
+                                }
+                                <span class="fw-semibold small flex-grow-1">@sub.Name</span>
+                                <span class="code-badge me-2">@sub.Code</span>
+                                <span class="text-muted" style="font-size:.75rem; max-width:180px; overflow:hidden; text-overflow:ellipsis;">@(sub.Description ?? "—")</span>
+                                <span class="flag-no flag-chip ms-2">Orden: @sub.OrderIndex</span>
+                                <div class="form-check form-switch mb-0 ms-2">
+                                    <input class="form-check-input" type="checkbox" checked="@sub.IsActive" @onchange="async () => await ToggleSubstatusActive(sub)" />
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary rounded-pill ms-1" @onclick="() => OpenSubstatusModal(s.Id, sub)">
+                                    <i class="bi bi-pencil-fill"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger rounded-pill ms-1" @onclick="() => ConfirmDeleteSubstatus(sub)">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="sub-row text-muted small"><i class="bi bi-info-circle me-2"></i>Sin subestados aún.</div>
+                    }
+                    <div class="add-sub-zone">
+                        <button class="btn btn-sm btn-outline-primary rounded-pill" @onclick="() => OpenSubstatusModal(s.Id, null)">
+                            <i class="bi bi-plus-circle me-1"></i> Agregar Subestado
+                        </button>
+                    </div>
+                }
+            </div>
+        }
+        @if (!_statuses.Any()) { <div class="text-center py-5 text-muted"><i class="bi bi-diagram-3 d-block fs-1 mb-3"></i>No hay estados configurados.</div> }
+    }
+
+    <!-- ===== TAB 1: TRANSICIONES ===== -->
+    @if (!_isLoading && _activeTab == 1)
+    {
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover trans-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Transición</th>
+                            <th>Roles Permitidos</th>
+                            <th class="text-center">Req. Comentario</th>
+                            <th class="text-center">Cambio Masivo</th>
+                            <th class="text-center">Activo</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in _transitions)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="arrow-pill">
+                                        <span class="fw-bold">@t.FromStatusName</span>
+                                        <i class="bi bi-arrow-right text-primary"></i>
+                                        <span class="fw-bold text-primary">@t.ToStatusName</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (t.AllowedRoles != null)
+                                    {
+                                        @foreach (var r in t.AllowedRoles)
+                                        {
+                                            <span class="role-tag me-1">@r</span>
+                                        }
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <i class="bi bi-@(t.RequiresComment?"check-circle-fill text-success":"dash-circle text-muted")"></i>
+                                </td>
+                                <td class="text-center">
+                                    <i class="bi bi-@(t.IsBulkAllowed?"check-circle-fill text-success":"dash-circle text-muted")"></i>
+                                </td>
+                                <td class="text-center">
+                                    <div class="form-check form-switch d-inline-block mb-0">
+                                        <input class="form-check-input" type="checkbox" checked="@t.IsActive" @onchange="() => ToggleTransitionActive(t)" />
+                                    </div>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill me-1" @onclick="() => OpenTransitionModal(t)"><i class="bi bi-pencil-fill"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill" @onclick="() => DeleteTransition(t)"><i class="bi bi-trash3-fill"></i></button>
+                                </td>
+                            </tr>
+                        }
+                        @if (!_transitions.Any()) { <tr><td colspan="6" class="text-center py-5 text-muted">No hay transiciones configuradas.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- ===== TAB 2: PIPELINE POR CAMPAÑA ===== -->
+    @if (!_isLoading && _activeTab == 2)
+    {
+        <div class="row g-4">
+            <div class="col-md-3">
+                <p class="section-lbl">Selecciona Campaña</p>
+                @foreach (var c in _campaigns)
+                {
+                    <button class="pipeline-camp-btn w-100 mb-2 @(_selectedCampaign?.Id==c.Id?"active":"")" @onclick="() => SelectCampaign(c)">
+                        <div class="fw-bold small text-dark">@c.Name</div>
+                        <div class="text-muted" style="font-size:.72rem;">@c.Stages.Count etapa(s)</div>
+                    </button>
+                }
+            </div>
+            <div class="col-md-9">
+                @if (_selectedCampaign == null)
+                {
+                    <div class="d-flex flex-column align-items-center justify-content-center text-muted py-5">
+                        <i class="bi bi-megaphone fs-1 mb-3"></i>
+                        <p class="small">Selecciona una campaña para ver su pipeline.</p>
+                    </div>
+                }
+                else
+                {
+                    <p class="section-lbl">Pipeline: <span class="text-primary">@_selectedCampaign.Name</span></p>
+                    @if (!_selectedCampaign.Stages.Any())
+                    {
+                        <div class="text-center text-muted py-4"><i class="bi bi-diagram-3 d-block fs-1 mb-2"></i>Sin etapas. Agrega la primera.</div>
+                    }
+                    @for (int i = 0; i < _selectedCampaign.Stages.Count; i++)
+                    {
+                        var stage = _selectedCampaign.Stages[i];
+                        var idx = i;
+                        <div class="stage-card">
+                            <div class="stage-index">@(i+1)</div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="fw-bold text-dark">@stage.Name</span>
+                                    <span class="code-badge">@stage.StageCode</span>
+                                    @if (stage.RequiresAudit) { <span class="flag-chip flag-warn">AUDITORÍA</span> }
+                                    @if (stage.SlaHours.HasValue) { <span class="flag-chip flag-no">SLA @stage.SlaHours h</span> }
+                                </div>
+                                <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    @if (!string.IsNullOrEmpty(stage.StatusEnterName))
+                                    {
+                                        <span class="text-muted small"><i class="bi bi-box-arrow-in-right me-1 text-success"></i>Entra: <strong>@stage.StatusEnterName</strong></span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(stage.StatusExitName))
+                                    {
+                                        <span class="text-muted small ms-2"><i class="bi bi-box-arrow-right me-1 text-danger"></i>Sale: <strong>@stage.StatusExitName</strong></span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrEmpty(stage.Description)) { <div class="text-muted small mt-1">@stage.Description</div> }
+                            </div>
+                            <div class="d-flex flex-column gap-1">
+                                <button class="btn btn-sm p-0" style="color:#94A3B8;" @onclick="() => MoveStage(idx,-1)" disabled="@(idx==0)"><i class="bi bi-chevron-up"></i></button>
+                                <button class="btn btn-sm p-0" style="color:#94A3B8;" @onclick="() => MoveStage(idx,1)" disabled="@(idx==_selectedCampaign.Stages.Count-1)"><i class="bi bi-chevron-down"></i></button>
+                            </div>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary rounded-pill" @onclick="() => OpenStageModal(stage)"><i class="bi bi-pencil-fill"></i></button>
+                                <button class="btn btn-sm btn-outline-danger rounded-pill" @onclick="() => DeleteStage(stage)"><i class="bi bi-trash3-fill"></i></button>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+
+    <!-- ===== TAB 3: MAPEO DE PROVEEDORES ===== -->
+    @if (!_isLoading && _activeTab == 3)
+    {
+        @foreach (var grp in _mappings.GroupBy(m => m.ProviderName).OrderBy(g => g.Key))
+        {
+            <div class="provider-sect mb-4">
+                <div class="px-4 py-3 d-flex align-items-center justify-content-between" style="background:linear-gradient(135deg,#1D2639,#2563EB);border-radius:16px 16px 0 0;">
+                    <div>
+                        <span class="fw-bold text-white">@grp.Key</span>
+                        <span class="text-white-50 small ms-2">@grp.Count() mapeo(s)</span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover trans-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Código Proveedor</th>
+                                <th>Nombre Proveedor</th>
+                                <th>Estado Interno</th>
+                                <th>Subestado</th>
+                                <th class="text-center">Auto-Update</th>
+                                <th class="text-center">Genera Incidencia</th>
+                                <th class="text-center">Prio.</th>
+                                <th class="text-end pe-4">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in grp)
+                            {
+                                <tr>
+                                    <td class="ps-4"><code class="text-primary fw-bold">@m.ProviderStatusCode</code></td>
+                                    <td class="text-secondary small">@(m.ProviderStatusName ?? "—")</td>
+                                    <td><span class="fw-semibold">@m.InternalStatusName</span></td>
+                                    <td class="text-muted small">@(m.InternalSubstatusName ?? "—")</td>
+                                    <td class="text-center">
+                                        @if (m.AutoUpdate) { <span class="auto-badge">AUTO</span> } else { <span class="manual-badge">MANUAL</span> }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (m.CreatesIncidentId.HasValue) { <span class="flag-chip flag-warn"><i class="bi bi-exclamation-triangle"></i> Sí</span> } else { <span class="text-muted">—</span> }
+                                    </td>
+                                    <td class="text-center"><span class="badge bg-light text-dark border">@m.Priority</span></td>
+                                    <td class="text-end pe-4">
+                                        <button class="btn btn-sm btn-outline-primary rounded-pill me-1" @onclick="() => OpenMappingModal(m)"><i class="bi bi-pencil-fill"></i></button>
+                                        <button class="btn btn-sm btn-outline-danger rounded-pill" @onclick="() => DeleteMapping(m)"><i class="bi bi-trash3-fill"></i></button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        @if (!_mappings.Any()) { <div class="text-center py-5 text-muted"><i class="bi bi-plug d-block fs-1 mb-3"></i>No hay mapeos de proveedores configurados.</div> }
+    }
+</div>
+
+<!-- ===== MODAL ESTADO ===== -->
+@if (_showStatusModal)
+{
+    <div class="modal-overlay" @onclick="() => _showStatusModal=false">
+        <div class="modal-card" style="width:600px;" @onclick:stopPropagation="true">
+            <div class="px-4 pt-4 pb-2 d-flex align-items-center justify-content-between">
+                <h5 class="fw-bold mb-0"><i class="bi bi-diagram-2 text-primary me-2"></i>@(_editStatus.Id>0?"Editar":"Nuevo") Estado</h5>
+                <button class="btn-close" @onclick="() => _showStatusModal=false"></button>
+            </div>
+            <div class="px-4 pb-2">
+                <div class="row g-3">
+                    <div class="col-8"><label class="form-label">Nombre *</label><input class="form-control rounded-3" @bind="_editStatus.Name" placeholder="Ej. En Validación" /></div>
+                    <div class="col-4"><label class="form-label">Código *</label><input class="form-control rounded-3 text-uppercase" @bind="_editStatus.Code" placeholder="VALID" maxlength="50" /></div>
+                    <div class="col-6">
+                        <label class="form-label">Categoría *</label>
+                        <select class="form-select rounded-3" @bind="_editStatus.Category">
+                            <option value="IN_PROGRESS">IN_PROGRESS (En curso)</option>
+                            <option value="WON">WON (Ganado)</option>
+                            <option value="ON_HOLD">ON_HOLD (En pausa)</option>
+                            <option value="CANCELLED">CANCELLED (Cancelado)</option>
+                            <option value="LOST">LOST (Perdido)</option>
+                        </select>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label">Color</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <input type="color" class="form-control form-control-color rounded-3" @bind="_editStatus.Color" />
+                            <code class="small text-muted">@_editStatus.Color</code>
+                        </div>
+                    </div>
+                    <div class="col-2"><label class="form-label">Orden</label><input type="number" class="form-control rounded-3" @bind="_editStatus.OrderIndex" min="0" max="99" /></div>
+                </div>
+
+                <hr class="my-3" style="border-color:#F1F5F9;" />
+                <p class="section-lbl mb-3">Comportamiento y permisos</p>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+                            <div>
+                                <div class="fw-bold small">Estado Terminal</div>
+                                <div class="text-muted" style="font-size:.72rem;">Cierra el flujo definitivamente</div>
+                            </div>
+                            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" @bind="_editStatus.IsTerminal" /></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+                            <div>
+                                <div class="fw-bold small">Requiere Subestado</div>
+                                <div class="text-muted" style="font-size:.72rem;">Asesor debe elegir subestado</div>
+                            </div>
+                            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" @bind="_editStatus.RequiresSubstatus" /></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+                            <div>
+                                <div class="fw-bold small">Requiere Comentario</div>
+                                <div class="text-muted" style="font-size:.72rem;">Asesor debe escribir nota</div>
+                            </div>
+                            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" @bind="_editStatus.RequiresComment" /></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+                            <div>
+                                <div class="fw-bold small">Asesor puede editar</div>
+                                <div class="text-muted" style="font-size:.72rem;">El asesor puede modificarlo</div>
+                            </div>
+                            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" @bind="_editStatus.AllowsEditByAsesor" /></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+                            <div>
+                                <div class="fw-bold small">Supervisor puede editar</div>
+                                <div class="text-muted" style="font-size:.72rem;">El supervisor puede modificarlo</div>
+                            </div>
+                            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" @bind="_editStatus.AllowsEditBySupervisor" /></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-4 py-3 d-flex gap-2 justify-content-end" style="border-top:1px solid #F1F5F9;">
+                <button class="btn btn-light rounded-pill px-4" @onclick="() => _showStatusModal=false">Cancelar</button>
+                <button class="btn btn-admin px-5 rounded-pill" @onclick="SaveStatus" disabled="@_isSaving">
+                    @if(_isSaving){<span class="spinner-border spinner-border-sm me-2"></span>} Guardar Estado
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ===== MODAL SUBESTADO ===== -->
+@if (_showSubModal)
+{
+    <div class="modal-overlay" @onclick="() => _showSubModal=false">
+        <div class="modal-card" style="width:480px;" @onclick:stopPropagation="true">
+            <div class="px-4 pt-4 pb-2 d-flex align-items-center justify-content-between">
+                <h5 class="fw-bold mb-0"><i class="bi bi-tags-fill text-primary me-2"></i>@(_editSub.IdSubstatus>0?"Editar":"Nuevo") Subestado</h5>
+                <button class="btn-close" @onclick="() => _showSubModal=false"></button>
+            </div>
+            <div class="px-4 pb-2">
+                <div class="row g-3">
+                    <div class="col-8"><label class="form-label">Nombre *</label><input class="form-control rounded-3" @bind="_editSub.Name" placeholder="Ej. Documentación Pendiente" /></div>
+                    <div class="col-4"><label class="form-label">Código *</label><input class="form-control rounded-3 text-uppercase" @bind="_editSub.Code" placeholder="DOC_PEND" maxlength="50" /></div>
+                    <div class="col-8"><label class="form-label">Descripción</label><textarea class="form-control rounded-3" @bind="_editSub.Description" rows="2" placeholder="Descripción corta..."></textarea></div>
+                    <div class="col-4">
+                        <label class="form-label">Color</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <input type="color" class="form-control form-control-color rounded-3" @bind="_editSub.Color" />
+                        </div>
+                        <label class="form-label mt-2">Orden</label>
+                        <input type="number" class="form-control rounded-3" @bind="_editSub.OrderIndex" min="0" max="99" />
+                    </div>
+                </div>
+            </div>
+            <div class="px-4 py-3 d-flex gap-2 justify-content-end" style="border-top:1px solid #F1F5F9;">
+                <button class="btn btn-light rounded-pill px-4" @onclick="() => _showSubModal=false">Cancelar</button>
+                <button class="btn btn-admin px-5 rounded-pill" @onclick="SaveSubstatus" disabled="@_isSaving">
+                    @if(_isSaving){<span class="spinner-border spinner-border-sm me-2"></span>} Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ===== MODAL TRANSICIÓN ===== -->
+@if (_showTransitionModal)
+{
+    <div class="modal-overlay" @onclick="() => _showTransitionModal=false">
+        <div class="modal-card" style="width:540px;" @onclick:stopPropagation="true">
+            <div class="px-4 pt-4 pb-2 d-flex align-items-center justify-content-between">
+                <h5 class="fw-bold mb-0"><i class="bi bi-arrow-left-right text-primary me-2"></i>@(_editTrans.IdTransition>0?"Editar":"Nueva") Transición</h5>
+                <button class="btn-close" @onclick="() => _showTransitionModal=false"></button>
+            </div>
+            <div class="px-4 pb-2">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label">Estado Origen *</label>
+                        <select class="form-select rounded-3" @bind="_editTrans.FromStatusId">
+                            <option value="0">-- Seleccionar --</option>
+                            @foreach (var s in _statuses) { <option value="@s.Id">@s.Name</option> }
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Estado Destino *</label>
+                        <select class="form-select rounded-3" @bind="_editTrans.ToStatusId">
+                            <option value="0">-- Seleccionar --</option>
+                            @foreach (var s in _statuses) { <option value="@s.Id">@s.Name</option> }
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Roles que pueden hacer esta transición</label>
+                        <div class="d-flex flex-wrap gap-2 mt-1">
+                            @foreach (var role in new[]{"ASESOR","SUPERVISOR","BACKOFFICE","COORDINADOR","ADMIN_CRM"})
+                            {
+                                var r = role;
+                                var isChecked = _editTrans.AllowedRoles.Contains(r);
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" checked="@isChecked"
+                                           @onchange="() => ToggleRole(r)" id="role_@r" />
+                                    <label class="form-check-label small fw-bold" for="role_@r">@r</label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-12"><label class="form-label">Descripción / Nota interna</label><input class="form-control rounded-3" @bind="_editTrans.Description" placeholder="Opcional..." /></div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+                            <span class="fw-bold small">Requiere Comentario</span>
+                            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" @bind="_editTrans.RequiresComment" /></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+                            <span class="fw-bold small">Permitir Cambio Masivo</span>
+                            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" @bind="_editTrans.IsBulkAllowed" /></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-4 py-3 d-flex gap-2 justify-content-end" style="border-top:1px solid #F1F5F9;">
+                <button class="btn btn-light rounded-pill px-4" @onclick="() => _showTransitionModal=false">Cancelar</button>
+                <button class="btn btn-admin px-5 rounded-pill" @onclick="SaveTransition" disabled="@_isSaving">
+                    @if(_isSaving){<span class="spinner-border spinner-border-sm me-2"></span>} Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ===== MODAL ETAPA PIPELINE ===== -->
+@if (_showStageModal)
+{
+    <div class="modal-overlay" @onclick="() => _showStageModal=false">
+        <div class="modal-card" style="width:520px;" @onclick:stopPropagation="true">
+            <div class="px-4 pt-4 pb-2 d-flex align-items-center justify-content-between">
+                <h5 class="fw-bold mb-0"><i class="bi bi-signpost-split text-primary me-2"></i>@(_editStage.IdStage>0?"Editar":"Nueva") Etapa</h5>
+                <button class="btn-close" @onclick="() => _showStageModal=false"></button>
+            </div>
+            <div class="px-4 pb-2">
+                <div class="row g-3">
+                    <div class="col-8"><label class="form-label">Nombre de la Etapa *</label><input class="form-control rounded-3" @bind="_editStage.Name" placeholder="Ej. Validación Documentos" /></div>
+                    <div class="col-4"><label class="form-label">Código *</label><input class="form-control rounded-3 text-uppercase" @bind="_editStage.StageCode" placeholder="VAL_DOCS" maxlength="50" /></div>
+                    <div class="col-12"><label class="form-label">Descripción</label><textarea class="form-control rounded-3" @bind="_editStage.Description" rows="2" placeholder="Descripción corta de la etapa..."></textarea></div>
+                    <div class="col-6">
+                        <label class="form-label">Estado de Entrada</label>
+                        <select class="form-select rounded-3" @bind="_editStage.IdStatusEnter">
+                            <option value="0">— Sin estado de entrada —</option>
+                            @foreach (var s in _statuses) { <option value="@s.Id">@s.Name</option> }
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Estado de Salida</label>
+                        <select class="form-select rounded-3" @bind="_editStage.IdStatusExit">
+                            <option value="0">— Sin estado de salida —</option>
+                            @foreach (var s in _statuses) { <option value="@s.Id">@s.Name</option> }
+                        </select>
+                    </div>
+                    <div class="col-6"><label class="form-label">SLA (horas)</label><input type="number" class="form-control rounded-3" @bind="_editStage.SlaHours" min="1" placeholder="Ej. 48" /></div>
+                    <div class="col-6 d-flex align-items-end pb-1">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="_editStage.RequiresAudit" id="chkAudit" />
+                            <label class="form-check-label fw-bold small" for="chkAudit">Requiere Auditoría</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-4 py-3 d-flex gap-2 justify-content-end" style="border-top:1px solid #F1F5F9;">
+                <button class="btn btn-light rounded-pill px-4" @onclick="() => _showStageModal=false">Cancelar</button>
+                <button class="btn btn-admin px-5 rounded-pill" @onclick="SaveStage" disabled="@_isSaving">
+                    @if(_isSaving){<span class="spinner-border spinner-border-sm me-2"></span>} Guardar Etapa
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ===== MODAL MAPEO PROVEEDOR ===== -->
+@if (_showMappingModal)
+{
+    <div class="modal-overlay" @onclick="() => _showMappingModal=false">
+        <div class="modal-card" style="width:600px;" @onclick:stopPropagation="true">
+            <div class="px-4 pt-4 pb-2 d-flex align-items-center justify-content-between">
+                <h5 class="fw-bold mb-0"><i class="bi bi-plug text-primary me-2"></i>@(_editMapping.IdMapping>0?"Editar":"Nuevo") Mapeo de Proveedor</h5>
+                <button class="btn-close" @onclick="() => _showMappingModal=false"></button>
+            </div>
+            <div class="px-4 pb-2">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label">Proveedor *</label>
+                        <select class="form-select rounded-3" @bind="_editMapping.IdProvider">
+                            <option value="0">-- Seleccionar proveedor --</option>
+                            @foreach (var p in _providers) { <option value="@p.IdProvider">@p.Name</option> }
+                        </select>
+                    </div>
+                    <div class="col-6"><label class="form-label">Código Estado Proveedor *</label><input class="form-control rounded-3" @bind="_editMapping.ProviderStatusCode" placeholder="Ej. ACTIVE, PENDING_DOC" /></div>
+                    <div class="col-12"><label class="form-label">Nombre Estado Proveedor</label><input class="form-control rounded-3" @bind="_editMapping.ProviderStatusName" placeholder="Nombre legible del estado del proveedor" /></div>
+                    <div class="col-6">
+                        <label class="form-label">Estado Interno NYX *</label>
+                        <select class="form-select rounded-3" @bind="_editMapping.InternalStatusId">
+                            <option value="0">-- Seleccionar --</option>
+                            @foreach (var s in _statuses) { <option value="@s.Id">@s.Name</option> }
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Subestado Interno (opcional)</label>
+                        <select class="form-select rounded-3" @bind="_editMapping.InternalSubstatusId">
+                            <option value="0">— Ninguno —</option>
+                            @foreach (var s in _statuses)
+                            {
+                                @foreach (var sub in s.Substatuses)
+                                {
+                                    <option value="@sub.IdSubstatus">@s.Name → @sub.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6"><label class="form-label">Prioridad (1=alta, 5=baja)</label><input type="number" class="form-control rounded-3" @bind="_editMapping.Priority" min="1" max="5" /></div>
+                    <div class="col-12"><label class="form-label">Notas internas</label><textarea class="form-control rounded-3" @bind="_editMapping.Notes" rows="2" placeholder="Notas o aclaraciones sobre este mapeo..."></textarea></div>
+                    <div class="col-12">
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+                            <div>
+                                <div class="fw-bold small">Actualización Automática</div>
+                                <div class="text-muted" style="font-size:.72rem;">Cambiar estado automáticamente cuando el proveedor envíe este código</div>
+                            </div>
+                            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" @bind="_editMapping.AutoUpdate" /></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-4 py-3 d-flex gap-2 justify-content-end" style="border-top:1px solid #F1F5F9;">
+                <button class="btn btn-light rounded-pill px-4" @onclick="() => _showMappingModal=false">Cancelar</button>
+                <button class="btn btn-admin px-5 rounded-pill" @onclick="SaveMapping" disabled="@_isSaving">
+                    @if(_isSaving){<span class="spinner-border spinner-border-sm me-2"></span>} Guardar Mapeo
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private int _activeTab = 0;
+    private bool _isLoading = true, _isSaving = false;
+    private bool _showStatusModal, _showSubModal, _showTransitionModal, _showStageModal, _showMappingModal;
+    private HashSet<long> _expanded = new();
+
+    // Data
+    private List<StatusDto> _statuses = new();
+    private List<TransitionDto> _transitions = new();
+    private List<CampaignPipelineDto> _campaigns = new();
+    private List<MappingDto> _mappings = new();
+    private List<ProviderDto> _providers = new();
+    private CampaignPipelineDto? _selectedCampaign;
+
+    // Edit buffers
+    private StatusDto _editStatus = new();
+    private SubstatusDto _editSub = new();
+    private TransitionDto _editTrans = new();
+    private StageDto _editStage = new();
+    private MappingDto _editMapping = new();
+    private long _currentStatusId;
+
+    // DTOs
+    public class SubstatusDto { public long IdSubstatus{get;set;} public long IdStatus{get;set;} public string Code{get;set;}=""; public string Name{get;set;}=""; public string? Color{get;set;} public string? Description{get;set;} public short OrderIndex{get;set;} public bool IsActive{get;set;}=true; }
+    public class StatusDto { public long Id{get;set;} public string Code{get;set;}=""; public string Name{get;set;}=""; public string Category{get;set;}="IN_PROGRESS"; public string? Color{get;set;}="#2563EB"; public string? Icon{get;set;} public bool IsTerminal{get;set;} public bool RequiresSubstatus{get;set;} public bool RequiresComment{get;set;} public bool AllowsEditByAsesor{get;set;} public bool AllowsEditBySupervisor{get;set;}=true; public short OrderIndex{get;set;} public bool IsActive{get;set;}=true; public List<SubstatusDto> Substatuses{get;set;}=new(); }
+    public class TransitionDto { public long IdTransition{get;set;} public long FromStatusId{get;set;} public long ToStatusId{get;set;} public string FromStatusName{get;set;}=""; public string ToStatusName{get;set;}=""; public string[] AllowedRoles{get;set;}=Array.Empty<string>(); public bool RequiresComment{get;set;} public bool RequiresFormComplete{get;set;} public long? IdFormRequired{get;set;} public bool IsBulkAllowed{get;set;} public string? Description{get;set;} public bool IsActive{get;set;}=true; }
+    public class StageDto { public long IdStage{get;set;} public long IdCmpg{get;set;} public string Name{get;set;}=""; public string StageCode{get;set;}=""; public string? Description{get;set;} public short OrderIndex{get;set;} public long? IdStatusEnter{get;set;} public long? IdStatusExit{get;set;} public string? StatusEnterName{get;set;} public string? StatusExitName{get;set;} public bool RequiresAudit{get;set;} public short? SlaHours{get;set;} public bool IsActive{get;set;}=true; }
+    public class CampaignPipelineDto { public long Id{get;set;} public string Name{get;set;}=""; public List<StageDto> Stages{get;set;}=new(); }
+    public class MappingDto { public long IdMapping{get;set;} public long IdProvider{get;set;} public string ProviderName{get;set;}=""; public string ProviderStatusCode{get;set;}=""; public string? ProviderStatusName{get;set;} public long InternalStatusId{get;set;} public string InternalStatusName{get;set;}=""; public long? InternalSubstatusId{get;set;} public string? InternalSubstatusName{get;set;} public bool AutoUpdate{get;set;} public long? CreatesIncidentId{get;set;} public short Priority{get;set;}=3; public string? Notes{get;set;} public bool IsActive{get;set;}=true; }
+    public class ProviderDto { public long IdProvider{get;set;} public string Name{get;set;}=""; public string Code{get;set;}=""; public string IntegrationType{get;set;}="MANUAL"; public bool IsActive{get;set;}=true; }
+
+    protected override async Task OnInitializedAsync() => await LoadAll();
+
+    private async Task LoadAll()
+    {
+        _isLoading = true;
+        var client = HttpClientFactory.CreateClient("BackendApi");
+        try
+        {
+            // Estados + subestados
+            var statuses = await client.GetFromJsonAsync<List<dynamic>>("/api/maintenance/statuses");
+            var substatuses = await client.GetFromJsonAsync<List<SubstatusDto>>("/api/maintenance/substatuses");
+            if (statuses != null)
+            {
+                _statuses = statuses.Select(s => new StatusDto
+                {
+                    Id = (long)s.id, Code = (string)s.code, Name = (string)s.name,
+                    Category = (string)s.category, Color = (string?)s.color, Icon = (string?)s.icon,
+                    IsTerminal = (bool)s.isTerminal, RequiresSubstatus = (bool)s.requiresSubstatus,
+                    RequiresComment = (bool)s.requiresComment, AllowsEditByAsesor = (bool)s.allowsEditByAsesor,
+                    AllowsEditBySupervisor = (bool)s.allowsEditBySupervisor, OrderIndex = (short)(int)s.orderIndex,
+                    IsActive = (bool)s.isActive
+                }).ToList();
+            }
+            if (substatuses != null)
+            {
+                foreach (var sub in substatuses)
+                {
+                    var st = _statuses.FirstOrDefault(s => s.Id == sub.IdStatus);
+                    st?.Substatuses.Add(sub);
+                }
+            }
+            // Transiciones
+            var trans = await client.GetFromJsonAsync<List<TransitionDto>>("/api/maintenance/transitions");
+            if (trans != null) _transitions = trans;
+            // Campañas
+            var camps = await client.GetFromJsonAsync<List<dynamic>>("/api/maintenance/campaigns");
+            if (camps != null)
+            {
+                _campaigns = camps.Select(c => new CampaignPipelineDto { Id = (long)c.id, Name = (string)c.name }).ToList();
+            }
+            // Proveedores
+            var provs = await client.GetFromJsonAsync<List<ProviderDto>>("/api/maintenance/providers");
+            if (provs != null) _providers = provs;
+            // Mapeos
+            var maps = await client.GetFromJsonAsync<List<MappingDto>>("/api/maintenance/provider-mappings");
+            if (maps != null) _mappings = maps;
+        }
+        catch
+        {
+            LoadMockData();
+        }
+        finally { _isLoading = false; }
+    }
+
+    private void LoadMockData()
+    {
+        _statuses = new List<StatusDto>
+        {
+            new(){Id=1,Code="BORRADOR",Name="Borrador",Category="IN_PROGRESS",Color="#94A3B8",OrderIndex=1,IsActive=true,AllowsEditByAsesor=true,AllowsEditBySupervisor=true,Substatuses=new()},
+            new(){Id=2,Code="REVISION_SUPERVISOR",Name="En revisión supervisor",Category="IN_PROGRESS",Color="#F59E0B",OrderIndex=2,IsActive=true,AllowsEditBySupervisor=true,Substatuses=new()},
+            new(){Id=4,Code="EN_GESTION",Name="En gestión",Category="IN_PROGRESS",Color="#8B5CF6",OrderIndex=4,IsActive=true,RequiresSubstatus=true,
+                Substatuses=new List<SubstatusDto>{
+                    new(){IdSubstatus=3,IdStatus=4,Code="LLAMADA_VALIDACION",Name="Llamada de validación",OrderIndex=1,IsActive=true},
+                    new(){IdSubstatus=2,IdStatus=4,Code="PENDIENTE_DOCUMENTOS",Name="Pendiente documentos",OrderIndex=2,IsActive=true},
+                    new(){IdSubstatus=1,IdStatus=4,Code="PENDIENTE_FIRMA",Name="Pendiente firma",OrderIndex=3,IsActive=true},
+                }},
+            new(){Id=9,Code="ACTIVADO",Name="Activado",Category="WON",Color="#16A34A",IsTerminal=true,OrderIndex=9,IsActive=true,Substatuses=new()},
+            new(){Id=10,Code="ENVIADO_KO",Name="Enviado KO",Category="ON_HOLD",Color="#EF4444",OrderIndex=10,IsActive=true,RequiresSubstatus=true,
+                Substatuses=new List<SubstatusDto>{
+                    new(){IdSubstatus=10,IdStatus=10,Code="DATOS_INVALIDOS",Name="Datos inválidos",OrderIndex=1,IsActive=true},
+                    new(){IdSubstatus=9,IdStatus=10,Code="SCORING",Name="Cliente con scoring",OrderIndex=2,IsActive=true},
+                    new(){IdSubstatus=8,IdStatus=10,Code="RECHAZADO_PROVEEDOR",Name="Rechazado por proveedor",OrderIndex=3,IsActive=true},
+                    new(){IdSubstatus=7,IdStatus=10,Code="TIMEOUT",Name="Timeout sin respuesta",OrderIndex=4,IsActive=true},
+                    new(){IdSubstatus=6,IdStatus=10,Code="DUPLICADO",Name="Venta duplicada",OrderIndex=5,IsActive=true},
+                }},
+            new(){Id=13,Code="CANCELADO",Name="Cancelado",Category="CANCELLED",Color="#9CA3AF",IsTerminal=true,RequiresSubstatus=true,OrderIndex=13,IsActive=true,
+                Substatuses=new List<SubstatusDto>{
+                    new(){IdSubstatus=19,IdStatus=13,Code="DESISTIMIENTO",Name="Desistimiento cliente",OrderIndex=1,IsActive=true},
+                    new(){IdSubstatus=18,IdStatus=13,Code="SCORING_CANCELADO",Name="Cancelado por scoring",OrderIndex=2,IsActive=true},
+                    new(){IdSubstatus=16,IdStatus=13,Code="SIN_COBERTURA",Name="Sin cobertura",OrderIndex=4,IsActive=true},
+                }},
+        };
+        _transitions = new List<TransitionDto>
+        {
+            new(){IdTransition=1,FromStatusId=2,ToStatusId=1,FromStatusName="En revisión supervisor",ToStatusName="Borrador",AllowedRoles=new[]{"SUPERVISOR"},RequiresComment=true,IsActive=true},
+            new(){IdTransition=3,FromStatusId=1,ToStatusId=2,FromStatusName="Borrador",ToStatusName="En revisión supervisor",AllowedRoles=new[]{"ASESOR","SUPERVISOR"},IsActive=true},
+            new(){IdTransition=9,FromStatusId=4,ToStatusId=5,FromStatusName="En gestión",ToStatusName="Enviado al proveedor",AllowedRoles=new[]{"BACKOFFICE"},IsActive=true},
+            new(){IdTransition=13,FromStatusId=8,ToStatusId=9,FromStatusName="Contrato firmado",ToStatusName="Activado",AllowedRoles=new[]{"BACKOFFICE"},IsActive=true},
+        };
+        _campaigns = new List<CampaignPipelineDto>
+        {
+            new(){Id=1,Name="Fibra Hogar",Stages=new List<StageDto>{
+                new(){IdStage=1,IdCmpg=1,Name="Captación",StageCode="CAP",OrderIndex=0,SlaHours=24},
+                new(){IdStage=2,IdCmpg=1,Name="Validación",StageCode="VAL",OrderIndex=1,SlaHours=48,RequiresAudit=true},
+                new(){IdStage=3,IdCmpg=1,Name="Activación",StageCode="ACT",OrderIndex=2},
+            }},
+            new(){Id=2,Name="Empresas Pro",Stages=new List<StageDto>{
+                new(){IdStage=4,IdCmpg=2,Name="Prospección",StageCode="PROSP",OrderIndex=0},
+                new(){IdStage=5,IdCmpg=2,Name="Propuesta Técnica",StageCode="PROP_TEC",OrderIndex=1,SlaHours=72,RequiresAudit=true},
+            }},
+        };
+        _providers = new List<ProviderDto>
+        {
+            new(){IdProvider=1,Code="TELEFONICA",Name="Telefónica",IntegrationType="API",IsActive=true},
+            new(){IdProvider=2,Code="VODAFONE",Name="Vodafone",IntegrationType="MANUAL",IsActive=true},
+        };
+        _mappings = new List<MappingDto>
+        {
+            new(){IdMapping=1,IdProvider=1,ProviderName="Telefónica",ProviderStatusCode="ACTIVE",ProviderStatusName="Línea Activada",InternalStatusId=9,InternalStatusName="Activado",AutoUpdate=true,Priority=1},
+            new(){IdMapping=2,IdProvider=1,ProviderName="Telefónica",ProviderStatusCode="PENDING_DOC",ProviderStatusName="Documentación pendiente",InternalStatusId=4,InternalStatusName="En gestión",InternalSubstatusId=2,InternalSubstatusName="Pendiente documentos",AutoUpdate=true,Priority=2},
+            new(){IdMapping=3,IdProvider=2,ProviderName="Vodafone",ProviderStatusCode="REJECTED",ProviderStatusName="Rechazado",InternalStatusId=10,InternalStatusName="Enviado KO",AutoUpdate=false,Priority=1},
+        };
+    }
+
+    private void ToggleTransitionActive(TransitionDto t) { t.IsActive = !t.IsActive; Snackbar.Add("Transición actualizada.", Severity.Info); }
+
+    private void SetTab(int t) { _activeTab = t; _selectedCampaign = null; }
+    private void ToggleExpand(long id) { if (_expanded.Contains(id)) _expanded.Remove(id); else _expanded.Add(id); }
+
+    private async Task SelectCampaign(CampaignPipelineDto c)
+    {
+        _selectedCampaign = c;
+        if (!c.Stages.Any())
+        {
+            try
+            {
+                var client = HttpClientFactory.CreateClient("BackendApi");
+                var stages = await client.GetFromJsonAsync<List<StageDto>>($"/api/maintenance/pipeline/{c.Id}");
+                if (stages != null) c.Stages = stages;
+            }
+            catch { /* keep empty */ }
+        }
+    }
+
+    // ===== STATUS CRUD =====
+    private void OpenStatusModal(StatusDto? s)
+    {
+        _editStatus = s != null ? new StatusDto { Id=s.Id, Code=s.Code, Name=s.Name, Category=s.Category, Color=s.Color, Icon=s.Icon, IsTerminal=s.IsTerminal, RequiresSubstatus=s.RequiresSubstatus, RequiresComment=s.RequiresComment, AllowsEditByAsesor=s.AllowsEditByAsesor, AllowsEditBySupervisor=s.AllowsEditBySupervisor, OrderIndex=s.OrderIndex, IsActive=s.IsActive }
+            : new StatusDto { Color="#2563EB", OrderIndex=(short)(_statuses.Any()?_statuses.Max(x=>x.OrderIndex)+1:1), AllowsEditBySupervisor=true };
+        _showStatusModal = true;
+    }
+
+    private async Task SaveStatus()
+    {
+        if (string.IsNullOrWhiteSpace(_editStatus.Name)||string.IsNullOrWhiteSpace(_editStatus.Code)) { Snackbar.Add("Nombre y Código son requeridos.", Severity.Warning); return; }
+        _isSaving = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            if (_editStatus.Id > 0)
+                await client.PutAsJsonAsync($"/api/maintenance/statuses/{_editStatus.Id}", new { _editStatus.Code, _editStatus.Name, _editStatus.Category, _editStatus.Color, _editStatus.Icon, _editStatus.IsTerminal, _editStatus.RequiresSubstatus, _editStatus.RequiresComment, _editStatus.AllowsEditByAsesor, _editStatus.AllowsEditBySupervisor, _editStatus.OrderIndex, IsActive=(bool?)null });
+            else
+                await client.PostAsJsonAsync("/api/maintenance/statuses", new { _editStatus.Code, _editStatus.Name, _editStatus.Category, _editStatus.Color, _editStatus.Icon, _editStatus.IsTerminal, _editStatus.RequiresSubstatus, _editStatus.RequiresComment, _editStatus.AllowsEditByAsesor, _editStatus.AllowsEditBySupervisor, _editStatus.OrderIndex });
+            Snackbar.Add("Estado guardado.", Severity.Success);
+            _showStatusModal = false;
+            await LoadAll();
+        }
+        catch { ApplyStatusLocally(); Snackbar.Add("Estado guardado localmente.", Severity.Info); _showStatusModal = false; }
+        finally { _isSaving = false; }
+    }
+
+    private void ApplyStatusLocally()
+    {
+        if (_editStatus.Id > 0) { var ex=_statuses.FirstOrDefault(x=>x.Id==_editStatus.Id); if(ex!=null){ex.Name=_editStatus.Name;ex.Code=_editStatus.Code;ex.Color=_editStatus.Color;ex.Category=_editStatus.Category;ex.IsTerminal=_editStatus.IsTerminal;ex.RequiresSubstatus=_editStatus.RequiresSubstatus;ex.RequiresComment=_editStatus.RequiresComment;ex.AllowsEditByAsesor=_editStatus.AllowsEditByAsesor;ex.AllowsEditBySupervisor=_editStatus.AllowsEditBySupervisor;ex.OrderIndex=_editStatus.OrderIndex;} }
+        else { _editStatus.Id=(_statuses.Any()?_statuses.Max(x=>x.Id):0)+1; _statuses.Add(_editStatus); _statuses=_statuses.OrderBy(x=>x.OrderIndex).ToList(); }
+    }
+
+    private async Task ToggleStatusActive(StatusDto s) { s.IsActive=!s.IsActive; try { var c=HttpClientFactory.CreateClient("BackendApi"); await c.PatchAsJsonAsync($"/api/maintenance/statuses/{s.Id}/toggle", new{IsActive=s.IsActive}); } catch{} Snackbar.Add($"Estado {(s.IsActive?"activado":"desactivado")}.", Severity.Info); }
+
+    private async Task ConfirmDeleteStatus(StatusDto s)
+    {
+        try { var c=HttpClientFactory.CreateClient("BackendApi"); var r=await c.DeleteAsync($"/api/maintenance/statuses/{s.Id}"); if(r.IsSuccessStatusCode){_statuses.Remove(s);Snackbar.Add("Estado eliminado.",Severity.Success);}else{Snackbar.Add("No se puede eliminar (tiene datos asociados). Desactívalo.",Severity.Warning);} }
+        catch { _statuses.Remove(s); Snackbar.Add("Estado eliminado localmente.", Severity.Warning); }
+    }
+
+    // ===== SUBSTATUS CRUD =====
+    private void OpenSubstatusModal(long statusId, SubstatusDto? sub)
+    {
+        _currentStatusId = statusId;
+        _editSub = sub != null ? new SubstatusDto{IdSubstatus=sub.IdSubstatus,IdStatus=sub.IdStatus,Code=sub.Code,Name=sub.Name,Color=sub.Color,Description=sub.Description,OrderIndex=sub.OrderIndex,IsActive=sub.IsActive} : new SubstatusDto{Color="#2563EB"};
+        _showSubModal = true;
+    }
+
+    private async Task SaveSubstatus()
+    {
+        if (string.IsNullOrWhiteSpace(_editSub.Name)||string.IsNullOrWhiteSpace(_editSub.Code)) { Snackbar.Add("Nombre y Código requeridos.", Severity.Warning); return; }
+        _isSaving = true;
+        _editSub.IdStatus = _currentStatusId;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            if (_editSub.IdSubstatus > 0)
+                await client.PutAsJsonAsync($"/api/maintenance/substatuses/{_editSub.IdSubstatus}", new{_editSub.Code,_editSub.Name,_editSub.Color,_editSub.Description,_editSub.OrderIndex,IsActive=(bool?)null});
+            else
+                await client.PostAsJsonAsync("/api/maintenance/substatuses", new{IdStatus=_currentStatusId,_editSub.Code,_editSub.Name,_editSub.Color,_editSub.Description,_editSub.OrderIndex});
+            Snackbar.Add("Subestado guardado.", Severity.Success); _showSubModal=false; await LoadAll();
+        }
+        catch
+        {
+            var st=_statuses.FirstOrDefault(x=>x.Id==_currentStatusId);
+            if(st!=null){if(_editSub.IdSubstatus>0){var ex=st.Substatuses.FirstOrDefault(x=>x.IdSubstatus==_editSub.IdSubstatus);if(ex!=null){ex.Name=_editSub.Name;ex.Code=_editSub.Code;ex.Color=_editSub.Color;ex.Description=_editSub.Description;ex.OrderIndex=_editSub.OrderIndex;}}else{_editSub.IdSubstatus=new Random().Next(100,9999);_editSub.IdStatus=_currentStatusId;st.Substatuses.Add(_editSub);}}
+            Snackbar.Add("Subestado guardado localmente.", Severity.Info); _showSubModal=false;
+        }
+        finally { _isSaving=false; }
+    }
+
+    private async Task ToggleSubstatusActive(SubstatusDto s) { s.IsActive=!s.IsActive; try { var c=HttpClientFactory.CreateClient("BackendApi"); await c.PatchAsJsonAsync($"/api/maintenance/substatuses/{s.IdSubstatus}/toggle", new{IsActive=s.IsActive}); } catch{} Snackbar.Add("Subestado actualizado.", Severity.Info); }
+
+    private async Task ConfirmDeleteSubstatus(SubstatusDto sub)
+    {
+        try { var c=HttpClientFactory.CreateClient("BackendApi"); var r=await c.DeleteAsync($"/api/maintenance/substatuses/{sub.IdSubstatus}"); if(r.IsSuccessStatusCode){foreach(var s in _statuses)s.Substatuses.Remove(sub);Snackbar.Add("Subestado eliminado.",Severity.Success);}else{Snackbar.Add("No se puede eliminar. Desactívalo.",Severity.Warning);} }
+        catch { foreach(var s in _statuses)s.Substatuses.Remove(sub); Snackbar.Add("Eliminado localmente.", Severity.Warning); }
+    }
+
+    // ===== TRANSITIONS CRUD =====
+    private void OpenTransitionModal(TransitionDto? t)
+    {
+        _editTrans = t != null ? new TransitionDto{IdTransition=t.IdTransition,FromStatusId=t.FromStatusId,ToStatusId=t.ToStatusId,AllowedRoles=t.AllowedRoles.ToArray(),RequiresComment=t.RequiresComment,IsBulkAllowed=t.IsBulkAllowed,Description=t.Description,IsActive=t.IsActive} : new TransitionDto{AllowedRoles=new[]{"ASESOR"}};
+        _showTransitionModal = true;
+    }
+
+    private void ToggleRole(string role)
+    {
+        var roles = _editTrans.AllowedRoles.ToList();
+        if (roles.Contains(role)) roles.Remove(role); else roles.Add(role);
+        _editTrans.AllowedRoles = roles.ToArray();
+    }
+
+    private async Task SaveTransition()
+    {
+        if(_editTrans.FromStatusId==0||_editTrans.ToStatusId==0){Snackbar.Add("Selecciona estados origen y destino.",Severity.Warning);return;}
+        _isSaving=true;
+        try
+        {
+            var client=HttpClientFactory.CreateClient("BackendApi");
+            if(_editTrans.IdTransition>0)
+                await client.PutAsJsonAsync($"/api/maintenance/transitions/{_editTrans.IdTransition}", new{AllowedRoles=_editTrans.AllowedRoles,_editTrans.RequiresComment,RequiresFormComplete=(bool?)null,IdFormRequired=(long?)null,_editTrans.IsBulkAllowed,_editTrans.Description,IsActive=(bool?)null});
+            else
+                await client.PostAsJsonAsync("/api/maintenance/transitions", new{_editTrans.FromStatusId,_editTrans.ToStatusId,AllowedRoles=_editTrans.AllowedRoles,_editTrans.RequiresComment,RequiresFormComplete=false,IdFormRequired=(long?)null,_editTrans.IsBulkAllowed,_editTrans.Description});
+            Snackbar.Add("Transición guardada.",Severity.Success); _showTransitionModal=false; await LoadAll();
+        }
+        catch
+        {
+            if(_editTrans.IdTransition>0){var ex=_transitions.FirstOrDefault(x=>x.IdTransition==_editTrans.IdTransition);if(ex!=null){ex.AllowedRoles=_editTrans.AllowedRoles;ex.RequiresComment=_editTrans.RequiresComment;ex.IsBulkAllowed=_editTrans.IsBulkAllowed;ex.Description=_editTrans.Description;}}
+            else{_editTrans.IdTransition=(_transitions.Any()?_transitions.Max(x=>x.IdTransition):0)+1;_editTrans.FromStatusName=_statuses.FirstOrDefault(x=>x.Id==_editTrans.FromStatusId)?.Name??"";_editTrans.ToStatusName=_statuses.FirstOrDefault(x=>x.Id==_editTrans.ToStatusId)?.Name??"";_transitions.Add(_editTrans);}
+            Snackbar.Add("Transición guardada localmente.",Severity.Info); _showTransitionModal=false;
+        }
+        finally{_isSaving=false;}
+    }
+
+    private async Task DeleteTransition(TransitionDto t)
+    {
+        try{var c=HttpClientFactory.CreateClient("BackendApi");await c.DeleteAsync($"/api/maintenance/transitions/{t.IdTransition}");_transitions.Remove(t);Snackbar.Add("Transición eliminada.",Severity.Success);}
+        catch{_transitions.Remove(t);Snackbar.Add("Eliminada localmente.",Severity.Warning);}
+    }
+
+    // ===== PIPELINE CRUD =====
+    private void OpenStageModal(StageDto? s)
+    {
+        _editStage = s!=null ? new StageDto{IdStage=s.IdStage,IdCmpg=s.IdCmpg,Name=s.Name,StageCode=s.StageCode,Description=s.Description,OrderIndex=s.OrderIndex,IdStatusEnter=s.IdStatusEnter,IdStatusExit=s.IdStatusExit,RequiresAudit=s.RequiresAudit,SlaHours=s.SlaHours} : new StageDto{IdCmpg=_selectedCampaign?.Id??0,OrderIndex=(short)(_selectedCampaign?.Stages.Count??0)};
+        _showStageModal=true;
+    }
+
+    private async Task SaveStage()
+    {
+        if(string.IsNullOrWhiteSpace(_editStage.Name)||string.IsNullOrWhiteSpace(_editStage.StageCode)){Snackbar.Add("Nombre y Código requeridos.",Severity.Warning);return;}
+        _isSaving=true;
+        _editStage.IdCmpg=_selectedCampaign?.Id??0;
+        try
+        {
+            var client=HttpClientFactory.CreateClient("BackendApi");
+            if(_editStage.IdStage>0)
+                await client.PutAsJsonAsync($"/api/maintenance/pipeline/{_editStage.IdStage}", new{_editStage.Name,_editStage.Description,_editStage.OrderIndex,IdStatusEnter=_editStage.IdStatusEnter==0?(long?)null:_editStage.IdStatusEnter,IdStatusExit=_editStage.IdStatusExit==0?(long?)null:_editStage.IdStatusExit,_editStage.RequiresAudit,_editStage.SlaHours,IsActive=(bool?)null});
+            else
+                await client.PostAsJsonAsync("/api/maintenance/pipeline", new{_editStage.IdCmpg,_editStage.Name,_editStage.StageCode,_editStage.Description,_editStage.OrderIndex,IdStatusEnter=_editStage.IdStatusEnter==0?(long?)null:_editStage.IdStatusEnter,IdStatusExit=_editStage.IdStatusExit==0?(long?)null:_editStage.IdStatusExit,_editStage.RequiresAudit,SlaHours=_editStage.SlaHours});
+            Snackbar.Add("Etapa guardada.",Severity.Success); _showStageModal=false;
+            if(_selectedCampaign!=null){var stages=await HttpClientFactory.CreateClient("BackendApi").GetFromJsonAsync<List<StageDto>>($"/api/maintenance/pipeline/{_selectedCampaign.Id}");if(stages!=null)_selectedCampaign.Stages=stages;}
+        }
+        catch
+        {
+            if(_selectedCampaign!=null){
+                if(_editStage.IdStage>0){var ex=_selectedCampaign.Stages.FirstOrDefault(x=>x.IdStage==_editStage.IdStage);if(ex!=null){ex.Name=_editStage.Name;ex.StageCode=_editStage.StageCode;ex.Description=_editStage.Description;ex.IdStatusEnter=_editStage.IdStatusEnter;ex.IdStatusExit=_editStage.IdStatusExit;ex.RequiresAudit=_editStage.RequiresAudit;ex.SlaHours=_editStage.SlaHours;}}
+                else{_editStage.IdStage=(_selectedCampaign.Stages.Any()?_selectedCampaign.Stages.Max(x=>x.IdStage):0)+1;_editStage.StatusEnterName=_statuses.FirstOrDefault(x=>x.Id==_editStage.IdStatusEnter)?.Name;_editStage.StatusExitName=_statuses.FirstOrDefault(x=>x.Id==_editStage.IdStatusExit)?.Name;_selectedCampaign.Stages.Add(_editStage);}
+            }
+            Snackbar.Add("Etapa guardada localmente.",Severity.Info); _showStageModal=false;
+        }
+        finally{_isSaving=false;}
+    }
+
+    private async Task DeleteStage(StageDto s) { try{await HttpClientFactory.CreateClient("BackendApi").DeleteAsync($"/api/maintenance/pipeline/{s.IdStage}");_selectedCampaign?.Stages.Remove(s);Snackbar.Add("Etapa eliminada.",Severity.Success);}catch{_selectedCampaign?.Stages.Remove(s);Snackbar.Add("Eliminada localmente.",Severity.Warning);} }
+
+    private void MoveStage(int idx, int dir) { if(_selectedCampaign==null)return; var ni=idx+dir; if(ni<0||ni>=_selectedCampaign.Stages.Count)return; (_selectedCampaign.Stages[idx],_selectedCampaign.Stages[ni])=(_selectedCampaign.Stages[ni],_selectedCampaign.Stages[idx]); }
+
+    // ===== MAPPING CRUD =====
+    private void OpenMappingModal(MappingDto? m)
+    {
+        _editMapping = m!=null ? new MappingDto{IdMapping=m.IdMapping,IdProvider=m.IdProvider,ProviderStatusCode=m.ProviderStatusCode,ProviderStatusName=m.ProviderStatusName,InternalStatusId=m.InternalStatusId,InternalSubstatusId=m.InternalSubstatusId,AutoUpdate=m.AutoUpdate,Priority=m.Priority,Notes=m.Notes} : new MappingDto{Priority=3};
+        _showMappingModal=true;
+    }
+
+    private async Task SaveMapping()
+    {
+        if(_editMapping.IdProvider==0||string.IsNullOrWhiteSpace(_editMapping.ProviderStatusCode)||_editMapping.InternalStatusId==0){Snackbar.Add("Proveedor, Código y Estado Interno son requeridos.",Severity.Warning);return;}
+        _isSaving=true;
+        try
+        {
+            var client=HttpClientFactory.CreateClient("BackendApi");
+            if(_editMapping.IdMapping>0)
+                await client.PutAsJsonAsync($"/api/maintenance/provider-mappings/{_editMapping.IdMapping}", new{_editMapping.ProviderStatusName,_editMapping.InternalStatusId,InternalSubstatusId=_editMapping.InternalSubstatusId==0?(long?)null:_editMapping.InternalSubstatusId,_editMapping.AutoUpdate,CreatesIncidentId=(long?)null,_editMapping.Priority,_editMapping.Notes,IsActive=(bool?)null});
+            else
+                await client.PostAsJsonAsync("/api/maintenance/provider-mappings", new{_editMapping.IdProvider,_editMapping.ProviderStatusCode,_editMapping.ProviderStatusName,_editMapping.InternalStatusId,InternalSubstatusId=_editMapping.InternalSubstatusId==0?(long?)null:_editMapping.InternalSubstatusId,_editMapping.AutoUpdate,CreatesIncidentId=(long?)null,_editMapping.Priority,_editMapping.Notes});
+            Snackbar.Add("Mapeo guardado.",Severity.Success); _showMappingModal=false; await LoadAll();
+        }
+        catch
+        {
+            if(_editMapping.IdMapping>0){var ex=_mappings.FirstOrDefault(x=>x.IdMapping==_editMapping.IdMapping);if(ex!=null){ex.ProviderStatusName=_editMapping.ProviderStatusName;ex.InternalStatusId=_editMapping.InternalStatusId;ex.AutoUpdate=_editMapping.AutoUpdate;ex.Priority=_editMapping.Priority;ex.Notes=_editMapping.Notes;}}
+            else{_editMapping.IdMapping=(_mappings.Any()?_mappings.Max(x=>x.IdMapping):0)+1;_editMapping.ProviderName=_providers.FirstOrDefault(x=>x.IdProvider==_editMapping.IdProvider)?.Name??"";_editMapping.InternalStatusName=_statuses.FirstOrDefault(x=>x.Id==_editMapping.InternalStatusId)?.Name??"";_mappings.Add(_editMapping);}
+            Snackbar.Add("Mapeo guardado localmente.",Severity.Info); _showMappingModal=false;
+        }
+        finally{_isSaving=false;}
+    }
+
+    private async Task DeleteMapping(MappingDto m) { try{await HttpClientFactory.CreateClient("BackendApi").DeleteAsync($"/api/maintenance/provider-mappings/{m.IdMapping}");_mappings.Remove(m);Snackbar.Add("Mapeo eliminado.",Severity.Success);}catch{_mappings.Remove(m);Snackbar.Add("Eliminado localmente.",Severity.Warning);} }
+
+    private string GetCategoryClass(string cat) => cat switch
+    {
+        "WON" => "bg-success text-white",
+        "ON_HOLD" => "bg-warning text-dark",
+        "CANCELLED" or "LOST" => "bg-secondary text-white",
+        _ => "bg-primary-subtle text-primary"
+    };
+}

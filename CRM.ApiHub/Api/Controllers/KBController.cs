@@ -7,6 +7,8 @@ using CRM.ApiHub.Application.UseCases.KB;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using Dapper;
+
 namespace CRM.ApiHub.Api.Controllers;
 
 [Authorize]
@@ -16,15 +18,43 @@ public class KBController : ControllerBase
     private readonly SearchKbArticlesUseCase _searchKbArticlesUseCase;
     private readonly GetKbArticleByIdUseCase _getKbArticleByIdUseCase;
     private readonly SubmitKbFeedbackUseCase _submitKbFeedbackUseCase;
+    private readonly CRM.ApiHub.Infrastructure.Persistence.IDbConnectionFactory _connectionFactory;
 
     public KBController(
         SearchKbArticlesUseCase searchKbArticlesUseCase,
         GetKbArticleByIdUseCase getKbArticleByIdUseCase,
-        SubmitKbFeedbackUseCase submitKbFeedbackUseCase)
+        SubmitKbFeedbackUseCase submitKbFeedbackUseCase,
+        CRM.ApiHub.Infrastructure.Persistence.IDbConnectionFactory connectionFactory)
     {
         _searchKbArticlesUseCase = searchKbArticlesUseCase;
         _getKbArticleByIdUseCase = getKbArticleByIdUseCase;
         _submitKbFeedbackUseCase = submitKbFeedbackUseCase;
+        _connectionFactory = connectionFactory;
+    }
+
+    [HttpGet("api/kb/categories")]
+    public async Task<IActionResult> GetCategories()
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = "SELECT id_category AS IdCategory, name AS Name, description AS Description FROM knowledge_base.kb_category WHERE is_active = true ORDER BY order_index;";
+        var categories = await connection.QueryAsync(sql);
+        return Ok(categories);
+    }
+
+    [HttpGet("api/kb/articles")]
+    public async Task<IActionResult> GetArticles()
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            SELECT a.id_article AS Id, a.title AS Title, c.name AS Category, COALESCE(cmp.name, 'General') AS Campaign,
+                   a.summary AS Summary, a.content AS Content, a.helpful_count AS HelpfulVotes, a.view_count AS Views
+            FROM knowledge_base.kb_article a
+            LEFT JOIN knowledge_base.kb_category c ON a.id_category = c.id_category
+            LEFT JOIN campaign_service.campaign cmp ON a.id_cmpg = cmp.id_cmpg
+            WHERE a.is_published = true
+            ORDER BY a.created_at DESC;";
+        var articles = await connection.QueryAsync(sql);
+        return Ok(articles);
     }
 
     [HttpGet("api/kb/search")]

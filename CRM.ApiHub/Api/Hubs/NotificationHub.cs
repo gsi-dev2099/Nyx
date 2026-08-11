@@ -8,7 +8,8 @@ public class NotificationHub : Hub
 {
     public override async Task OnConnectedAsync()
     {
-        var userId = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        var userId = Context.User?.FindFirst("id_user")?.Value
+                     ?? Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                      ?? Context.User?.FindFirst("sub")?.Value;
         if (userId != null)
         {
@@ -19,7 +20,8 @@ public class NotificationHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var userId = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        var userId = Context.User?.FindFirst("id_user")?.Value
+                     ?? Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                      ?? Context.User?.FindFirst("sub")?.Value;
         if (userId != null)
         {

@@ -18,6 +18,44 @@ public class OrderStatusMaintenanceDto
     public bool IsActive { get; set; }
 }
 
+public class OrderSubstatusMaintenanceDto
+{
+
+    public int IdSubstatus { get; set; }
+    public int IdStatus { get; set; }
+    public string? StatusName { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Color { get; set; }
+    public string? Description { get; set; }
+    public short OrderIndex { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class UserWorkShiftMaintenanceDto
+{
+
+    public Guid? Id { get; set; }
+    public long IdUser { get; set; }
+    public string? Username { get; set; }
+    public int DayOfWeek { get; set; } = 1;
+    public string StartTime { get; set; } = "08:00:00";
+    public string EndTime { get; set; } = "17:00:00";
+    public bool IsActive { get; set; } = true;
+}
+
+public class SaveUserWorkShiftDto
+{
+    public long IdUser { get; set; }
+    public int DayOfWeek { get; set; }
+    public string StartTime { get; set; } = "08:00:00";
+    public string EndTime { get; set; } = "17:00:00";
+    public bool IsActive { get; set; } = true;
+}
+
+
+
+
 // ===== PRODUCTOS / TARIFAS =====
 public class ProductMaintenanceDto
 {

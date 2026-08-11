@@ -4,11 +4,19 @@ namespace CRM.WebFrontend.Client.Services;
 
 public interface IMaintenanceService
 {
-    // Statuses
+    // Statuses & Substatuses
     Task<List<OrderStatusMaintenanceDto>> GetAllStatusesAsync();
     Task<bool> ToggleStatusAsync(int id, bool isActive);
+    Task<List<OrderSubstatusMaintenanceDto>> GetAllSubstatusesAsync();
+    Task<bool> ToggleSubstatusAsync(int id, bool isActive);
+
+
+    // Work Shifts (NxFortress SLA)
+    Task<List<UserWorkShiftMaintenanceDto>> GetUserWorkShiftsAsync();
+    Task<bool> SaveUserWorkShiftAsync(SaveUserWorkShiftDto dto);
 
     // Products
+
     Task<List<ProductMaintenanceDto>> GetAllProductsAsync();
     Task<bool> ToggleProductAsync(int id, bool isActive);
 

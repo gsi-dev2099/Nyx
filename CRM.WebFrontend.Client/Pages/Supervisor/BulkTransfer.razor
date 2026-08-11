@@ -5,7 +5,8 @@
 @using System.Net.Http.Json
 @using System.Text.Json
 @using MudBlazor
-@attribute [Authorize(Roles = "SUPERVISOR")]
+@attribute [Authorize(Roles = "SUPERVISOR,COORDINADOR")]
+
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager NavManager
 @inject ISnackbar Snackbar

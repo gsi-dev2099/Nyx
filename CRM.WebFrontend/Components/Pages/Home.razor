@@ -23,26 +23,23 @@
                 Navigation.NavigateTo("/backoffice/dashboard");
                 return;
             }
-            if (user.IsInRole("ADMIN_CRM") || user.IsInRole("COORDINADOR"))
+            if (user.IsInRole("ADMIN_CRM"))
             {
                 Navigation.NavigateTo("/admin/maintenance");
             }
-            else if (user.IsInRole("SUPERVISOR"))
+            else if (user.IsInRole("SUPERVISOR") || user.IsInRole("COORDINADOR"))
             {
-                Navigation.NavigateTo("/supervisor");
+                Navigation.NavigateTo("/supervisor/dashboard");
             }
             else if (user.IsInRole("BACKOFFICE"))
             {
                 Navigation.NavigateTo("/backoffice/dashboard");
             }
-            else if (user.IsInRole("ADMIN_CRM") || user.IsInRole("COORDINADOR"))
-            {
-                Navigation.NavigateTo("/admin");
-            }
             else
             {
                 Navigation.NavigateTo("/asesor");
             }
+
         }
         else
         {

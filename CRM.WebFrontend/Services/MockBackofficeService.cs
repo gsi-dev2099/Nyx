@@ -20,11 +20,19 @@ public class MockBackofficeService : IBackofficeService
         await Task.Delay(300);
         return new DocumentVerificationData(
             idOrder,
-            "https://via.placeholder.com/600x400.png?text=DNI+Frontal+Escaneado",
+            "https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80",
             "Carlos Mendoza",
             "74859612",
             "Carlos Mendoza",
-            "74859612"
+            "74859612",
+            new List<BackofficeValidationFieldDto>
+            {
+                new("dni_front", "Documento DNI / Legibilidad", "IDENTIDAD", "74859612 - Carlos Mendoza", "74859612 - Carlos Mendoza (OCR 99%)", "VALID"),
+                new("inst_address", "Dirección de Instalación", "COBERTURA", "Av. Primavera 1230, Surco", "Coordenadas GPS Validadas en Tap #402", "VALID"),
+                new("tech_feasibility", "Facilidad Técnica / Borne", "COBERTURA", "Poste #12 - Puerto 04 disponible", "Verificado por GIS Network (0.4ms)", "VALID"),
+                new("credit_score", "Score Crediticio & Buró", "CREDITO", "Score Solicitado: A1 (Sin Deuda)", "Sentinela API: Score 750 (Riesgo Bajo)", "VALID"),
+                new("plan_rate", "Plan y Tarifa Solicitada", "COMMERCIAL", "Fibra 300Mbps Dúo (S/ 89.90)", "Catálogo Vigente Campaña Julio", "VALID")
+            }
         );
     }
 

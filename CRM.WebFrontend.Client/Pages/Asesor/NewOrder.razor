@@ -30,13 +30,13 @@
     }
     else
     {
-        <!-- Paso 1: Selección de Campaña y Pipeline -->
+        <!-- Paso 1: Selección de Cliente y Campaña -->
         <div class="card shadow-sm border-0 rounded-4 mb-4">
             <div class="card-body p-4">
-                <h5 class="fw-bold text-dark mb-4">1. Selección de Cliente, Campaña y Etapa</h5>
+                <h5 class="fw-bold text-dark mb-4">1. Selección de Cliente y Campaña</h5>
                 
                 <div class="row g-4">
-                    <div class="col-md-12">
+                    <div class="col-md-6">
                         <label for="select-lead" class="form-label fw-bold">Cliente (Lead)</label>
                         <select id="select-lead" class="form-select form-select-lg rounded-3" @bind="selectedLeadId" aria-label="Seleccionar Cliente Lead">
                             <option value="0" disabled selected="@(selectedLeadId == 0)">-- Selecciona un cliente --</option>
@@ -54,17 +54,6 @@
                             @foreach (var cmpg in campaigns)
                             {
                                 <option value="@cmpg.Id">@cmpg.Name</option>
-                            }
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label for="select-status" class="form-label fw-bold">Etapa (Pipeline)</label>
-                        <select id="select-status" class="form-select form-select-lg rounded-3" value="@selectedStatusId" @onchange="OnStatusSelected" disabled="@(selectedCampaignId == 0)" aria-label="Seleccionar Etapa Pipeline">
-                            <option value="0" disabled>-- Selecciona una etapa --</option>
-                            @foreach (var st in statuses)
-                            {
-                                <option value="@st.Id">@st.Name</option>
                             }
                         </select>
                     </div>
@@ -202,10 +191,10 @@
                 </div>
             </div>
         }
-        else if (selectedStatusId > 0 && !isLoadingSchema)
+        else if (selectedCampaignId > 0 && !isLoadingSchema)
         {
             <MudAlert Severity="Severity.Warning" Variant="Variant.Filled" Class="rounded-4">
-                No hay un formulario configurado para esta campaña y etapa.
+                No hay un formulario configurado para esta campaña.
             </MudAlert>
         }
     }
@@ -286,96 +275,73 @@
         if (int.TryParse(e.Value?.ToString(), out int id))
         {
             selectedCampaignId = id;
-            selectedStatusId = 0;
+            selectedStatusId = 1; // La etapa inicial por defecto siempre es 1 (BORRADOR / En gestión)
             formSchema = null;
             if (selectedCampaignId > 0)
             {
-                try
-                {
-                    var client = HttpClientFactory.CreateClient("BackendApi");
-                    var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-                    var token = authState.User.FindFirst("access_token")?.Value;
-                    if (!string.IsNullOrEmpty(token))
-                    {
-                        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-                    }
-
-                    var result = await client.GetFromJsonAsync<List<OrderStatusDto>>($"/api/campaigns/{selectedCampaignId}/statuses");
-                    if (result != null)
-                    {
-                        statuses = result;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Snackbar.Add($"Error al cargar estados: {ex.Message}", Severity.Error);
-                }
+                await LoadFormSchemaAsync();
             }
             StateHasChanged();
         }
     }
 
-    private async Task OnStatusSelected(ChangeEventArgs e)
+    private async Task LoadFormSchemaAsync()
     {
-        if (int.TryParse(e.Value?.ToString(), out int id))
+        if (selectedCampaignId > 0)
         {
-            selectedStatusId = id;
-            if (selectedCampaignId > 0 && selectedStatusId > 0)
+            isLoadingSchema = true;
+            formSchema = null;
+            try
             {
-                isLoadingSchema = true;
-                formSchema = null;
-                try
+                var client = HttpClientFactory.CreateClient("BackendApi");
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var token = authState.User.FindFirst("access_token")?.Value;
+                if (!string.IsNullOrEmpty(token))
                 {
-                    var client = HttpClientFactory.CreateClient("BackendApi");
-                    var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-                    var token = authState.User.FindFirst("access_token")?.Value;
-                    if (!string.IsNullOrEmpty(token))
-                    {
-                        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-                    }
+                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                }
+                
+                // 1. Obtener plantillas para la campaña en su etapa inicial (stage 1)
+                var templatesResponse = await client.GetAsync($"/api/forms/campaign/{selectedCampaignId}/stage/{selectedStatusId}");
+                
+                if (templatesResponse.IsSuccessStatusCode)
+                {
+                    var templates = await templatesResponse.Content.ReadFromJsonAsync<List<FormTemplateDto>>();
+                    var firstTemplate = templates?.FirstOrDefault();
                     
-                    // 1. Get templates for this campaign and stage
-                    var templatesResponse = await client.GetAsync($"/api/forms/campaign/{selectedCampaignId}/stage/{selectedStatusId}");
-                    
-                    if (templatesResponse.IsSuccessStatusCode)
+                    if (firstTemplate != null)
                     {
-                        var templates = await templatesResponse.Content.ReadFromJsonAsync<List<FormTemplateDto>>();
-                        var firstTemplate = templates?.FirstOrDefault();
-                        
-                        if (firstTemplate != null)
+                        // 2. Obtener campos para la plantilla
+                        var fieldsResponse = await client.GetAsync($"/api/forms/{firstTemplate.IdForm}/fields");
+                        if (fieldsResponse.IsSuccessStatusCode)
                         {
-                            // 2. Get fields for the template
-                            var fieldsResponse = await client.GetAsync($"/api/forms/{firstTemplate.IdForm}/fields");
-                            if (fieldsResponse.IsSuccessStatusCode)
+                            var fields = await fieldsResponse.Content.ReadFromJsonAsync<List<FormFieldDto>>();
+                            if (fields != null && fields.Any())
                             {
-                                var fields = await fieldsResponse.Content.ReadFromJsonAsync<List<FormFieldDto>>();
-                                if (fields != null && fields.Any())
+                                formSchema = new FormSchemaDto 
                                 {
-                                    formSchema = new FormSchemaDto 
-                                    {
-                                        IdForm = firstTemplate.IdForm,
-                                        Name = firstTemplate.Name,
-                                        Fields = fields
-                                    };
-                                }
+                                    IdForm = firstTemplate.IdForm,
+                                    Name = firstTemplate.Name,
+                                    Fields = fields
+                                };
                             }
                         }
                     }
-                    
-                    if (formSchema == null)
-                    {
-                        Snackbar.Add("No hay campos dinámicos específicos configurados para esta etapa.", Severity.Info);
-                    }
                 }
-                catch (Exception ex)
+                
+                if (formSchema == null)
                 {
-                    Snackbar.Add($"Error de red al cargar el formulario: {ex.Message}", Severity.Error);
+                    Snackbar.Add("No hay campos dinámicos configurados para esta campaña.", Severity.Info);
                 }
-                finally
-                {
-                    isLoadingSchema = false;
-                    StateHasChanged();
-                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error de red al cargar el formulario: {ex.Message}", Severity.Error);
+            }
+            finally
+            {
+                isLoadingSchema = false;
+                StateHasChanged();
             }
         }
     }
@@ -549,7 +515,7 @@
                 ownerUserId = currentUserId,
                 custodyUserId = currentUserId,
                 idStatus = selectedStatusId,
-                status = "PENDING_VALIDATION"
+                status = "BORRADOR"
             };
 
             var client = HttpClientFactory.CreateClient("BackendApi");
