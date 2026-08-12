@@ -37,17 +37,58 @@ La plataforma implementa las siguientes medidas de seguridad para entornos produ
 
 ---
 
-## 🚀 Instalación y Configuración
+## 🐳 Ejecución Completa con Docker (Recomendado)
+
+El proyecto está 100% preparado para ejecutarse mediante Docker Compose. Incluye la inicialización y restauración automática de la base de datos PostgreSQL con datos y estructura inicial de prueba (`db_export/`).
+
+### 1. Despliegue Local Rápido
+```bash
+# Copiar variables de entorno de ejemplo si es necesario
+cp .env.example .env
+
+# Levantar todos los servicios en segundo plano (PostgreSQL, Redis, ApiHub, WebFrontend, SLA Engine)
+docker compose up -d --build
+```
+
+### 2. Servicios Disponibles
+* **Frontend Web (Blazor Supervisors & Advisors)**: [http://localhost:5261](http://localhost:5261)
+* **Backend API REST**: [http://localhost:5068](http://localhost:5068)
+* **Documentación Swagger**: [http://localhost:5068/swagger](http://localhost:5068/swagger)
+* **PostgreSQL (Con Semillas)**: `localhost:5432` (Usuario: `ronald` | Bases de datos: `nyx_crm`, `nx_ecosystem`)
+* **Redis**: `localhost:6379`
+
+### 3. Reiniciar / Limpiar Datos de Prueba
+Si deseas reiniciar la base de datos a su estado semilla original exportado en `db_export/`:
+```bash
+docker compose down -v
+docker compose up -d
+```
+
+---
+
+## 🐙 Vinculación a un Nuevo Repositorio en GitHub
+
+Este proyecto ha sido desvinculado de su repositorio anterior. Para subirlo a tu nuevo repositorio de GitHub:
+
+```bash
+# 1. Agregar la URL de tu nuevo repositorio en GitHub
+git remote add origin https://github.com/TU_USUARIO/TU_NUEVO_REPOSITO.git
+
+# 2. Subir la rama actual con sus tags y commits
+git push -u origin feature/flujos-incidencias-referidos
+# o subir la rama main:
+# git push -u origin main
+```
+
+---
+
+## 🚀 Instalación y Configuración Manual (.NET Local)
 
 ### 📋 Prerrequisitos
-*   SDK de .NET 10.0
-*   Base de datos PostgreSQL (con esquemas de negocio y administración de acceso configurados)
+* SDK de .NET 10.0
+* Base de datos PostgreSQL local o vía Docker
 
-### ⚙️ Configuración inicial
-1.  En `CRM_API/CRM.ApiHub/appsettings.json`, asegúrate de tener configurada la cadena de conexión cifrada mediante AES-256 en la propiedad `ConnectionStrings:DefaultConnection`.
-2.  Configura el JWT SecretKey y la configuración de expiración de sesión.
-
-### 🛠️ Compilación y Ejecución
+### 🛠️ Compilación y Ejecución Manual
 
 Compilar toda la solución:
 ```bash
@@ -58,24 +99,21 @@ Ejecutar el Backend (ApiHub):
 ```bash
 dotnet run --project CRM.ApiHub/CRM.ApiHub.csproj --launch-profile "http"
 ```
-*   **API Hub**: [http://localhost:5068](http://localhost:5068)
-*   **Documentación Swagger**: [http://localhost:5068/swagger](http://localhost:5068/swagger)
 
 Ejecutar el Frontend (Blazor Web):
 ```bash
 dotnet run --project CRM.WebFrontend/CRM.WebFrontend.csproj --launch-profile "http"
 ```
-*   **Frontend Web**: [http://localhost:5261](http://localhost:5261)
 
 ---
 
 ## 🧪 Pruebas de Desarrollo y Entornos
 
-### Credenciales de Bypass de Desarrollo (Developer Fallback)
-En entornos locales (`ASPNETCORE_ENVIRONMENT = Development`), se cuenta con usuarios de prueba sin requerir conexión a base de datos externa:
-*   **Supervisor**: `test.supervisor` / `password123`
-*   **Asesor**: `test.asesor` / `password123`
+### Credenciales de Prueba (Semilla en DB / Fallback)
+* **Supervisor**: `patricia` / `password123` (o `test.supervisor` / `password123`)
+* **Asesor**: `test.asesor` / `password123`
 
 ### Colección de Postman y Contratos
-*   La colección oficial de endpoints está exportada en `docs/CRM_CallCenter_Semana1.postman_collection.json`.
-*   La especificación formal de todos los Request/Response del API se encuentra detallada en `docs/contratos_api.md`.
+* La colección oficial de endpoints está exportada en `docs/CRM_CallCenter_Semana1.postman_collection.json`.
+* La especificación formal de todos los Request/Response del API se encuentra detallada en `docs/contratos_api.md`.
+

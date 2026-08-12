@@ -28,7 +28,6 @@ design_ideas/
 scratch/
 
 # Storage
-storage/
-
-
+storage/*
+!storage/.gitkeep
 

@@ -1,4 +1,6 @@
 -- Actualizaciones y migraciones incrementales de base de datos NYX CRM
+\c nyx_crm;
+
 BEGIN;
 
 -- 1. Insertar subestado 23 (POR_CORREGIR_ASESOR) si no existe
