@@ -75,7 +75,7 @@ services:
       - "5070:5070"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_crm;Username=ronald;Password=Gs1$$2099Zx23rO24M4r25
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_sla;Username=usr_sla;Password=${SLA_DB_PASSWORD:-Sla$$Nyx2026!Engine#Key}
       - RedisSettings__ConnectionString=crm_redis:6379
     depends_on:
       crm_redis:
@@ -83,4 +83,41 @@ services:
       crm_postgres:
         condition: service_healthy
     restart: unless-stopped
+
+  approval_engine_api:
+    build:
+      context: .
+      dockerfile: Nyx.ApprovalEngine/Dockerfile
+    container_name: approval_engine_api
+    ports:
+      - "5071:5071"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_approval;Username=usr_approval;Password=${APPROVAL_DB_PASSWORD:-Approval$$Nyx2026!Secured#Key}
+      - RedisSettings__ConnectionString=crm_redis:6379
+    depends_on:
+      crm_redis:
+        condition: service_healthy
+      crm_postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  flow_engine_api:
+    build:
+      context: .
+      dockerfile: Nyx.FlowEngine/Dockerfile
+    container_name: flow_engine_api
+    ports:
+      - "5072:5072"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_flow;Username=usr_flow;Password=${FLOW_DB_PASSWORD:-Flow$$Nyx2026!Engine#Key}
+      - RedisSettings__ConnectionString=crm_redis:6379
+    depends_on:
+      crm_redis:
+        condition: service_healthy
+      crm_postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 
