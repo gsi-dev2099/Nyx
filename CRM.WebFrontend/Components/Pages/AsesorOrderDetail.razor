@@ -189,6 +189,17 @@
         font-size: 0.75rem;
         margin-top: 0.25rem;
     }
+
+    /* Stage Strip Styles from Prototype */
+    .stage-strip { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 14px 0 6px; }
+    .stage-dot-wrap { display: flex; flex-direction: column; align-items: center; min-width: 78px; position: relative; flex: 1; }
+    .stage-dot { width: 12px; height: 12px; border-radius: 50%; background: #D8D6CC; z-index: 2; transition: all 0.2s ease; }
+    .stage-dot.done { background: #B98B36; }
+    .stage-dot.current { background: #D9A441; box-shadow: 0 0 0 4px rgba(217, 164, 65, 0.22); }
+    .stage-line { position: absolute; top: 5px; left: 50%; width: 100%; height: 2px; background: #e4e4e7; z-index: 1; }
+    .stage-dot-wrap:last-child .stage-line { display: none; }
+    .stage-label { font-size: 0.65rem; margin-top: 8px; text-align: center; color: #71717a; max-width: 76px; line-height: 1.2; text-transform: uppercase; font-weight: 600; }
+    .stage-label.current { color: #18181b; font-weight: 800; }
 </style>
 
 <div class="container-fluid py-4 px-md-4" style="max-width: 1600px;">
@@ -237,6 +248,9 @@
                     <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Estado Actual</span>
                     <span class="badge bg-dark fs-6 px-3 py-1 mt-1">@_order.Status</span>
                 </div>
+                <button class="btn btn-outline-dark btn-sm mt-3 fw-bold rounded-pill shadow-sm" @onclick="OpenTimelineModal">
+                    <i class="bi bi-clock-history me-1"></i> Línea de Tiempo
+                </button>
                 @if (_order.IdStatus == 1 && _isEditable)
                 {
                     <button class="btn btn-premium btn-sm mt-3" @onclick="SendToSupervisor" disabled="@_isSaving">
@@ -259,65 +273,28 @@
         </div>
 
         <div class="row g-4">
-            <!-- COLUMNA IZQUIERDA: LINEA DE TIEMPO / HISTORIAL CON FILTROS Y SCROLL -->
-            <div class="col-xl-3 col-lg-4">
-                <div class="premium-panel h-100 d-flex flex-column">
-                    <h6 class="section-title mb-3">Línea de Tiempo de la Orden</h6>
-                    
-                    <!-- Segmentador / Filtro de Eventos -->
-                    <div class="btn-group w-100 mb-3" role="group" style="font-size: 0.75rem;">
-                        <button type="button" class="btn btn-xs @(_timelineFilter == "ALL" ? "btn-dark fw-bold" : "btn-outline-secondary") py-1 px-2" @onclick='() => SetTimelineFilter("ALL")'>Todos</button>
-                        <button type="button" class="btn btn-xs @(_timelineFilter == "STATUS" ? "btn-dark fw-bold" : "btn-outline-secondary") py-1 px-2" @onclick='() => SetTimelineFilter("STATUS")'>Estados</button>
-                        <button type="button" class="btn btn-xs @(_timelineFilter == "DOCS" ? "btn-dark fw-bold" : "btn-outline-secondary") py-1 px-2" @onclick='() => SetTimelineFilter("DOCS")'>Docs</button>
-                        <button type="button" class="btn btn-xs @(_timelineFilter == "FORM" ? "btn-dark fw-bold" : "btn-outline-secondary") py-1 px-2" @onclick='() => SetTimelineFilter("FORM")'>Ficha</button>
-                    </div>
+            <!-- COLUMNA UNIFICADA: FICHA, ALTERNA Y DOCUMENTOS -->
+            <div class="col-12">
+                <!-- LINEA DE TIEMPO (STAGES) -->
+                <div class="premium-panel mb-4">
+                    <h6 class="section-title mb-3">Progreso de la Orden</h6>
+                    <div class="stage-strip w-100 px-3">
+                        @for (int i = 0; i < _stages.Count; i++)
+                        {
+                            var stage = _stages[i];
+                            int currentIdx = GetCurrentStageIndex();
+                            bool isDone = i < currentIdx;
+                            bool isCurrent = i == currentIdx;
 
-                    @if (!FilteredTimeline.Any())
-                    {
-                        <p class="text-muted small">No se registran eventos en esta categoría.</p>
-                    }
-                    else
-                    {
-                        <div class="timeline-scroll-container">
-                            <div class="timeline-container">
-                                @foreach (var evt in FilteredTimeline)
-                                {
-                                    var dotClass = evt.EventType switch
-                                    {
-                                        "STATUS_CHANGE" => "status",
-                                        "CUSTODY_TRANSFER" => "custody",
-                                        "INCIDENT_DETECTED" or "INCIDENT_RESOLVED" => "incident",
-                                        "DOCUMENT_UPLOADED" or "DOCUMENT_VERIFIED" => "document",
-                                        "FORM_DATA_UPDATED" => "form-update",
-                                        _ => ""
-                                    };
-
-                                    <div class="timeline-event">
-                                        <div class="timeline-dot @dotClass"></div>
-                                        <div class="fw-bold text-dark" style="font-size: 0.85rem;">@evt.Description</div>
-                                        
-                                        @if (evt.EventType == "FORM_DATA_UPDATED" || (evt.Description != null && evt.Description.Contains("campos guardados")))
-                                        {
-                                            <div class="mt-1">
-                                                <button class="btn btn-sm btn-outline-primary py-0 px-2 rounded-pill shadow-sm" style="font-size: 0.72rem;" @onclick="() => OpenFormDetailsModal(evt)">
-                                                    <i class="bi bi-eye me-1"></i>Ver campos guardados
-                                                </button>
-                                            </div>
-                                        }
-
-                                        <div class="text-muted" style="font-size: 0.75rem;">
-                                            Por: @(evt.ActorName ?? "Sistema") | @evt.Timestamp.ToString("dd/MM/yyyy HH:mm")
-                                        </div>
-                                    </div>
-                                }
+                            <div class="stage-dot-wrap">
+                                <div class="stage-line"></div>
+                                <div class="stage-dot @(isDone ? "done" : "") @(isCurrent ? "current" : "")"></div>
+                                <div class="stage-label @(isCurrent ? "current" : "")">@stage</div>
                             </div>
-                        </div>
-                    }
+                        }
+                    </div>
                 </div>
-            </div>
 
-            <!-- COLUMNA CENTRAL: FORMULARIO DINÁMICO E INFORMACIÓN ALTERNA -->
-            <div class="col-xl-6 col-lg-8">
                 <div class="premium-panel mb-4">
                     <div class="d-flex align-items-center justify-content-between mb-4">
                         <h5 class="fw-bold mb-0">Detalle de la Ficha de Venta</h5>
@@ -348,10 +325,10 @@
                         <h6 class="text-muted mb-4">Formulario: @_template.Name</h6>
 
                         <form @onsubmit="SaveForm">
-                            <div class="d-flex flex-column gap-3 mb-4">
+                            <div class="row g-4 mb-4">
                                 @foreach (var field in _fields)
                                 {
-                                    <div>
+                                    <div class="col-sm-6 col-md-4">
                                         <label class="form-label fw-bold mb-1" style="font-size: 0.9rem;">
                                             @field.Label
                                             @if (field.IsRequired)
@@ -399,11 +376,11 @@
 
                             @if (_isEditable)
                             {
-                                <div class="d-flex gap-2 mt-3">
-                                    <button type="button" class="btn btn-outline-secondary rounded-pill w-50" @onclick="SavePartialDraft" disabled="@_isSaving">
+                                <div class="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
+                                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" @onclick="SavePartialDraft" disabled="@_isSaving">
                                         <i class="bi bi-bookmark-check me-1"></i> Guardar Borrador Parcial
                                     </button>
-                                    <button type="submit" class="btn btn-premium w-50" disabled="@(_validationErrors.Any() || _isSaving)">
+                                    <button type="submit" class="btn btn-premium px-4" disabled="@(_validationErrors.Any() || _isSaving)">
                                         @if (_isSaving)
                                         {
                                             <span>Guardando...</span>
@@ -420,7 +397,7 @@
                 </div>
 
                 <!-- SECCIÓN FICHA ALTERNA -->
-                <div class="premium-panel">
+                <div class="premium-panel mb-4">
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" role="switch" id="alternateToggle" 
                                checked="@_showAlternate" @onchange="ToggleAlternate" disabled="@(!_isEditable)" />
@@ -431,20 +408,20 @@
                     {
                         <div class="mt-3">
                             <h6 class="section-title mb-3">Ficha Alterna de Perfil (Datos del Titular / Instalación Alterna)</h6>
-                            <div class="row g-3">
-                                <div class="col-md-6">
+                            <div class="row g-4">
+                                <div class="col-sm-6 col-md-4">
                                     <label class="form-label fw-bold text-muted small">Nombre del Titular Alterno</label>
                                     <input type="text" class="form-control input-premium w-100" @bind="_altHolderName" disabled="@(!_isEditable)" placeholder="Ej. Juan Pérez" />
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-sm-6 col-md-4">
                                     <label class="form-label fw-bold text-muted small">DNI / NIE Alterno</label>
                                     <input type="text" class="form-control input-premium w-100" @bind="_altHolderDni" disabled="@(!_isEditable)" placeholder="Ej. 12345678Z" />
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-sm-6 col-md-4">
                                     <label class="form-label fw-bold text-muted small">Teléfono de Contacto Alterno</label>
                                     <input type="text" class="form-control input-premium w-100" @bind="_altPhone" disabled="@(!_isEditable)" placeholder="Ej. 600112233" />
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-sm-6 col-md-8">
                                     <label class="form-label fw-bold text-muted small">Dirección de Instalación Alterna</label>
                                     <input type="text" class="form-control input-premium w-100" @bind="_altAddress" disabled="@(!_isEditable)" placeholder="Ej. Av. Principal #123" />
                                 </div>
@@ -455,8 +432,8 @@
                             </div>
                             @if (_isEditable)
                             {
-                                <div class="mt-3">
-                                    <button class="btn btn-premium w-100" @onclick="SaveAlternateProfileFields" disabled="@_isSaving">
+                                <div class="mt-3 pt-3 border-top text-end">
+                                    <button class="btn btn-premium px-4" @onclick="SaveAlternateProfileFields" disabled="@_isSaving">
                                         <i class="bi bi-save me-1"></i> Guardar Ficha Alterna
                                     </button>
                                 </div>
@@ -464,10 +441,8 @@
                         </div>
                     }
                 </div>
-            </div>
 
-            <!-- COLUMNA DERECHA: ADJUNTOS / DOCUMENTOS (DRAG & DROP) -->
-            <div class="col-xl-3 col-lg-12">
+                <!-- SECCIÓN DOCUMENTOS -->
                 <div class="premium-panel mb-4">
                     <h6 class="section-title mb-3">Documentos Adjuntos</h6>
                     
@@ -477,16 +452,19 @@
                     }
                     else
                     {
-                        <div class="d-flex flex-column gap-2 mb-4">
+                        <div class="row g-3 mb-4">
                             @foreach (var doc in _documents)
                             {
-                                <div class="p-2 border rounded d-flex align-items-center justify-content-between bg-light">
-                                    <div class="text-truncate" style="font-size: 0.85rem; max-width: 70%;">
-                                        <strong>@doc.DocumentType:</strong> @doc.FileName
+                                <div class="col-sm-6 col-md-4">
+                                    <div class="p-3 border rounded d-flex align-items-center justify-content-between bg-light h-100">
+                                        <div class="text-truncate" style="font-size: 0.85rem; max-width: 70%;">
+                                            <span class="d-block fw-bold text-dark mb-1">@doc.DocumentType</span>
+                                            <span class="text-muted">@doc.FileName</span>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-dark px-2 py-1" @onclick="() => DownloadDocument(doc)">
+                                            Descargar
+                                        </button>
                                     </div>
-                                    <button class="btn btn-sm btn-outline-dark px-2 py-0" @onclick="() => DownloadDocument(doc)">
-                                        Descargar
-                                    </button>
                                 </div>
                             }
                         </div>
@@ -495,49 +473,127 @@
                     <!-- Drag & Drop Upload -->
                     @if (_isEditable)
                     {
-                        <h6 class="section-title mb-2">Cargar Documento</h6>
-                        <div class="mb-3">
-                            <label class="form-label text-muted" style="font-size: 0.75rem;">Tipo de Documento</label>
-                            <select class="form-select input-premium w-100" @bind="_selectedDocType">
-                                @if (_order?.IdStatus == 1)
-                                {
-                                    <option value="DNI">DNI / Identificación</option>
-                                    <option value="OTRO">Otro Documento Inicial</option>
-                                }
-                                else
-                                {
-                                    <option value="DNI">DNI / Identificación</option>
-                                    <option value="CONTRATO">Contrato de Venta</option>
-                                    <option value="BANCO">Comprobante de Cuenta / IBAN</option>
-                                    <option value="OTRO">Otro Documento</option>
-                                }
-                            </select>
-                        </div>
-
-                        <div class="dropzone @(_dragEnter ? "drag-enter" : "")"
-                             @ondragenter="OnDragEnter"
-                             @ondragleave="OnDragLeave"
-                             @ondragover="OnDragOver"
-                             @ondrop="OnDrop">
-                            <InputFile OnChange="OnFilesSelected" class="file-input" />
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted mb-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                            <div class="fw-semibold" style="font-size: 0.85rem;">Arrastra un archivo aquí</div>
-                            <div class="text-muted" style="font-size: 0.75rem;">o haz clic para examinar</div>
-                        </div>
-
-                        @if (_isUploading)
-                        {
-                            <div class="d-flex align-items-center gap-2 mt-2">
-                                <div class="spinner-border spinner-border-sm" role="status"></div>
-                                <span style="font-size: 0.8rem;">Cargando archivo...</span>
+                        <h6 class="section-title mb-2 mt-4 pt-3 border-top">Cargar Nuevo Documento</h6>
+                        <div class="row g-4 align-items-end">
+                            <div class="col-sm-6 col-md-4">
+                                <label class="form-label text-muted fw-bold" style="font-size: 0.75rem;">Tipo de Documento</label>
+                                <select class="form-select input-premium w-100" @bind="_selectedDocType">
+                                    @if (_order?.IdStatus == 1)
+                                    {
+                                        <option value="DNI">DNI / Identificación</option>
+                                        <option value="OTRO">Otro Documento Inicial</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="DNI">DNI / Identificación</option>
+                                        <option value="CONTRATO">Contrato de Venta</option>
+                                        <option value="BANCO">Comprobante de Cuenta / IBAN</option>
+                                        <option value="OTRO">Otro Documento</option>
+                                    }
+                                </select>
                             </div>
-                        }
+                            <div class="col-sm-12 col-md-8">
+                                <div class="dropzone @(_dragEnter ? "drag-enter" : "") p-3"
+                                     @ondragenter="OnDragEnter"
+                                     @ondragleave="OnDragLeave"
+                                     @ondragover="OnDragOver"
+                                     @ondrop="OnDrop">
+                                    <InputFile OnChange="OnFilesSelected" class="file-input" />
+                                    <div class="d-flex align-items-center justify-content-center gap-3">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                        <div>
+                                            <div class="fw-semibold" style="font-size: 0.85rem;">Arrastra un archivo aquí o haz clic para examinar</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                @if (_isUploading)
+                                {
+                                    <div class="d-flex align-items-center gap-2 mt-2">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                        <span style="font-size: 0.8rem;" class="fw-bold">Cargando archivo...</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
                     }
                 </div>
             </div>
         </div>
     }
 </div>
+
+<!-- Modal para Línea de Tiempo (Diseño Mockup) -->
+@if (_showTimelineModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary fw-bold mb-1">Orden de Venta</span>
+                        <h4 class="modal-title fw-extrabold text-dark">Línea de Tiempo #@_order?.IdOrder</h4>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseTimelineModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Segmentador / Filtro de Eventos -->
+                    <div class="btn-group w-100 mb-4" role="group" style="font-size: 0.75rem;">
+                        <button type="button" class="btn btn-xs @(_timelineFilter == "ALL" ? "btn-dark fw-bold" : "btn-outline-secondary") py-2 px-3" @onclick='() => SetTimelineFilter("ALL")'>Todos</button>
+                        <button type="button" class="btn btn-xs @(_timelineFilter == "STATUS" ? "btn-dark fw-bold" : "btn-outline-secondary") py-2 px-3" @onclick='() => SetTimelineFilter("STATUS")'>Estados</button>
+                        <button type="button" class="btn btn-xs @(_timelineFilter == "DOCS" ? "btn-dark fw-bold" : "btn-outline-secondary") py-2 px-3" @onclick='() => SetTimelineFilter("DOCS")'>Documentos</button>
+                        <button type="button" class="btn btn-xs @(_timelineFilter == "FORM" ? "btn-dark fw-bold" : "btn-outline-secondary") py-2 px-3" @onclick='() => SetTimelineFilter("FORM")'>Ficha</button>
+                    </div>
+
+                    @if (!FilteredTimeline.Any())
+                    {
+                        <p class="text-muted small text-center my-4">No se registran eventos en esta categoría.</p>
+                    }
+                    else
+                    {
+                        <div class="timeline-scroll-container">
+                            <div class="timeline-container">
+                                @foreach (var evt in FilteredTimeline)
+                                {
+                                    var dotClass = evt.EventType switch
+                                    {
+                                        "STATUS_CHANGE" => "status",
+                                        "CUSTODY_TRANSFER" => "custody",
+                                        "INCIDENT_DETECTED" or "INCIDENT_RESOLVED" => "incident",
+                                        "DOCUMENT_UPLOADED" or "DOCUMENT_VERIFIED" => "document",
+                                        "FORM_DATA_UPDATED" => "form-update",
+                                        _ => ""
+                                    };
+
+                                    <div class="timeline-event">
+                                        <div class="timeline-dot @dotClass"></div>
+                                        <div class="fw-bold text-dark" style="font-size: 0.85rem;">@evt.Description</div>
+                                        
+                                        @if (evt.EventType == "FORM_DATA_UPDATED" || (evt.Description != null && evt.Description.Contains("campos guardados")))
+                                        {
+                                            <div class="mt-1">
+                                                <button class="btn btn-sm btn-outline-primary py-0 px-2 rounded-pill shadow-sm" style="font-size: 0.72rem;" @onclick="() => OpenFormDetailsModal(evt)">
+                                                    <i class="bi bi-eye me-1"></i>Ver campos guardados
+                                                </button>
+                                            </div>
+                                        }
+
+                                        <div class="text-muted" style="font-size: 0.75rem;">
+                                            Por: @(evt.ActorName ?? "Sistema") | @evt.Timestamp.ToString("dd/MM/yyyy HH:mm")
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 font-semibold" @onclick="CloseTimelineModal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 <!-- Modal para Detalle de Cambios en la Ficha -->
 @if (_showFormDetailsModal && _selectedEventForModal != null)
@@ -604,6 +660,23 @@
     [Parameter]
     public long Id { get; set; }
 
+    private List<string> _stages = new() {
+        "Preventa", "Venta Creada", "Gestión Inicial", "Validación Interna",
+        "Envío Proveedor", "Validación Externa", "Firma", "Tramitación",
+        "Activación", "Postventa"
+    };
+
+    private int GetCurrentStageIndex()
+    {
+        if (_order == null) return 0;
+        if (_order.IdStatus == 1) return 1; // Venta Creada
+        if (_order.IdStatus == 2) return 2; // Gestión Inicial (Supervisor)
+        if (_order.IdStatus == 3) return 8; // Activación (Approved)
+        if (_order.IdStatus >= 4) return 9; // Postventa
+        if (!string.IsNullOrEmpty(_order.Status) && _order.Status.Contains("incidencia", StringComparison.OrdinalIgnoreCase)) return 2;
+        return 2; 
+    }
+
     private SalesOrderViewModel? _order;
     private FormTemplateViewModel? _template;
     private List<FormFieldViewModel> _fields = new();
@@ -619,6 +692,17 @@
     private string _timelineFilter = "ALL";
 
     private bool _showFormDetailsModal = false;
+    private bool _showTimelineModal = false;
+
+    private void OpenTimelineModal()
+    {
+        _showTimelineModal = true;
+    }
+
+    private void CloseTimelineModal()
+    {
+        _showTimelineModal = false;
+    }
     private TimelineItemViewModel? _selectedEventForModal = null;
     private List<KeyValuePair<string, string>> _selectedEventFields = new();
 

@@ -166,6 +166,93 @@
         align-items: center;
         gap: 6px;
     }
+
+    .timeline-preview-card {
+        padding: 10px 14px;
+        background: #ffffff;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 145px;
+    }
+
+    .timeline-preview-card:hover {
+        background: #F8FAFC;
+        border-color: #CBD5E1;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    }
+    
+    .timeline-stage-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #1E293B;
+        letter-spacing: -0.2px;
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    /* Animated Mini Dots for Preview */
+    .mini-timeline-track {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        padding: 4px 0;
+        margin-bottom: 6px;
+    }
+    
+    .mini-timeline-track::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #E2E8F0;
+        transform: translateY(-50%);
+        z-index: 1;
+        border-radius: 2px;
+    }
+
+    .mini-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #CBD5E1;
+        z-index: 2;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+
+    .mini-dot.done {
+        background: #B98B36;
+    }
+
+    .mini-dot.current {
+        background: #D9A441;
+        box-shadow: 0 0 0 3px rgba(217, 164, 65, 0.3);
+        animation: pulse-dot 1.5s infinite;
+        transform: scale(1.2);
+    }
+
+    @@keyframes pulse-dot {
+        0% { box-shadow: 0 0 0 0 rgba(217, 164, 65, 0.4); }
+        70% { box-shadow: 0 0 0 6px rgba(217, 164, 65, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(217, 164, 65, 0); }
+    }
+
+    /* Stage Strip Styles from Prototype for Modal */
+    .stage-strip { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 14px 0 6px; }
+    .stage-dot-wrap { display: flex; flex-direction: column; align-items: center; min-width: 78px; position: relative; flex: 1; }
+    .stage-dot { width: 12px; height: 12px; border-radius: 50%; background: #D8D6CC; z-index: 2; transition: all 0.2s ease; }
+    .stage-dot.done { background: #B98B36; }
+    .stage-dot.current { background: #D9A441; box-shadow: 0 0 0 4px rgba(217, 164, 65, 0.22); }
+    .stage-line { position: absolute; top: 5px; left: 50%; width: 100%; height: 2px; background: #e4e4e7; z-index: 1; }
+    .stage-dot-wrap:last-child .stage-line { display: none; }
+    .stage-label { font-size: 0.65rem; margin-top: 8px; text-align: center; color: #71717a; max-width: 76px; line-height: 1.2; text-transform: uppercase; font-weight: 600; }
+    .stage-label.current { color: #18181b; font-weight: 800; }
 </style>
 
 <div class="container-fluid py-4 space-y-4">
@@ -264,6 +351,7 @@
                                 <th>Desglose de Productos</th>
                                 <th>Ficha Alterna</th>
                                 <th>Estado Proceso</th>
+                                <th>Línea de Tiempo</th>
                                 <th class="text-end pe-4">Ver Ficha</th>
                             </tr>
                         </thead>
@@ -271,7 +359,7 @@
                             @if (!_orders.Any())
                             {
                                 <tr>
-                                    <td colspan="6" class="text-center py-5">
+                                    <td colspan="7" class="text-center py-5">
                                         <i class="bi bi-inbox text-muted display-6 d-block mb-2"></i>
                                         <h6 class="text-dark fw-bold mb-1">No tienes órdenes bajo tu custodia actualmente</h6>
                                         <p class="text-muted small mb-0">Comienza creando una pre-venta o nueva orden.</p>
@@ -299,23 +387,44 @@
                                         <td>
                                             @if (order.IdStatus == 11 || order.Status == "INCIDENCIA" || (order.Status != null && order.Status.Contains("incidencia", StringComparison.OrdinalIgnoreCase)))
                                             {
-                                                <span class="badge-status shadow-sm" style="background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #DC2626; font-weight: 800;">
+                                                <span class="badge-status shadow-sm align-self-start" style="background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #DC2626; font-weight: 800;">
                                                     <i class="bi bi-exclamation-triangle-fill text-danger me-1"></i> ⚠️ EN CORRECCIÓN (Incidencia)
                                                 </span>
                                             }
                                             else if (order.IdStatus == 2 || order.Status == "REVISION_SUPERVISOR")
                                             {
-                                                <span class="badge-status shadow-sm" style="background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #D97706; font-weight: 700;">
+                                                <span class="badge-status shadow-sm align-self-start" style="background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #D97706; font-weight: 700;">
                                                     <i class="bi bi-search text-warning me-1"></i> EN REVISIÓN SUPERVISOR
                                                 </span>
                                             }
                                             else
                                             {
-                                                <span class="badge-status" style="background-color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)"); color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "#10B981" : "#D97706");">
+                                                <span class="badge-status align-self-start" style="background-color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)"); color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "#10B981" : "#D97706");">
                                                     <span style="width: 6px; height: 6px; border-radius: 50%; background-color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "#10B981" : "#D97706"); display: inline-block;"></span>
                                                     @(order.Status ?? "En Verificación")
                                                 </span>
                                             }
+                                        </td>
+                                        <td @onclick:stopPropagation="true">
+                                            <!-- Mini Timeline (Clickable Preview - Animated Dots Design) -->
+                                            <div class="timeline-preview-card" @onclick="() => OpenTimelineModal(order)" title="Click para ver la línea de tiempo completa">
+                                                @{
+                                                    int currentIdx = GetCurrentStageIndex(order);
+                                                    string stageName = currentIdx < _stages.Count ? _stages[currentIdx] : "Desconocida";
+                                                }
+                                                <span class="timeline-stage-title">@stageName</span>
+                                                <div class="mini-timeline-track">
+                                                    @for (int i = 0; i < _stages.Count; i++)
+                                                    {
+                                                        bool isDone = i < currentIdx;
+                                                        bool isCurrent = i == currentIdx;
+                                                        <div class="mini-dot @(isDone ? "done" : "") @(isCurrent ? "current" : "")"></div>
+                                                    }
+                                                </div>
+                                                <div class="mt-1 text-end">
+                                                    <small class="text-muted" style="font-size: 0.62rem; font-weight: 600;">Etapa @(currentIdx + 1) de @_stages.Count</small>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td class="text-end pe-4" @onclick:stopPropagation="true">
                                             <button type="button" class="action-btn-quick" title="Ver Ficha Completa" @onclick="() => NavigateToDetail(order.IdOrder)">
@@ -441,6 +550,49 @@
     </div>
 }
 
+<!-- Modal: Línea de Tiempo Completa -->
+@if (_selectedTimelineOrder != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-bottom-0 pb-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary fw-bold mb-1">Progreso de la Orden</span>
+                        <h5 class="modal-title fw-bold text-dark">Orden #@_selectedTimelineOrder.IdOrder</h5>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseTimelineModal"></button>
+                </div>
+                <div class="modal-body p-4 pt-2">
+                    <p class="text-muted small mb-4">Visualización del estado actual y progreso de esta orden a través de las diferentes etapas.</p>
+                    
+                    <div class="bg-light p-4 rounded-4 border">
+                        <div class="stage-strip w-100">
+                            @for (int i = 0; i < _stages.Count; i++)
+                            {
+                                var stage = _stages[i];
+                                int currentIdx = GetCurrentStageIndex(_selectedTimelineOrder);
+                                bool isDone = i < currentIdx;
+                                bool isCurrent = i == currentIdx;
+
+                                <div class="stage-dot-wrap">
+                                    <div class="stage-line"></div>
+                                    <div class="stage-dot @(isDone ? "done" : "") @(isCurrent ? "current" : "")"></div>
+                                    <div class="stage-label @(isCurrent ? "current" : "")">@stage</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 font-semibold" @onclick="CloseTimelineModal">Cerrar</button>
+                    <button type="button" class="btn btn-primary rounded-pill px-4 font-semibold shadow-sm" @onclick="() => NavigateToDetail(_selectedTimelineOrder.IdOrder)">Ir a la Ficha Completa</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Modal Derivar Asesor -->
 @if (_showAssignModal)
 {
@@ -482,6 +634,7 @@
     private List<SalesOrderViewModel> _orders = new();
     private List<PreSaleDto> _preSalesList = new();
     private SalesOrderViewModel? _selectedProductsOrder;
+    private SalesOrderViewModel? _selectedTimelineOrder;
     private bool _isLoading = true;
     private long _currentUserId;
     private string _username = string.Empty;
@@ -493,12 +646,39 @@
     private string _assignContext = "";
     private List<AdvisorLookupDto> _advisors = new();
 
+    private void OpenTimelineModal(SalesOrderViewModel order)
+    {
+        _selectedTimelineOrder = order;
+    }
+
+    private void CloseTimelineModal()
+    {
+        _selectedTimelineOrder = null;
+    }
+
     public class AdvisorLookupDto { public int Id { get; set; } public string Name { get; set; } = ""; }
 
     public class ProductItemBreakdown
     {
         public string Name { get; set; } = "";
         public string Category { get; set; } = "";
+    }
+
+    private List<string> _stages = new() {
+        "Preventa", "Venta Creada", "Gestión Inicial", "Validación Interna",
+        "Envío Proveedor", "Validación Externa", "Firma", "Tramitación",
+        "Activación", "Postventa"
+    };
+
+    private int GetCurrentStageIndex(SalesOrderViewModel order)
+    {
+        if (order == null) return 0;
+        if (order.IdStatus == 1) return 1; // Venta Creada
+        if (order.IdStatus == 2) return 2; // Gestión Inicial (Supervisor)
+        if (order.IdStatus == 3) return 8; // Activación (Approved)
+        if (order.IdStatus >= 4) return 9; // Postventa
+        if (!string.IsNullOrEmpty(order.Status) && order.Status.Contains("incidencia", StringComparison.OrdinalIgnoreCase)) return 2;
+        return 2; 
     }
 
     protected override async Task OnInitializedAsync()
