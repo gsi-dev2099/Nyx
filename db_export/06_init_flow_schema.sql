@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS stage (
     description       TEXT,
     order_index       SMALLINT NOT NULL,
     is_terminal       BOOLEAN NOT NULL DEFAULT false,
+    portfolio         VARCHAR(100) DEFAULT 'GENERAL',
+    campaign          VARCHAR(100) DEFAULT 'GENERAL',
     sla_hours         SMALLINT,
     metadata          JSONB NOT NULL DEFAULT '{}',
     CONSTRAINT uq_flow_stage_code UNIQUE (id_flow, stage_code),
@@ -80,11 +82,23 @@ CREATE TABLE IF NOT EXISTS flow_instance (
     entity_id         BIGINT NOT NULL,
     current_stage_id  BIGINT NOT NULL REFERENCES stage(id_stage),
     day_counter       INT NOT NULL DEFAULT 1,              -- Simulated day / tracking counter
+    facts             JSONB NOT NULL DEFAULT '{}',
     metadata          JSONB NOT NULL DEFAULT '{}',
     status            VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',-- ACTIVE | COMPLETED | CANCELLED
     created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at      TIMESTAMPTZ,
     CONSTRAINT uq_flow_instance_entity UNIQUE (id_flow, entity_type, entity_id)
+);
+
+ALTER TABLE flow_instance ADD COLUMN IF NOT EXISTS facts JSONB DEFAULT '{}';
+
+-- 5b. Flow Campaign Mapping
+CREATE TABLE IF NOT EXISTS flow_campaign_mapping (
+    id_mapping        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_campaign       BIGINT NOT NULL,
+    flow_code         VARCHAR(80) NOT NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_campaign_mapping UNIQUE (id_campaign)
 );
 
 -- 6. Checkpoint Instances (Layer 2: Live Active Checkpoints)
@@ -150,17 +164,18 @@ INSERT INTO flow_definition (code, name, description, scope_type)
 VALUES ('PIPELINE_ALARMAS', 'Pipeline Estándar de Alarmas', 'Flujo de venta de 10 etapas con checkpoints de calidad y proveedor', 'CAMPAIGN')
 ON CONFLICT (code) DO NOTHING;
 
-INSERT INTO stage (id_flow, stage_code, name, order_index) VALUES
-    (1, 'PREVENTA', 'Preventa', 1),
-    (1, 'VENTA_CREADA', 'Venta Creada', 2),
-    (1, 'GESTION_INICIAL', 'Gestión Inicial', 3),
-    (1, 'VALIDACION_INTERNA', 'Validación Interna', 4),
-    (1, 'ENVIO_PROVEEDOR', 'Envío Proveedor', 5),
-    (1, 'VALIDACION_EXTERNA', 'Validación Externa', 6),
-    (1, 'FIRMA', 'Firma', 7),
-    (1, 'TRAMITACION', 'Tramitación', 8),
-    (1, 'ACTIVACION', 'Activación', 9),
-    (1, 'POSTVENTA', 'Postventa', 10)
+INSERT INTO stage (id_flow, stage_code, name, order_index, is_terminal, portfolio, campaign) VALUES
+    (1, 'PREVENTA', 'Preventa', 1, false, 'GENERAL', 'GENERAL'),
+    (1, 'VENTA_CREADA', 'Venta Creada', 2, false, 'GENERAL', 'GENERAL'),
+    (1, 'GESTION_INICIAL', 'Gestión Inicial', 3, false, 'GENERAL', 'GENERAL'),
+    (1, 'VALIDACION_INTERNA', 'Validación Interna', 4, false, 'GENERAL', 'GENERAL'),
+    (1, 'ENVIO_PROVEEDOR', 'Envío Proveedor', 5, false, 'GENERAL', 'GENERAL'),
+    (1, 'VALIDACION_EXTERNA', 'Validación Externa', 6, false, 'GENERAL', 'GENERAL'),
+    (1, 'FIRMA', 'Firma', 7, false, 'GENERAL', 'GENERAL'),
+    (1, 'TRAMITACION', 'Tramitación', 8, false, 'GENERAL', 'GENERAL'),
+    (1, 'ACTIVACION', 'Activación', 9, false, 'GENERAL', 'GENERAL'),
+    (1, 'POSTVENTA', 'Postventa', 10, false, 'GENERAL', 'GENERAL'),
+    (1, 'CERRADA', 'Cerrada', 11, true, 'GENERAL', 'GENERAL')
 ON CONFLICT (id_flow, stage_code) DO NOTHING;
 
 -- Seed Checkpoints in Catalog (Layer 1)

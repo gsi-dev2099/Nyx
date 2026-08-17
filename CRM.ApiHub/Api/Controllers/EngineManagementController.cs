@@ -49,7 +49,6 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpGet("flow/stages")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetFlowStages()
     {
         try
@@ -70,6 +69,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPost("flow/stages")]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> CreateFlowStage([FromBody] System.Text.Json.JsonElement payload)
     {
         try
@@ -89,6 +89,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPatch("flow/stages/{id:long}/move")]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> MoveFlowStage(long id, [FromQuery] string direction)
     {
         try
@@ -108,6 +109,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPatch("flow/stages/{id:long}/order")]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> SetFlowStageOrder(long id, [FromBody] System.Text.Json.JsonElement payload)
     {
         try
@@ -127,6 +129,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPatch("flow/stages/{id:long}")]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> UpdateFlowStage(long id, [FromBody] System.Text.Json.JsonElement payload)
     {
         try
@@ -146,6 +149,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPatch("flow/catalogs/{id:long}/campaign")]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> UpdateCheckpointCampaign(long id, [FromBody] System.Text.Json.JsonElement payload)
     {
         try
@@ -165,6 +169,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPatch("flow/catalogs/{id:long}/portfolio")]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> UpdateCheckpointPortfolio(long id, [FromBody] System.Text.Json.JsonElement payload)
     {
         try
@@ -184,6 +189,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPatch("flow/catalogs/{id:long}/stage")]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> UpdateCheckpointStage(long id, [FromBody] System.Text.Json.JsonElement payload)
     {
         try
@@ -223,7 +229,6 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpGet("flow/catalogs")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetFlowCatalogs([FromQuery] long? flowId)
     {
         var catalog = await _flowClient.GetCheckpointCatalogAsync(flowId);
@@ -231,7 +236,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPost("flow/catalogs")]
-    [AllowAnonymous]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> CreateFlowCatalog([FromBody] System.Text.Json.JsonElement payload)
     {
         var created = await _flowClient.CreateCheckpointCatalogAsync(payload);
@@ -243,7 +248,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPut("flow/catalogs/{id:long}")]
-    [AllowAnonymous]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> UpdateFlowCatalog(long id, [FromBody] System.Text.Json.JsonElement payload)
     {
         var ok = await _flowClient.UpdateCheckpointCatalogAsync(id, payload);
@@ -253,7 +258,6 @@ public class EngineManagementController : ControllerBase
 
     [HttpGet("flow/catalogs/{id:long}/steps")]
     [HttpGet("flow/checkpoints/catalog/{id:long}/steps")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetCheckpointSteps(long id)
     {
         var steps = await _flowClient.GetCheckpointStepsAsync(id);
@@ -262,7 +266,7 @@ public class EngineManagementController : ControllerBase
 
     [HttpPost("flow/catalogs/{id:long}/steps")]
     [HttpPost("flow/checkpoints/catalog/{id:long}/steps")]
-    [AllowAnonymous]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> SaveCheckpointSteps(long id, [FromBody] System.Text.Json.JsonElement payload)
     {
         var ok = await _flowClient.SaveCheckpointStepsAsync(id, payload);
@@ -298,7 +302,6 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpGet("flow/catalogs/full")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetFullFlowCatalogs([FromQuery] long? flowId)
     {
         var fullCatalog = await _flowClient.GetFullCatalogAsync(flowId);
@@ -306,7 +309,6 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpGet("flow/instances/by-entity/{entityType}/{entityId:long}")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetFlowInstanceByEntity(string entityType, long entityId)
     {
         var instance = await _flowClient.GetInstanceWithCheckpointsByEntityAsync(entityType, entityId);
@@ -316,7 +318,7 @@ public class EngineManagementController : ControllerBase
 
     [HttpPost("flow/instances/{cpInstanceId:long}/resolve")]
     [HttpPost("flow/checkpoints/instances/{cpInstanceId:long}/resolve")]
-    [AllowAnonymous]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR,CALIDAD")]
     public async Task<IActionResult> ResolveCheckpoint(long cpInstanceId, [FromBody] System.Text.Json.JsonElement payload)
     {
         try
@@ -334,7 +336,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPost("flow/checkpoints/instances/{cpInstanceId:long}/steps/{stepId:long}/toggle")]
-    [AllowAnonymous]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR,CALIDAD")]
     public async Task<IActionResult> ToggleStepProgress(long cpInstanceId, long stepId, [FromBody] System.Text.Json.JsonElement payload)
     {
         try
@@ -352,7 +354,6 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpGet("flow/checkpoints/instances/{cpInstanceId:long}/steps")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetStepProgress(long cpInstanceId)
     {
         var steps = await _flowClient.GetStepProgressAsync(cpInstanceId);
@@ -360,7 +361,7 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpPost("flow/instances/{id:long}/advance")]
-    [AllowAnonymous]
+    [Authorize(Roles = "SUPERVISOR,BACKOFFICE,ADMINISTRADOR,COORDINADOR")]
     public async Task<IActionResult> AdvanceFlowInstance(long id, [FromBody] System.Text.Json.JsonElement payload)
     {
         try
