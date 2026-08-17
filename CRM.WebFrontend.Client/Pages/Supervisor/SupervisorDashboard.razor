@@ -951,12 +951,28 @@
 
     private class StageVmDash
     {
+        [System.Text.Json.Serialization.JsonPropertyName("idStage")]
         public long IdStage { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("idFlow")]
         public long IdFlow { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("stageCode")]
         public string StageCode { get; set; } = string.Empty;
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+
+        [System.Text.Json.Serialization.JsonPropertyName("orderIndex")]
         public int OrderIndex { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("isTerminal")]
+        public bool IsTerminal { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("portfolio")]
         public string Portfolio { get; set; } = "GENERAL";
+
+        [System.Text.Json.Serialization.JsonPropertyName("campaign")]
         public string Campaign { get; set; } = "GENERAL";
     }
 
