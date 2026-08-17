@@ -930,11 +930,40 @@
         return filtered.Any() ? filtered : _stages;
     }
 
+    private static readonly Dictionary<long, long> _statusStageMap = new()
+    {
+        { 1, 1 },   // Borrador -> Preventa (Stage 1)
+        { 2, 3 },   // En revisión supervisor -> Gestión Inicial (Stage 3)
+        { 3, 4 },   // En BackOffice -> Validación Interna (Stage 4)
+        { 4, 3 },   // En gestión -> Gestión Inicial (Stage 3)
+        { 5, 5 },   // Enviado al proveedor -> Envío Proveedor (Stage 5)
+        { 6, 6 },   // Validado por proveedor -> Validación Externa (Stage 6)
+        { 7, 7 },   // Contrato enviado -> Firma (Stage 7)
+        { 8, 7 },   // Contrato firmado -> Firma (Stage 7)
+        { 9, 9 },   // Activado -> Activación (Stage 9)
+        { 10, 4 },  // Enviado KO -> Validación Interna (Stage 4)
+        { 11, 4 },  // En incidencia -> Validación Interna (Stage 4)
+        { 12, 4 },  // Auditoría KO -> Validación Interna (Stage 4)
+        { 13, 11 }, // Cancelado -> Cerrada (Stage 11)
+        { 14, 11 }, // Baja -> Cerrada (Stage 11)
+        { 15, 9 }   // Reportado -> Activación (Stage 9)
+    };
+
     private int GetCurrentStageIndex(TeamOrderDto? order)
     {
         if (order == null) return 0;
         var orderStages = GetStagesForOrder(order);
         if (!orderStages.Any()) return 0;
+
+        if (order.IdStatus.HasValue && _statusStageMap.TryGetValue(order.IdStatus.Value, out var targetStageId))
+        {
+            var matchObj = _stageObjects.FirstOrDefault(s => s.IdStage == targetStageId);
+            if (matchObj != null)
+            {
+                var idx = orderStages.IndexOf(matchObj.Name);
+                if (idx >= 0) return idx;
+            }
+        }
 
         if (!string.IsNullOrEmpty(order.StatusName))
         {
@@ -947,11 +976,6 @@
                 if (idx >= 0) return idx;
             }
         }
-
-        if (order.IdStatus == 1) return 0; // Venta Creada
-        if (order.IdStatus == 2) return Math.Min(1, orderStages.Count - 1); // En Revisión Supervisor
-        if (order.IdStatus == 3) return Math.Min(2, orderStages.Count - 1); // En Backoffice
-        if (order.IdStatus >= 4) return orderStages.Count - 1; // Terminal
 
         return 0;
     }

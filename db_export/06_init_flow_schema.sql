@@ -159,9 +159,11 @@ CREATE INDEX IF NOT EXISTS idx_flow_inst_stage ON flow_instance(current_stage_id
 CREATE INDEX IF NOT EXISTS idx_cp_inst_instance ON checkpoint_instance(id_instance);
 CREATE INDEX IF NOT EXISTS idx_cp_inst_status ON checkpoint_instance(status);
 
--- Seed Data: Sample Alarmas Flow & Stages
+-- Seed Data: Sample Alarmas & Telecom Flows & Stages
 INSERT INTO flow_definition (code, name, description, scope_type)
-VALUES ('PIPELINE_ALARMAS', 'Pipeline Estándar de Alarmas', 'Flujo de venta de 10 etapas con checkpoints de calidad y proveedor', 'CAMPAIGN')
+VALUES 
+    ('PIPELINE_ALARMAS', 'Pipeline Estándar de Alarmas', 'Flujo de venta de 10 etapas con checkpoints de calidad y proveedor', 'CAMPAIGN'),
+    ('PIPELINE_TELECOM', 'Pipeline Estándar Telecom', 'Flujo Telecom — comparte etapas con Alarmas', 'CAMPAIGN')
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO stage (id_flow, stage_code, name, order_index, is_terminal, portfolio, campaign) VALUES
@@ -177,6 +179,28 @@ INSERT INTO stage (id_flow, stage_code, name, order_index, is_terminal, portfoli
     (1, 'POSTVENTA', 'Postventa', 10, false, 'GENERAL', 'GENERAL'),
     (1, 'CERRADA', 'Cerrada', 11, true, 'GENERAL', 'GENERAL')
 ON CONFLICT (id_flow, stage_code) DO NOTHING;
+
+-- 10. Status Stage Mapping (CRM id_status -> FlowEngine id_stage)
+CREATE TABLE IF NOT EXISTS status_stage_mapping (
+    id_status   INT NOT NULL,
+    id_stage    BIGINT NOT NULL REFERENCES stage(id_stage),
+    PRIMARY KEY (id_status)
+);
+
+INSERT INTO status_stage_mapping (id_status, id_stage) VALUES
+    (1, 1),   -- Borrador -> Preventa
+    (2, 3),   -- En revisión supervisor -> Gestión Inicial
+    (3, 4),   -- En BackOffice -> Validación Interna
+    (4, 3),   -- En gestión -> Gestión Inicial
+    (5, 5),   -- Enviado al proveedor -> Envío Proveedor
+    (6, 6),   -- Validado por proveedor -> Validación Externa
+    (7, 7),   -- Contrato enviado -> Firma
+    (8, 7),   -- Contrato firmado -> Firma
+    (9, 9),   -- Activado -> Activación
+    (10, 4),  -- Enviado KO -> Validación Interna (rollback)
+    (11, 4),  -- En incidencia -> Validación Interna
+    (15, 9)   -- Reportado -> Activación
+ON CONFLICT (id_status) DO UPDATE SET id_stage = EXCLUDED.id_stage;
 
 -- Seed Checkpoints in Catalog (Layer 1)
 INSERT INTO checkpoint_catalog (code, name, description, id_flow, trigger_stage_id, origin, scope, blocks, blocks_advance, owner_dept, approval_status) VALUES
