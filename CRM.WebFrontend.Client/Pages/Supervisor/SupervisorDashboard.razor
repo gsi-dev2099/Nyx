@@ -869,6 +869,13 @@
     {
         _selectedTimelineOrder = order;
         _selectedModalStageIndex = GetCurrentStageIndex(order);
+        await InvokeAsync(StateHasChanged);
+
+        // Cargar catálogo PRIMERO si no está cacheado
+        if (!_cachedCheckpoints.Any())
+        {
+            await LoadCheckpointsAndStepsAsync();
+        }
 
         try
         {
@@ -885,7 +892,6 @@
                 if (stagesForFlow != null && stagesForFlow.Any())
                 {
                     _stageObjects = stagesForFlow.OrderBy(s => s.OrderIndex).ToList();
-                    // Usar currentStageId del motor, no id_status del CRM
                     _selectedModalStageIndex = _stageObjects
                         .FindIndex(s => s.IdStage == flowInstance.CurrentStageId);
                 }
@@ -905,15 +911,13 @@
                 await LoadCheckpointInstancesForOrder(order.IdOrder);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"[OpenTimelineModal] Error: {ex.Message}");
             await LoadCheckpointInstancesForOrder(order.IdOrder);
         }
 
-        if (!_cachedCheckpoints.Any())
-        {
-            await LoadCheckpointsAndStepsAsync();
-        }
+        await InvokeAsync(StateHasChanged);
     }
     private void CloseTimelineModal()
     {
@@ -1748,15 +1752,8 @@
 
     private List<StageCheckpointModalVm> GetCheckpointsForStageIndex(int stageIdx)
     {
-        if (_selectedTimelineOrder == null) return new();
-        var flowId = ResolveFlowIdForOrder(_selectedTimelineOrder);
-        var stagesForFlow = _stageObjects.Where(s => s.IdFlow == flowId).OrderBy(s => s.OrderIndex).ToList();
-        if (!stagesForFlow.Any())
-        {
-            stagesForFlow = _stageObjects.Where(s => s.IdFlow == 1).OrderBy(s => s.OrderIndex).ToList();
-        }
-        if (stageIdx < 0 || stageIdx >= stagesForFlow.Count) return new();
-        long stageId = stagesForFlow[stageIdx].IdStage;
+        if (stageIdx < 0 || stageIdx >= _stageObjects.Count) return new();
+        long stageId = _stageObjects[stageIdx].IdStage;
         return _cachedCheckpoints.Where(c => c.TriggerStageId == stageId).ToList();
     }
 
