@@ -1,0 +1,1525 @@
+@page "/supervisor/dashboard"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Net.Http.Json
+@using System.Text.Json
+@using MudBlazor
+@attribute [Authorize(Roles = "SUPERVISOR,COORDINADOR")]
+
+@inject IHttpClientFactory HttpClientFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+@inject NavigationManager NavManager
+
+<PageTitle>Bandeja de Ventas - Supervisor</PageTitle>
+
+<style>
+    .timeline-compact-pill {
+        background: #F8FAFC;
+        border-radius: 10px;
+        padding: 6px 10px;
+        border: 1px solid #E2E8F0;
+        transition: all 0.2s ease;
+        min-width: 140px;
+        cursor: pointer;
+    }
+    .timeline-compact-pill:hover {
+        background: #FFFFFF;
+        border-color: #CBD5E1;
+        box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+    }
+    .timeline-preview-card {
+        background: #F8FAFC;
+        border-radius: 12px;
+        padding: 8px 12px;
+        border: 1px solid #E2E8F0;
+        transition: all 0.2s ease;
+        min-width: 140px;
+        cursor: pointer;
+    }
+    .timeline-preview-card:hover {
+        background: #FFFFFF;
+        border-color: #CBD5E1;
+        box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+    }
+    .timeline-stage-title {
+        font-size: 0.72rem;
+        font-weight: 800;
+        color: #0F172A;
+        display: block;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .mini-timeline-track {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .mini-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #E2E8F0;
+        transition: all 0.2s ease;
+    }
+    .mini-dot.done {
+        background: #94A3B8;
+        opacity: 0.35;
+    }
+    .mini-dot.current {
+        background: #0F172A;
+        width: 10px;
+        height: 10px;
+        box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.25);
+        opacity: 1;
+    }
+    .stage-strip { display: flex; align-items: center; justify-content: space-between; position: relative; padding: 20px 0; }
+    .stage-dot-wrap { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; flex: 1; }
+    .stage-dot { width: 14px; height: 14px; border-radius: 50%; background: #F1F5F9; border: 2px solid #CBD5E1; transition: all 0.25s ease; }
+    .stage-dot.done { background: #94A3B8; border-color: #94A3B8; opacity: 0.38; box-shadow: none; }
+    .stage-dot.current { background: #0F172A; border: 3px solid #38BDF8; width: 18px; height: 18px; box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.25); z-index: 3; }
+    .stage-line { position: absolute; top: 6px; left: 50%; width: 100%; height: 2px; background: #E2E8F0; z-index: 1; }
+    .stage-line.done { background: #CBD5E1; opacity: 0.4; }
+    .stage-dot-wrap:last-child .stage-line { display: none; }
+    .stage-label { font-size: 0.65rem; margin-top: 8px; text-align: center; color: #94A3B8; max-width: 85px; line-height: 1.2; text-transform: uppercase; font-weight: 600; }
+    .stage-label.done { color: #94A3B8; opacity: 0.45; font-weight: 500; }
+    .stage-label.current { color: #0F172A; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; opacity: 1; }
+</style>
+
+<div class="container-fluid py-4">
+    @* ───── Header ───── *@
+    <div class="row mb-3 align-items-center">
+        <div class="col-md-6">
+            <h2 class="fw-bold text-primary mb-1">Bandeja de Ventas</h2>
+            <p class="text-muted mb-0">Gestión y control de ventas del equipo.</p>
+        </div>
+        <div class="col-md-6 text-md-end">
+            <button class="btn btn-outline-primary rounded-pill px-4 me-3" @onclick="NavigateToBulkTransfer" disabled="@isNavigating">
+                @if (isNavigating)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <span>Derivando...</span>
+                }
+                else
+                {
+                    <span class="me-1">📤</span> <span>Envío Masivo al BAC</span>
+                }
+            </button>
+            <div class="btn-group rounded-pill border" role="group">
+                <button class="btn @(viewMode == "table" ? "btn-primary" : "btn-light") rounded-start-pill px-4"
+                        @onclick='() => viewMode = "table"'>
+                    <span class="me-1">📄</span> Tabla
+                </button>
+                <button class="btn @(viewMode == "kanban" ? "btn-primary" : "btn-light") rounded-end-pill px-4"
+                        @onclick='() => viewMode = "kanban"'>
+                    <span class="me-1">📋</span> Kanban
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @* ───── Contadores por estado relevante de Supervisión ───── *@
+    @if (statuses.Any())
+    {
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-4 p-3 rounded-4 bg-white" style="box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);">
+            @foreach (var st in FilteredSupervisorStatuses)
+            {
+                var count = allOrders.Count(o => o.IdStatus == st.Id);
+                <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill" style="background: #F4F6F9; border: 1px solid #E5E7EB;">
+                    <span class="rounded-circle d-inline-block" style="width: 8px; height: 8px; background-color: @(st.Color ?? "#005F8D");"></span>
+                    <span style="font-size: 0.8rem; font-weight: 600; color: #374151;">@st.Name</span>
+                    <span class="badge rounded-pill bg-white text-dark shadow-sm px-2" style="font-size: 0.75rem; font-weight: 700;">@count</span>
+                </div>
+            }
+            <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill ms-auto" style="background: #003B5C; color: #FFFFFF;">
+                <span style="font-size: 0.8rem; font-weight: 700;">Total Equipo</span>
+                <span class="badge rounded-pill bg-white text-dark px-2" style="font-size: 0.75rem; font-weight: 800;">@allOrders.Count</span>
+            </div>
+            <a href="/engines/approvals" class="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-bold shadow-sm text-decoration-none">
+                <i class="bi bi-shield-check me-1 text-warning"></i> Bandeja Aprobaciones SOX
+            </a>
+        </div>
+    }
+
+    @* ───── Filtros Sueltos (Píldoras Horizontal) ───── *@
+    <!-- Filtros Express de Toma de Decisiones -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <span class="fw-bold small text-muted me-1"><i class="bi bi-lightning-charge-fill text-warning me-1"></i> Filtro Express:</span>
+        <button class="btn btn-sm @(expressFilter == "ALL" ? "btn-dark" : "btn-light border") rounded-pill px-3" @onclick='() => SetExpressFilter("ALL")'>Todos (@allOrders.Count)</button>
+        <button class="btn btn-sm @(expressFilter == "CRITICAL_SLA" ? "btn-danger text-white" : "btn-light border text-danger") rounded-pill px-3" @onclick='() => SetExpressFilter("CRITICAL_SLA")'>⚠️ SLA Crítico / Excedido (@allOrders.Count(o => o.SlaMinutes > 120))</button>
+        <button class="btn btn-sm @(expressFilter == "PENDING_SUPER" ? "btn-warning text-dark" : "btn-light border") rounded-pill px-3" @onclick='() => SetExpressFilter("PENDING_SUPER")'>⏳ Pendiente Supervisión (@allOrders.Count(o => o.IdStatus == 2))</button>
+        <button class="btn btn-sm @(expressFilter == "IN_BACKOFFICE" ? "btn-info text-white" : "btn-light border") rounded-pill px-3" @onclick='() => SetExpressFilter("IN_BACKOFFICE")'>🏢 En Backoffice (@allOrders.Count(o => o.IdStatus == 3))</button>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 p-2">
+        <div class="d-flex align-items-center gap-3 flex-grow-1 flex-wrap">
+            <div class="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-pill shadow-sm" style="border: 1px solid #E5E7EB; min-width: 210px;">
+                <span class="text-muted small fw-bold">Campaña:</span>
+                <select class="form-select border-0 bg-transparent p-0 shadow-none small fw-semibold" style="cursor: pointer; color: #1D1F21;" @bind="selectedCampaignId">
+                    <option value="0">Todas</option>
+                    @foreach (var c in campaigns)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-pill shadow-sm" style="border: 1px solid #E5E7EB; min-width: 210px;">
+                <span class="text-muted small fw-bold">Asesor:</span>
+                <select class="form-select border-0 bg-transparent p-0 shadow-none small fw-semibold" style="cursor: pointer; color: #1D1F21;" @bind="selectedAdvisorId">
+                    <option value="0">Todos</option>
+                    @foreach (var a in advisorList)
+                    {
+                        <option value="@a.Id">@a.Name</option>
+                    }
+                </select>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-pill shadow-sm" style="border: 1px solid #E5E7EB;">
+                <span class="text-muted small fw-bold">Desde:</span>
+                <input type="date" class="form-control border-0 bg-transparent p-0 shadow-none small fw-semibold" style="color: #1D1F21;" @bind="filterDateFrom" />
+            </div>
+
+            <div class="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-pill shadow-sm" style="border: 1px solid #E5E7EB;">
+                <span class="text-muted small fw-bold">Hasta:</span>
+                <input type="date" class="form-control border-0 bg-transparent p-0 shadow-none small fw-semibold" style="color: #1D1F21;" @bind="filterDateTo" />
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn p-2 rounded-circle shadow-sm border-0 d-flex align-items-center justify-content-center" 
+                    style="width: 40px; height: 40px; background: #003B5C; color: #FFFFFF; transition: transform 0.2s ease, background 0.2s ease;" 
+                    @onclick="LoadOrdersAsync" title="Buscar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </button>
+            <button class="btn btn-link text-muted small text-decoration-none fw-semibold px-2" @onclick="ClearFilters">
+                Limpiar
+            </button>
+        </div>
+    </div>
+
+    @* ───── Loading ───── *@
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+        </div>
+    }
+    else if (viewMode == "kanban")
+    {
+        @* ───── KANBAN VIEW ───── *@
+        <div class="kanban-board d-flex gap-3 overflow-auto pb-3" style="min-height: 500px;">
+            @foreach (var st in statuses)
+            {
+                var statusId = st.Id;
+                var columnOrders = filteredOrders.Where(o => o.IdStatus == statusId).ToList();
+
+                <div class="kanban-column flex-shrink-0 rounded-4 p-3 @(dragOverStatusId == statusId ? "kanban-column-hover" : "")"
+                     style="width: 300px; min-width: 280px; background-color: #f8f9fa; border: 2px dashed transparent;
+                            @(dragOverStatusId == statusId ? "border-color: " + (st.Color ?? "#0d6efd") + "; background-color: #e8f0fe;" : "")"
+                     @ondragover="OnDragOver"
+                     @ondragover:preventDefault
+                     @ondragenter="() => dragOverStatusId = statusId"
+                     @ondragleave="() => { if (dragOverStatusId == statusId) dragOverStatusId = -1; }"
+                     @ondrop="() => OnDrop(statusId)">
+
+                    @* Column header *@
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="rounded-circle d-inline-block" style="width: 12px; height: 12px; background-color: @(st.Color ?? "#6c757d");"></span>
+                            <span class="fw-bold text-dark">@st.Name</span>
+                        </div>
+                        <span class="badge bg-white text-dark border rounded-pill px-2">@columnOrders.Count</span>
+                    </div>
+
+                    @* Cards *@
+                    @foreach (var order in columnOrders)
+                    {
+                        <div class="kanban-card card border-0 shadow-sm rounded-3 mb-2 @(draggedOrder?.IdOrder == order.IdOrder ? "opacity-50" : "")"
+                             draggable="true"
+                             style="cursor: grab;"
+                             @ondragstart="() => OnDragStart(order)"
+                             @ondragend="OnDragEnd"
+                             @ondblclick='@(() => NavManager.NavigateTo($"/supervisor/orders/{order.IdOrder}"))'>
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <a href="/supervisor/orders/@order.IdOrder" class="fw-bold text-primary small text-decoration-none" @onclick:stopPropagation="true">#@order.IdOrder <i class="bi bi-box-arrow-up-right" style="font-size: 0.7rem;"></i></a>
+                                    <div class="d-flex flex-column align-items-end">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle small fw-bold" title="Tiempo laborable neto consumido segun horario del colaborador">
+                                            ⏱️ @(order.SlaMinutes < 60 ? $"{order.SlaMinutes}m" : $"{order.SlaMinutes / 60}h {order.SlaMinutes % 60}m") SLA
+                                        </span>
+                                        <span class="fw-bold small text-muted" style="font-size: 0.7rem;">
+                                            @order.DaysElapsed d transcurridos
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <p class="mb-1 fw-medium small text-truncate" title="@order.ClientName">@order.ClientName</p>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span class="badge bg-light text-dark border small">@order.CampaignName</span>
+                                    @if (!string.IsNullOrEmpty(order.BackofficeName))
+                                    {
+                                        <span class="text-info fw-bold" style="font-size: 0.65rem;" title="@order.BackofficeName">
+                                            🏢 @order.BackofficeName
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" style="font-size: 0.65rem;" title="@order.AdvisorName">@order.AdvisorName</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (!columnOrders.Any())
+                    {
+                        <div class="text-center text-muted small py-4 opacity-50">
+                            <div class="mb-1">📭</div>
+                            Sin órdenes
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        @* ───── TABLE VIEW ───── *@
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-0">
+                <div class="table-responsive" style="overflow-x: auto;">
+                    <table class="table table-hover align-middle mb-0" style="min-width: 980px;">
+                        <thead class="table-light text-muted">
+                            <tr>
+                                <th class="ps-4 py-3" style="width: 140px;">N° Orden / Prod.</th>
+                                <th>Cliente / Contacto</th>
+                                <th>Campaña y Asesor</th>
+                                <th style="width: 180px;">Etapa (Nyx Flow)</th>
+                                <th style="width: 160px;">Estado / SLA</th>
+                                <th class="text-end pe-4" style="width: 220px;">Acciones Express</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!filteredOrders.Any())
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-5 text-muted">
+                                        No se encontraron órdenes con los filtros seleccionados.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var order in filteredOrders)
+                                {
+                                    <tr style="cursor: pointer;" @onclick="() => ShowDetail(order)">
+                                        <td class="ps-4">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <a href="/supervisor/orders/@order.IdOrder" class="fw-bold text-primary text-decoration-none" @onclick:stopPropagation="true" style="font-size: 0.9rem;">
+                                                    #@order.IdOrder <i class="bi bi-box-arrow-up-right text-muted" style="font-size: 0.7rem;"></i>
+                                                </a>
+                                                <button type="button" class="btn btn-sm btn-light border rounded-pill px-2 py-0.5 text-dark font-bold shadow-sm"
+                                                        @onclick="() => OpenProductsModal(order)" @onclick:stopPropagation="true" title="Ver productos contratados">
+                                                    <i class="bi bi-box-seam text-primary me-0.5" style="font-size: 0.75rem;"></i>@(order.TotalProducts > 0 ? order.TotalProducts : 1)
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <span class="fw-bold text-dark text-truncate" style="max-width: 210px; font-size: 0.88rem;">
+                                                    @(string.IsNullOrWhiteSpace(order.ClientName) ? "Cliente Registrado" : order.ClientName)
+                                                </span>
+                                                <div class="d-flex align-items-center gap-2 text-muted small mt-0.5" style="font-size: 0.75rem;">
+                                                    <code class="bg-light border px-1 py-0.2 rounded text-dark fw-bold" style="font-size: 0.72rem;">@(string.IsNullOrWhiteSpace(order.CustomerDni) ? "12345678Z" : order.CustomerDni)</code>
+                                                    <span>•</span>
+                                                    <span>📞 @(string.IsNullOrWhiteSpace(order.CustomerPhone) ? "987654321" : order.CustomerPhone)</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column align-items-start gap-1">
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-0.5 fw-bold" style="font-size: 0.72rem;">
+                                                    @order.CampaignName
+                                                </span>
+                                                <span class="text-secondary small text-truncate" style="max-width: 170px; font-size: 0.78rem;" title="@order.AdvisorName">
+                                                    <i class="bi bi-person me-1 text-muted"></i>@order.AdvisorName
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td @onclick:stopPropagation="true">
+                                            <div class="timeline-compact-pill" @onclick="() => OpenTimelineModal(order)" title="Click para ver la línea de tiempo completa">
+                                                @{
+                                                    var orderStages = GetStagesForOrder(order);
+                                                    int currentIdx = GetCurrentStageIndex(order);
+                                                    string stageName = currentIdx < orderStages.Count ? orderStages[currentIdx] : "Desconocida";
+                                                    int percent = (int)(((double)(currentIdx + 1) / orderStages.Count) * 100);
+                                                }
+                                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                                    <span class="fw-bold text-dark text-truncate" style="font-size: 0.74rem; text-transform: uppercase; max-width: 110px;">@stageName</span>
+                                                    <span class="text-muted fw-bold" style="font-size: 0.65rem;">@(currentIdx + 1)/@orderStages.Count</span>
+                                                </div>
+                                                <div class="progress" style="height: 5px; background: #E2E8F0; border-radius: 4px;">
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: @percent%;"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column align-items-start gap-1">
+                                                <span class="badge rounded-pill px-2.5 py-1 font-semibold" style="background-color: @(order.StatusColor ?? "#6c757d"); color: #fff; font-size: 0.73rem;">
+                                                    @order.StatusName
+                                                </span>
+                                                <span class="badge border px-2 py-0.5 font-semibold" style="font-size: 0.68rem; background: #F1F5F9; color: #334155; border-radius: 6px;">
+                                                    ⏱️ @(order.SlaMinutes < 60 ? $"{order.SlaMinutes}m" : $"{order.SlaMinutes / 60}h {order.SlaMinutes % 60}m") SLA
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td class="text-end pe-4" @onclick:stopPropagation="true">
+                                            <div class="d-flex align-items-center justify-content-end gap-1.5">
+                                                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 font-bold text-nowrap shadow-sm" @onclick="() => ExpressApprove(order)" title="Aprobar y pasar a BackOffice" style="font-size: 0.78rem;">
+                                                    <i class="bi bi-check-circle-fill me-1"></i> Aprobar
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2.5 font-semibold text-nowrap" @onclick="() => OpenExpressDevolverModal(order)" title="Devolver a Asesor" style="font-size: 0.78rem;">
+                                                    <i class="bi bi-arrow-return-left me-1"></i> Devolver
+                                                </button>
+                                                <a href="/supervisor/orders/@order.IdOrder" class="btn btn-sm btn-light border rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Ver Ficha 360°">
+                                                    <i class="bi bi-eye text-secondary"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* Paginación *@
+    @if (totalPages > 1)
+    {
+        <div class="d-flex justify-content-center mt-4">
+            <nav aria-label="Navegación de páginas">
+                <ul class="pagination mb-0">
+                    <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Anterior</button>
+                    </li>
+                    @for (int i = 1; i <= totalPages; i++)
+                    {
+                        var pageNum = i;
+                        <li class="page-item @(currentPage == pageNum ? "active" : "")">
+                            <button class="page-link" @onclick="() => ChangePage(pageNum)">@pageNum</button>
+                        </li>
+                    }
+                    <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Siguiente</button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    }
+</div>
+
+@* ───── Detail Modal ───── *@
+@if (selectedOrder != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold text-primary">Detalle de Orden #@selectedOrder.IdOrder</h5>
+                    <button type="button" class="btn-close" @onclick="() => selectedOrder = null"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-bold">Cliente</span>
+                            <span class="d-block fw-medium">@selectedOrder.ClientName</span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-bold">Asesor</span>
+                            <span class="d-block fw-medium">@selectedOrder.AdvisorName</span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-bold">Campaña</span>
+                            <span class="d-block fw-medium">@selectedOrder.CampaignName</span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-bold">Estado</span>
+                            <span class="badge rounded-pill px-3 mt-1" style="background-color: @(selectedOrder.StatusColor ?? "#6c757d"); color: #fff;">
+                                @selectedOrder.StatusName
+                            </span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-bold">Fecha</span>
+                            <span class="d-block">@selectedOrder.SalesDate.ToString("dd/MM/yyyy")</span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-bold">Días Transcurridos</span>
+                            <span class="fw-bold @(selectedOrder.DaysElapsed > 5 ? "text-danger" : "text-success")">
+                                @selectedOrder.DaysElapsed días
+                            </span>
+                        </div>
+                    </div>
+
+                    @* Quick status change from modal filtered by workflow transition rules *@
+                    <hr class="my-3" />
+                    <div>
+                        <label class="form-label fw-bold small text-muted">Transiciones Permitidas para esta Venta (Flujo Supervisor):</label>
+                        <div class="d-flex flex-wrap gap-2 mt-1">
+                            @{
+                                var allowedStatuses = GetAllowedTargetStatuses(selectedOrder.IdStatus);
+                            }
+                            @if (allowedStatuses.Any())
+                            {
+                                @foreach (var st in allowedStatuses)
+                                {
+                                    var targetStatusId = st.Id;
+                                    <button class="btn btn-sm rounded-pill px-3 shadow-sm"
+                                            style="background-color: @(st.Color ?? "#6c757d"); color: #fff; border: none;"
+                                            disabled="@isUpdatingStatus"
+                                            @onclick="() => ChangeOrderStatus(selectedOrder, targetStatusId)">
+                                        ➡️ @st.Name
+                                    </button>
+                                }
+                            }
+                            else
+                            {
+                                <span class="badge bg-light text-muted border p-2 small">No hay más transiciones de estado válidas desde el estado actual.</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 d-flex justify-content-between">
+                    <a href="/supervisor/orders/@selectedOrder.IdOrder" class="btn btn-outline-primary rounded-pill px-4 fw-bold">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Ver Ficha Completa 360°
+                    </a>
+                    <button type="button" class="btn btn-primary rounded-pill px-4" @onclick="() => selectedOrder = null">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal: Devolución Express de Orden -->
+@if (_showDevolverModal && _expressOrderTarget != null)
+{
+    <div class="modal fade show d-block bg-dark bg-opacity-50" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <h5 class="modal-title fw-bold text-danger">
+                            <i class="bi bi-arrow-return-left me-2"></i> Devolución Express al Asesor
+                        </h5>
+                        <p class="text-muted small mb-0">Orden #@_expressOrderTarget.IdOrder — @_expressOrderTarget.ClientName (Asesor: @_expressOrderTarget.AdvisorName)</p>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseExpressDevolverModal"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <label class="form-label fw-bold small text-secondary">Motivo Predeterminado de Devolución *</label>
+                    <div class="d-flex flex-column gap-2 mb-3">
+                        <label class="p-2.5 rounded-3 border d-flex align-items-center gap-2 cursor-pointer bg-white">
+                            <input type="radio" name="rejectionReason" value="Documentación Ilegible / Falta DNI" checked="@(_expressReason == "Documentación Ilegible / Falta DNI")" @onchange='() => _expressReason = "Documentación Ilegible / Falta DNI"' />
+                            <span class="small fw-semibold">📄 Documentación Ilegible / Falta DNI</span>
+                        </label>
+                        <label class="p-2.5 rounded-3 border d-flex align-items-center gap-2 cursor-pointer bg-white">
+                            <input type="radio" name="rejectionReason" value="Grabación de Audio Incompleta / Sin Consentimiento" checked="@(_expressReason == "Grabación de Audio Incompleta / Sin Consentimiento")" @onchange='() => _expressReason = "Grabación de Audio Incompleta / Sin Consentimiento"' />
+                            <span class="small fw-semibold">🎙️ Grabación de Audio Incompleta / Sin Consentimiento</span>
+                        </label>
+                        <label class="p-2.5 rounded-3 border d-flex align-items-center gap-2 cursor-pointer bg-white">
+                            <input type="radio" name="rejectionReason" value="Firma de Contrato Pendiente / Datos Erróneos" checked="@(_expressReason == "Firma de Contrato Pendiente / Datos Erróneos")" @onchange='() => _expressReason = "Firma de Contrato Pendiente / Datos Erróneos"' />
+                            <span class="small fw-semibold">✍️ Firma de Contrato Pendiente / Datos Erróneos</span>
+                        </label>
+                        <label class="p-2.5 rounded-3 border d-flex align-items-center gap-2 cursor-pointer bg-white">
+                            <input type="radio" name="rejectionReason" value="Score / Cobertura KO" checked="@(_expressReason == "Score / Cobertura KO")" @onchange='() => _expressReason = "Score / Cobertura KO"' />
+                            <span class="small fw-semibold">❌ Score de Crédito / Cobertura KO</span>
+                        </label>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small text-secondary">Instrucción Adicional para el Asesor</label>
+                        <textarea class="form-control rounded-3" rows="2" @bind="_expressNotes" placeholder="Describe qué debe corregir el asesor..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill" @onclick="CloseExpressDevolverModal" disabled="@isUpdatingStatus">Cancelar</button>
+                    <button type="button" class="btn btn-danger rounded-pill px-4 text-white shadow-sm" @onclick="ConfirmExpressDevolver" disabled="@isUpdatingStatus">
+                        @if (isUpdatingStatus)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span><span>Devolviendo...</span>
+                        }
+                        else
+                        {
+                            <span>Confirmar Devolución</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal: Línea de Tiempo Completa de la Etapa con Checkpoints y Pasos -->
+@if (_selectedTimelineOrder != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 1055;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-bottom-0 pb-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary fw-bold mb-1">Progreso y Checkpoints Nyx Flow</span>
+                        <h5 class="modal-title fw-bold text-dark">Orden #@_selectedTimelineOrder.IdOrder — @_selectedTimelineOrder.ClientName</h5>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseTimelineModal"></button>
+                </div>
+                <div class="modal-body p-4 pt-2">
+                    <p class="text-muted small mb-3">Haz clic en cualquier hito de la línea de tiempo para inspeccionar los checkpoints y pasos de esa etapa.</p>
+                    
+                    <div class="bg-light p-3 rounded-4 border mb-3">
+                        <div class="stage-strip w-100">
+                            @{
+                                var modalStages = GetStagesForOrder(_selectedTimelineOrder);
+                                int currentIdx = GetCurrentStageIndex(_selectedTimelineOrder);
+                                int activeStageIdx = _selectedModalStageIndex >= 0 ? _selectedModalStageIndex : currentIdx;
+                            }
+                            @for (int i = 0; i < modalStages.Count; i++)
+                            {
+                                var stageIndex = i;
+                                var stage = modalStages[i];
+                                bool isDone = i < currentIdx;
+                                bool isCurrent = i == currentIdx;
+                                bool isSelected = i == activeStageIdx;
+
+                                <div class="stage-dot-wrap" style="cursor:pointer;" @onclick="() => SelectModalStageIndex(stageIndex)" title="Ver checkpoints de @stage">
+                                    <div class="stage-line @(isDone ? "done" : "")"></div>
+                                    <div class="stage-dot @(isDone ? "done" : "") @(isCurrent ? "current" : "") @(isSelected ? "border-primary" : "")" style="@(isSelected && !isCurrent ? "border-width:3px; transform:scale(1.2);" : "")"></div>
+                                    <div class="stage-label @(isDone ? "done" : "") @(isCurrent ? "current" : "") @(isSelected ? "text-primary fw-bold" : "")">@stage</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- DESGLOSE DE CHECKPOINTS Y PASOS -->
+                    @{
+                        string activeStageName = activeStageIdx < modalStages.Count ? modalStages[activeStageIdx] : "Etapa";
+                        var stageCheckpoints = GetCheckpointsForStageIndex(activeStageIdx);
+                    }
+                    <div class="p-3 bg-white rounded-3 border shadow-sm">
+                        <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                            <div>
+                                <span class="badge @(activeStageIdx == currentIdx ? "bg-primary text-white" : activeStageIdx < currentIdx ? "bg-success bg-opacity-10 text-success" : "bg-light text-muted border") rounded-pill px-3 mb-1" style="font-size:10px;">
+                                    @(activeStageIdx == currentIdx ? "📍 Etapa Actual Activa" : activeStageIdx < currentIdx ? "✓ Etapa Superada" : "Etapa Futura")
+                                </span>
+                                <h6 class="fw-bold text-dark mb-0">📌 Checkpoints y Pasos: Etapa #@(activeStageIdx + 1) — @activeStageName</h6>
+                            </div>
+                            <span class="badge bg-light text-dark border rounded-pill px-3">@stageCheckpoints.Count checkpoints</span>
+                        </div>
+
+                        @if (!stageCheckpoints.Any())
+                        {
+                            <div class="text-center py-4 bg-light rounded-3">
+                                <i class="bi bi-info-circle text-muted fs-4 d-block mb-1"></i>
+                                <span class="text-muted small fw-semibold">No hay checkpoints obligatorios registrados en esta etapa.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="d-flex flex-column gap-3">
+                                @foreach (var cp in stageCheckpoints)
+                                {
+                                    <div class="card border mb-2 shadow-sm rounded-3 overflow-hidden @(cp.Status == "APROBADO" ? "border-success" : cp.Status == "RECHAZADO" ? "border-danger" : "border-secondary border-opacity-25")">
+                                        <!-- Header Segmentado del Checkpoint -->
+                                        <div class="card-header d-flex align-items-center justify-content-between py-2.5 px-3 @(cp.Status == "APROBADO" ? "bg-success bg-opacity-10" : cp.Status == "RECHAZADO" ? "bg-danger bg-opacity-10" : "bg-light")">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-dark text-white rounded-pill px-2.5" style="font-size:11px;">@cp.Code</span>
+                                                <strong class="text-dark small me-2">@cp.Name</strong>
+                                                @if (cp.BlocksAdvance)
+                                                {
+                                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2" style="font-size:10px;">🛑 Bloqueante</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(cp.RollbackToStage))
+                                                {
+                                                    <span class="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25 rounded-pill px-2" style="font-size:10px;">↶ Retrocede a @cp.RollbackToStage</span>
+                                                }
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                @if (cp.Status == "APROBADO")
+                                                {
+                                                    <span class="badge bg-success text-white rounded-pill px-3 py-1" style="font-size:11px;"><i class="bi bi-check-circle-fill me-1"></i> Checkpoint Aprobado</span>
+                                                }
+                                                else if (cp.Status == "RECHAZADO")
+                                                {
+                                                    <span class="badge bg-danger text-white rounded-pill px-3 py-1" style="font-size:11px;"><i class="bi bi-x-circle-fill me-1"></i> Checkpoint Rechazado</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-3 py-1" style="font-size:11px;"><i class="bi bi-clock me-1"></i> Pendiente</span>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <!-- Cuerpo del Checkpoint: Pasos Secuenciales + Acciones Integradas -->
+                                        <div class="card-body p-3">
+                                            @if (cp.Steps != null && cp.Steps.Any())
+                                            {
+                                                <div class="mb-3">
+                                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                                        <span class="fw-bold text-secondary" style="font-size:11px;">📋 Pasos Secuenciales del Checkpoint:</span>
+                                                        <span class="badge bg-light text-dark border rounded-pill" style="font-size:10px;">@cp.CompletedStepsCount / @cp.Steps.Count Pasos</span>
+                                                    </div>
+                                                    <div class="d-flex flex-column gap-2">
+                                                        @foreach (var step in cp.Steps)
+                                                        {
+                                                            <div class="d-flex align-items-center justify-content-between p-2 rounded border @(step.IsCompleted ? "bg-success bg-opacity-10 border-success border-opacity-25" : "bg-white border-secondary border-opacity-20")" style="font-size:0.83rem;">
+                                                                <div class="d-flex align-items-center gap-2.5">
+                                                                    <input type="checkbox" class="form-check-input mt-0 cursor-pointer" checked="@step.IsCompleted" @onchange="e => ToggleStepCompletion(cp, step, (bool)(e.Value ?? false))" />
+                                                                    <span class="@(step.IsCompleted ? "text-decoration-line-through text-success fw-medium" : "fw-semibold text-dark")">
+                                                                        <strong>Paso @step.StepOrder:</strong> @step.Instruction
+                                                                    </span>
+                                                                </div>
+                                                                @if (step.IsRequired)
+                                                                {
+                                                                    <span class="badge @(step.IsCompleted ? "bg-success text-white" : "bg-danger bg-opacity-10 text-danger") rounded-pill px-2" style="font-size:9px;">
+                                                                        @(step.IsCompleted ? "Completado" : "Obligatorio")
+                                                                    </span>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <p class="text-muted small fst-italic mb-3" style="font-size:11px;">
+                                                    <i class="bi bi-info-circle me-1"></i> Checkpoint directo de avance general (sin pasos secundarios).
+                                                </p>
+                                            }
+
+                                            <!-- Acciones Directas de Aprobación/Rechazo por Checkpoint -->
+                                            <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary border-opacity-10">
+                                                <span class="text-muted small" style="font-size:11px;">Aprobación directa de @cp.Code:</span>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1" style="font-size:11px;" @onclick="() => RejectCheckpoint(cp)">
+                                                        <i class="bi bi-x-lg me-1"></i> Rechazar / KO
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm @(cp.Status == "APROBADO" ? "btn-success text-white" : "btn-outline-success") rounded-pill px-3 py-1" style="font-size:11px;" @onclick="() => ApproveCheckpoint(cp)">
+                                                        <i class="bi bi-check-lg me-1"></i> Aprobar Checkpoint
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 font-semibold" @onclick="CloseTimelineModal">Cerrar</button>
+                    <a href="/supervisor/orders/@_selectedTimelineOrder.IdOrder" class="btn btn-primary rounded-pill px-4 font-semibold shadow-sm text-decoration-none">Ir a la Ficha 360°</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal: Desglose de Productos para Supervisor -->
+@if (_selectedProductsOrder != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 1055;">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary fw-bold mb-1">Desglose de Productos de la Venta</span>
+                        <h5 class="modal-title fw-bold text-dark">Orden #@_selectedProductsOrder.IdOrder</h5>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseProductsModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">Servicios y productos contratados en esta orden:</p>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="p-3 bg-light rounded-3 border d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="w-8 h-8 rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center font-bold">
+                                    <i class="bi bi-box-seam fs-5"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-0">Plan Principal @_selectedProductsOrder.CampaignName</h6>
+                                    <small class="text-muted">Servicio Móvil / Fibra Óptica</small>
+                                </div>
+                            </div>
+                            <span class="badge bg-dark rounded-pill px-3">1 Unidad</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 font-semibold" @onclick="CloseProductsModal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ───── Overlay Derivando ───── *@
+@if (isNavigating)
+{
+    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.45); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+        <div class="text-center text-white">
+            <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+            <p class="fs-5 fw-bold">Derivando a Envío Masivo...</p>
+        </div>
+    </div>
+}
+
+<style>
+    .kanban-board::-webkit-scrollbar {
+        height: 8px;
+    }
+    .kanban-board::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    .kanban-board::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 10px;
+    }
+    .kanban-card {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .kanban-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important;
+    }
+    .kanban-column {
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+</style>
+
+@code {
+    // ── DTOs ──
+    public class TeamOrderDto
+    {
+        public long IdOrder { get; set; }
+        public long IdLead { get; set; }
+        public long IdCmpg { get; set; }
+        public long IdUser { get; set; }
+        public long? IdStatus { get; set; }
+        public long? IdSubstatus { get; set; }
+        public long? CustodyUserId { get; set; }
+        public DateTime SalesDate { get; set; }
+        public string ClientName { get; set; } = "";
+        public string CampaignName { get; set; } = "";
+        public string StatusName { get; set; } = "";
+        public string? StatusColor { get; set; }
+        public string AdvisorName { get; set; } = "";
+        public string BackofficeName { get; set; } = "";
+        public int SlaMinutes { get; set; }
+        public int DaysElapsed => (DateTime.UtcNow - SalesDate).Days;
+        public string? CustomerDni { get; set; }
+        public string? CustomerPhone { get; set; }
+        public int TotalProducts { get; set; } = 1;
+    }
+
+
+    public class StatusDto { public int Id { get; set; } public string Name { get; set; } = ""; public string? Color { get; set; } }
+    public class CampaignLookup { public int Id { get; set; } public string Name { get; set; } = ""; }
+    public class AdvisorLookup { public long Id { get; set; } public string Name { get; set; } = ""; }
+
+    public class AdvisorDto { public long Id { get; set; } public string Name { get; set; } = ""; }
+
+    // ── State ──
+    private string viewMode = "table";
+    private bool isLoading = true;
+    private bool isUpdatingStatus = false;
+    private bool isNavigating = false;
+    private int currentPage = 1;
+    private int pageSize = 50;
+    private int totalCount = 0;
+    private int totalPages = 0;
+
+    private TeamOrderDto? _selectedTimelineOrder;
+    private TeamOrderDto? _selectedProductsOrder;
+
+    private async Task OpenTimelineModal(TeamOrderDto order)
+    {
+        _selectedTimelineOrder = order;
+        _selectedModalStageIndex = GetCurrentStageIndex(order);
+        if (!_cachedCheckpoints.Any())
+        {
+            await LoadCheckpointsAndStepsAsync();
+        }
+    }
+    private void CloseTimelineModal()
+    {
+        _selectedTimelineOrder = null;
+        _selectedModalStageIndex = -1;
+    }
+
+    private void OpenProductsModal(TeamOrderDto order) => _selectedProductsOrder = order;
+    private void CloseProductsModal() => _selectedProductsOrder = null;
+
+    private List<StageVmDash> _stageObjects = new();
+    private List<string> _stages = new();
+
+    private async Task LoadStagesFromApi()
+    {
+        try
+        {
+            var client = await GetAuthenticatedClient();
+            var stageVms = await client.GetFromJsonAsync<List<StageVmDash>>("/api/engines/flow/stages");
+            if (stageVms != null && stageVms.Any())
+            {
+                _stageObjects = stageVms.OrderBy(s => s.OrderIndex).ToList();
+                _stages = _stageObjects.Select(s => s.Name).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SupervisorDashboard] Error cargando etapas: {ex.Message}");
+        }
+    }
+
+    private class StageVmDash
+    {
+        public long IdStage { get; set; }
+        public string StageCode { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int OrderIndex { get; set; }
+        public string Portfolio { get; set; } = "GENERAL";
+        public string Campaign { get; set; } = "GENERAL";
+    }
+
+    private List<string> GetStagesForOrder(TeamOrderDto? order)
+    {
+        if (order == null || !_stageObjects.Any()) return _stages.Any() ? _stages : new List<string> { "Venta Creada", "En Revisión Supervisor", "Validación Técnica", "Activación", "Postventa" };
+
+        var cmpgName = order.CampaignName ?? "";
+
+        var filtered = _stageObjects.Where(s =>
+            string.IsNullOrEmpty(s.Campaign) || s.Campaign == "GENERAL" || s.Campaign == "TODAS" ||
+            (!string.IsNullOrEmpty(cmpgName) && s.Campaign.Contains(cmpgName, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(cmpgName) && cmpgName.Contains(s.Campaign, StringComparison.OrdinalIgnoreCase))
+        ).OrderBy(s => s.OrderIndex).Select(s => s.Name).ToList();
+
+        return filtered.Any() ? filtered : _stages;
+    }
+
+    private int GetCurrentStageIndex(TeamOrderDto? order)
+    {
+        if (order == null) return 0;
+        var orderStages = GetStagesForOrder(order);
+        if (!orderStages.Any()) return 0;
+
+        if (!string.IsNullOrEmpty(order.StatusName))
+        {
+            var matchObj = _stageObjects.FirstOrDefault(s =>
+                s.StageCode.Equals(order.StatusName, StringComparison.OrdinalIgnoreCase) ||
+                s.Name.Equals(order.StatusName, StringComparison.OrdinalIgnoreCase));
+            if (matchObj != null)
+            {
+                var idx = orderStages.IndexOf(matchObj.Name);
+                if (idx >= 0) return idx;
+            }
+        }
+
+        if (order.IdStatus == 1) return 0; // Venta Creada
+        if (order.IdStatus == 2) return Math.Min(1, orderStages.Count - 1); // En Revisión Supervisor
+        if (order.IdStatus == 3) return Math.Min(2, orderStages.Count - 1); // En Backoffice
+        if (order.IdStatus >= 4) return orderStages.Count - 1; // Terminal
+
+        return 0;
+    }
+
+    private IEnumerable<StatusDto> FilteredSupervisorStatuses => statuses.Where(s => s.Id == 1 || s.Id == 2 || s.Id == 5 || s.Name.Contains("Superv", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Borrador", StringComparison.OrdinalIgnoreCase));
+
+    private List<CampaignLookup> campaigns = new();
+    private List<StatusDto> statuses = new();
+    private List<AdvisorDto> globalAdvisors = new();
+    private List<AdvisorDto> backofficeUsers = new();
+    private List<TeamOrderDto> allOrders = new();
+    private List<TeamOrderDto> filteredOrders = new();
+    private List<AdvisorLookup> advisorList = new();
+    private TeamOrderDto? selectedOrder;
+
+    // Filters
+    private int selectedCampaignId = 0;
+    private long selectedAdvisorId = 0;
+
+    private string expressFilter = "ALL";
+    private bool _showDevolverModal = false;
+    private TeamOrderDto? _expressOrderTarget;
+    private string _expressReason = "Documentación Ilegible / Falta DNI";
+    private string _expressNotes = "";
+
+    private IEnumerable<StatusDto> GetAllowedTargetStatuses(long? currentStatusId)
+    {
+        if (!currentStatusId.HasValue) return Enumerable.Empty<StatusDto>();
+
+        var allowedIds = currentStatusId.Value switch
+        {
+            2 => new long[] { 1, 3, 13 }, // En revisión supervisor -> Borrador/Devuelto, En BackOffice, Cancelado
+            1 => new long[] { 2 },       // Borrador -> En revisión supervisor
+            3 => new long[] { 2 },       // En BackOffice -> En revisión supervisor
+            10 => new long[] { 3 },      // Enviado KO -> En BackOffice
+            11 => new long[] { 3 },      // En incidencia -> En BackOffice
+            12 => new long[] { 4 },      // Auditoría KO -> En gestión
+            4 => new long[] { 13 },      // En gestión -> Cancelado
+            7 => new long[] { 8 },       // Contrato enviado -> Contrato firmado
+            9 => new long[] { 14 },      // Activado -> Baja
+            _ => new long[] { 1, 2, 3 }  // Fallback seguro
+        };
+
+        return statuses.Where(s => allowedIds.Contains(s.Id) && s.Id != currentStatusId.Value);
+    }
+
+    private void SetExpressFilter(string filterKey)
+    {
+        expressFilter = filterKey;
+        ApplyFiltersLocal();
+    }
+
+    private async Task ExpressApprove(TeamOrderDto order)
+    {
+        isUpdatingStatus = true;
+        try
+        {
+            await ChangeOrderStatus(order, 3);
+            Snackbar.Add($"Orden #{order.IdOrder} aprobada express y transferida a BackOffice.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al aprobar orden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isUpdatingStatus = false;
+        }
+    }
+
+    private void OpenExpressDevolverModal(TeamOrderDto order)
+    {
+        _expressOrderTarget = order;
+        _expressReason = "Documentación Ilegible / Falta DNI";
+        _expressNotes = "";
+        _showDevolverModal = true;
+    }
+
+    private void CloseExpressDevolverModal() => _showDevolverModal = false;
+
+    private async Task ConfirmExpressDevolver()
+    {
+        if (_expressOrderTarget == null) return;
+        isUpdatingStatus = true;
+        try
+        {
+            await ChangeOrderStatus(_expressOrderTarget, 1);
+            Snackbar.Add($"Orden #{_expressOrderTarget.IdOrder} devuelta al asesor. Motivo: «{_expressReason}».", Severity.Warning);
+            _showDevolverModal = false;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al devolver orden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isUpdatingStatus = false;
+        }
+    }
+    private DateTime? filterDateFrom;
+    private DateTime? filterDateTo;
+
+    // Drag & drop
+    private TeamOrderDto? draggedOrder;
+    private long dragOverStatusId = -1;
+
+    // ── Lifecycle ──
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            await LoadStagesFromApi();
+            await LoadCheckpointsAndStepsAsync();
+            var client = await GetAuthenticatedClient();
+
+            // Load global advisors list
+            try
+            {
+                var advResult = await client.GetFromJsonAsync<List<AdvisorDto>>("/api/campaigns/advisors");
+                if (advResult != null) globalAdvisors = advResult;
+            }
+            catch { /* fallback to empty */ }
+
+            // Load backoffice users for name resolution
+            try
+            {
+                var bacResult = await client.GetFromJsonAsync<List<AdvisorDto>>("/api/campaigns/advisors?role=BACKOFFICE");
+                if (bacResult != null) backofficeUsers = bacResult;
+            }
+            catch { /* fallback to empty */ }
+
+            // Load campaigns
+            var cmpgResult = await client.GetFromJsonAsync<List<CampaignLookup>>("/api/campaigns");
+            if (cmpgResult != null) campaigns = cmpgResult;
+
+            // Load statuses from campaign 1 as default
+            if (campaigns.Any())
+            {
+                selectedCampaignId = campaigns.First().Id;
+                await LoadStatusesAsync(selectedCampaignId);
+            }
+
+            // Load team orders & checkpoints
+            await LoadCheckpointsAndStepsAsync();
+            await LoadOrdersAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al inicializar: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadStatusesAsync(int campaignId)
+    {
+        try
+        {
+            var client = await GetAuthenticatedClient();
+            var result = await client.GetFromJsonAsync<List<StatusDto>>($"/api/campaigns/{campaignId}/statuses");
+            if (result != null) statuses = result;
+        }
+        catch { /* keep existing statuses */ }
+    }
+
+    private async Task LoadOrdersAsync()
+    {
+        isLoading = true;
+        try
+        {
+            if (selectedCampaignId > 0)
+            {
+                await LoadStatusesAsync(selectedCampaignId);
+            }
+
+            var client = await GetAuthenticatedClient();
+
+            var query = $"/api/supervisor/orders?page={currentPage}&pageSize={pageSize}&";
+            if (selectedCampaignId > 0) query += $"campaignId={selectedCampaignId}&";
+            if (filterDateFrom.HasValue) query += $"dateFrom={filterDateFrom.Value:yyyy-MM-dd}&";
+            if (filterDateTo.HasValue) query += $"dateTo={filterDateTo.Value:yyyy-MM-dd}&";
+
+            var pagedResult = await client.GetFromJsonAsync<CRM.WebFrontend.Client.Models.PagedResult<TeamOrderDto>>(query.TrimEnd('&', '?'));
+            if (pagedResult != null)
+            {
+                totalCount = pagedResult.TotalCount;
+                totalPages = pagedResult.TotalPages;
+                var result = pagedResult.Items.Where(x => x.IdLead != 99998).ToList();
+                
+                // Enrich with campaign names
+                foreach (var o in result)
+                {
+                    o.CampaignName = campaigns.FirstOrDefault(c => c.Id == o.IdCmpg)?.Name ?? "Desconocida";
+                    var matchedStatus = statuses.FirstOrDefault(s => s.Id == o.IdStatus);
+                    o.StatusName = matchedStatus?.Name ?? "Sin estado";
+                    o.StatusColor = matchedStatus?.Color ?? "#6c757d";
+                    
+                    var adv = globalAdvisors.FirstOrDefault(a => a.Id == o.IdUser);
+                    o.AdvisorName = adv != null && !string.IsNullOrWhiteSpace(adv.Name) ? adv.Name : $"Asesor {o.IdUser}";
+                    
+                    // Resolve backoffice analyst name when custody is assigned
+                    if (o.CustodyUserId.HasValue && o.CustodyUserId.Value > 0)
+                    {
+                        var bac = backofficeUsers.FirstOrDefault(b => b.Id == o.CustodyUserId.Value);
+                        o.BackofficeName = bac != null && !string.IsNullOrWhiteSpace(bac.Name) ? bac.Name : "";
+                    }
+                    
+                    o.ClientName = !string.IsNullOrEmpty(o.ClientName) ? o.ClientName : "";
+                }
+
+                // Fetch lead names concurrently
+                var uniqueLeadIds = result.Where(o => string.IsNullOrEmpty(o.ClientName)).Select(o => o.IdLead).Distinct().ToList();
+                var leadTasks = uniqueLeadIds.Select(async leadId => 
+                {
+                    try
+                    {
+                        var lead = await client.GetFromJsonAsync<TempLeadDto>($"/api/leads/{leadId}");
+                        if (lead != null)
+                        {
+                            var fullName = !string.IsNullOrWhiteSpace(lead.FullName) ? lead.FullName : $"{lead.FirstName} {lead.LastName}";
+                            if (!string.IsNullOrWhiteSpace(fullName)) return new { Id = leadId, Name = fullName.Trim() };
+                        }
+                    }
+                    catch { }
+                    return new { Id = leadId, Name = $"Cliente no registrado" };
+                });
+                
+                var leadNames = await Task.WhenAll(leadTasks);
+                var leadDict = leadNames.ToDictionary(k => k.Id, v => v.Name);
+
+                foreach (var o in result)
+                {
+                    if (string.IsNullOrEmpty(o.ClientName))
+                    {
+                        if (leadDict.TryGetValue(o.IdLead, out var name)) o.ClientName = name;
+                        else o.ClientName = $"Cliente no registrado";
+                    }
+                }
+
+                allOrders = result;
+
+                // Build advisor list from the orders (only real advisors, no backoffice)
+                advisorList = allOrders
+                    .GroupBy(o => o.IdUser)
+                    .Select(g => new AdvisorLookup { Id = g.Key, Name = g.First().AdvisorName })
+                    .OrderBy(a => a.Name)
+                    .ToList();
+
+                ApplyLocalFilters();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar órdenes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ApplyFiltersLocal() => ApplyLocalFilters();
+
+    private void ApplyLocalFilters()
+    {
+        var temp = allOrders.AsEnumerable();
+
+        if (selectedAdvisorId > 0)
+        {
+            temp = temp.Where(o => 
+                (o.CustodyUserId.HasValue && o.CustodyUserId > 0 ? o.CustodyUserId.Value : o.IdUser) == selectedAdvisorId
+            );
+        }
+
+        if (expressFilter == "CRITICAL_SLA")
+        {
+            temp = temp.Where(o => o.SlaMinutes > 120);
+        }
+        else if (expressFilter == "PENDING_SUPER")
+        {
+            temp = temp.Where(o => o.IdStatus == 2);
+        }
+        else if (expressFilter == "IN_BACKOFFICE")
+        {
+            temp = temp.Where(o => o.IdStatus == 3);
+        }
+
+        filteredOrders = temp.ToList();
+    }
+
+
+
+    private async Task ChangePage(int newPage)
+    {
+        currentPage = newPage;
+        await LoadOrdersAsync();
+    }
+
+    private async Task ClearFilters()
+    {
+        currentPage = 1;
+        selectedAdvisorId = 0;
+        filterDateFrom = null;
+        filterDateTo = null;
+        if (campaigns.Any())
+        {
+            selectedCampaignId = campaigns.First().Id;
+        }
+        await LoadOrdersAsync();
+    }
+
+    // ── Drag & Drop ──
+    private void OnDragStart(TeamOrderDto order)
+    {
+        draggedOrder = order;
+    }
+
+    private void OnDragOver()
+    {
+        // Just needed to allow drop (preventDefault is handled via directive)
+    }
+
+    private void OnDragEnd()
+    {
+        draggedOrder = null;
+        dragOverStatusId = -1;
+    }
+
+    private async Task OnDrop(long targetStatusId)
+    {
+        dragOverStatusId = -1;
+        if (draggedOrder == null || draggedOrder.IdStatus == targetStatusId) 
+        {
+            draggedOrder = null;
+            return;
+        }
+
+        await ChangeOrderStatus(draggedOrder, targetStatusId);
+        draggedOrder = null;
+    }
+
+    private async Task<HttpClient> GetAuthenticatedClient()
+    {
+        var client = HttpClientFactory.CreateClient("BackendApi");
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var token = authState.User.FindFirst("access_token")?.Value;
+        if (!string.IsNullOrEmpty(token))
+        {
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        }
+        return client;
+    }
+
+    private async Task ChangeOrderStatus(TeamOrderDto order, long targetStatusId)
+    {
+        isUpdatingStatus = true;
+        var previousStatusId = order.IdStatus;
+        var targetStatus = statuses.FirstOrDefault(s => s.Id == targetStatusId);
+
+        try
+        {
+            var client = await GetAuthenticatedClient();
+            var payload = new { toStatusId = targetStatusId, comment = $"Movido desde Kanban Supervisor" };
+            var response = await client.PatchAsJsonAsync($"/api/orders/{order.IdOrder}/status", payload);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Update locally
+                order.IdStatus = targetStatusId;
+                order.StatusName = targetStatus?.Name ?? "Sin estado";
+                order.StatusColor = targetStatus?.Color ?? "#6c757d";
+                ApplyLocalFilters();
+                Snackbar.Add($"Orden #{order.IdOrder} movida a \"{targetStatus?.Name}\"", Severity.Success);
+                selectedOrder = null; // close modal if open
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error al cambiar estado: {error}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isUpdatingStatus = false;
+        }
+    }
+
+    private void ShowDetail(TeamOrderDto order)
+    {
+        selectedOrder = order;
+    }
+
+    private async Task NavigateToBulkTransfer()
+    {
+        isNavigating = true;
+        StateHasChanged();
+        await Task.Delay(1200); // Show animation briefly
+        NavManager.NavigateTo("/supervisor/bulk-transfer");
+    }
+
+    private class TempLeadDto
+    {
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? FullName { get; set; }
+    }
+
+    public class CheckpointStepModalVm
+    {
+        public long IdStep { get; set; }
+        public short StepOrder { get; set; }
+        public string Instruction { get; set; } = "";
+        public bool IsRequired { get; set; }
+        public bool IsCompleted { get; set; }
+    }
+
+    public class StageCheckpointModalVm
+    {
+        public long IdCheckpoint { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public long? TriggerStageId { get; set; }
+        public bool BlocksAdvance { get; set; }
+        public string? RollbackToStage { get; set; }
+        public string Status { get; set; } = "PENDIENTE";
+        public List<CheckpointStepModalVm> Steps { get; set; } = new();
+
+        public bool AreAllRequiredStepsCompleted => !Steps.Any(s => s.IsRequired) || Steps.Where(s => s.IsRequired).All(s => s.IsCompleted);
+        public int CompletedStepsCount => Steps.Count(s => s.IsCompleted);
+    }
+
+    private void ToggleStepCompletion(StageCheckpointModalVm cp, CheckpointStepModalVm step, bool isCompleted)
+    {
+        step.IsCompleted = isCompleted;
+        if (cp.AreAllRequiredStepsCompleted && cp.Status == "PENDIENTE")
+        {
+            cp.Status = "APROBADO";
+        }
+        else if (!cp.AreAllRequiredStepsCompleted && cp.Status == "APROBADO")
+        {
+            cp.Status = "PENDIENTE";
+        }
+    }
+
+    private void ApproveCheckpoint(StageCheckpointModalVm cp)
+    {
+        foreach (var s in cp.Steps)
+        {
+            s.IsCompleted = true;
+        }
+        cp.Status = "APROBADO";
+    }
+
+    private void RejectCheckpoint(StageCheckpointModalVm cp)
+    {
+        cp.Status = "RECHAZADO";
+    }
+
+    public class CatalogItemApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idCheckpoint")]
+        public long IdCheckpoint { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("code")]
+        public string Code { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("triggerStageId")]
+        public long? TriggerStageId { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("blocksAdvance")]
+        public bool BlocksAdvance { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("rollbackToStage")]
+        public string? RollbackToStage { get; set; }
+    }
+
+    public class CheckpointStepApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idStep")]
+        public long IdStep { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("idCheckpoint")]
+        public long IdCheckpoint { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("stepOrder")]
+        public short StepOrder { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("instruction")]
+        public string Instruction { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("isRequired")]
+        public bool IsRequired { get; set; }
+    }
+
+    private int _selectedModalStageIndex = -1;
+    private List<StageCheckpointModalVm> _cachedCheckpoints = new();
+
+    private void SelectModalStageIndex(int index)
+    {
+        _selectedModalStageIndex = index;
+    }
+
+    private List<StageCheckpointModalVm> GetCheckpointsForStageIndex(int stageIdx)
+    {
+        long stageId = (stageIdx >= 0 && stageIdx < _stageObjects.Count) ? _stageObjects[stageIdx].IdStage : (long)(stageIdx + 1);
+        var filtered = _cachedCheckpoints.Where(c => c.TriggerStageId == stageId).ToList();
+        
+        Console.WriteLine($"[SupervisorDashboard] GetCheckpointsForStageIndex: stageIdx={stageIdx}, stageId={stageId}, Total cached={_cachedCheckpoints.Count}, Coincidentes={filtered.Count}");
+        
+        if (!filtered.Any() && _cachedCheckpoints.Any())
+        {
+            // Fallback match: if stageId didn't match directly or trigger_stage_id is null/0
+            filtered = _cachedCheckpoints.Where(c => c.TriggerStageId == null || c.TriggerStageId == 0 || c.TriggerStageId == stageId).ToList();
+            Console.WriteLine($"[SupervisorDashboard] Fallback aplicado! Checkpoints retornados={filtered.Count}");
+        }
+
+        return filtered;
+    }
+
+    private async Task LoadCheckpointsAndStepsAsync()
+    {
+        try
+        {
+            Console.WriteLine("[SupervisorDashboard] Cargando catálogo de checkpoints desde /api/engines/flow/catalogs...");
+            var client = await GetAuthenticatedClient();
+            var catalog = await client.GetFromJsonAsync<List<CatalogItemApiDto>>("/api/engines/flow/catalogs");
+            Console.WriteLine($"[SupervisorDashboard] Catálogo recibido de la API: {(catalog != null ? catalog.Count : 0)} items.");
+
+            if (catalog != null)
+            {
+                var list = new List<StageCheckpointModalVm>();
+                foreach (var c in catalog)
+                {
+                    var vm = new StageCheckpointModalVm
+                    {
+                        IdCheckpoint = c.IdCheckpoint,
+                        Code = c.Code,
+                        Name = c.Name,
+                        TriggerStageId = c.TriggerStageId,
+                        BlocksAdvance = c.BlocksAdvance,
+                        RollbackToStage = c.RollbackToStage
+                    };
+                    try
+                    {
+                        var steps = await client.GetFromJsonAsync<List<CheckpointStepApiDto>>($"/api/engines/flow/catalogs/{c.IdCheckpoint}/steps");
+                        if (steps != null)
+                        {
+                            vm.Steps = steps.Select(s => new CheckpointStepModalVm
+                            {
+                                IdStep = s.IdStep,
+                                StepOrder = s.StepOrder,
+                                Instruction = !string.IsNullOrWhiteSpace(s.Instruction) ? s.Instruction : s.Name,
+                                IsRequired = s.IsRequired,
+                                IsCompleted = false
+                            }).ToList();
+                        }
+                    }
+                    catch (Exception exStep)
+                    {
+                        Console.WriteLine($"[SupervisorDashboard] Warn leyendo pasos de CP #{c.IdCheckpoint}: {exStep.Message}");
+                    }
+
+                    list.Add(vm);
+                }
+                _cachedCheckpoints = list;
+                Console.WriteLine($"[SupervisorDashboard] Éxito: {_cachedCheckpoints.Count} checkpoints guardados en caché local.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SupervisorDashboard] Error crítico en LoadCheckpointsAndStepsAsync: {ex.Message}");
+        }
+    }
+}

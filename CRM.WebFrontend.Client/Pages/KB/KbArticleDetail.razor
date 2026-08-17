@@ -1,0 +1,182 @@
+@page "/kb/{Id:long}"
+@using CRM.WebFrontend.Client.Models
+@using CRM.WebFrontend.Client.Services
+@using MudBlazor
+@using Markdig
+@inject IKbService KbService
+@inject NavigationManager NavManager
+@inject ISnackbar Snackbar
+@rendermode InteractiveServer
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8 mb-8">
+    <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="GoBack" Class="mb-4">Volver al Portal</MudButton>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-12">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (article == null)
+    {
+        <MudAlert Severity="Severity.Error">El artículo solicitado no existe o no tienes permisos para verlo.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Elevation="3" Class="pa-8 mb-8" Style="border-radius: 12px;">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-start mb-6">
+                <div>
+                    <MudText Typo="Typo.h3" Class="fw-bold mb-2">@article.Title</MudText>
+                    <MudText Typo="Typo.body1" Class="text-muted">@article.Summary</MudText>
+                </div>
+                <MudChip T="string" Size="Size.Large" Color="GetChipColor(article.ContentType)">@article.ContentType</MudChip>
+            </div>
+
+            <!-- Metadata -->
+            <div class="d-flex gap-4 mb-8 text-muted" style="font-size: 0.9rem;">
+                <span><MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Class="mr-1" style="vertical-align: sub;"/> Actualizado: @article.CreatedAt.ToString("dd MMM yyyy")</span>
+                <span><MudIcon Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Class="mr-1" style="vertical-align: sub;"/> @article.ViewCount vistas</span>
+                <span><MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" style="vertical-align: sub;"/> Versión @article.Version</span>
+            </div>
+
+            <MudDivider Class="mb-8" />
+
+            <!-- Content (Markdown rendered to HTML) -->
+            <div class="kb-markdown-content">
+                @((MarkupString)htmlContent)
+            </div>
+        </MudPaper>
+
+        <!-- Feedback Section -->
+        <MudPaper Elevation="1" Class="pa-6 text-center" Style="border-radius: 12px; background-color: #f8f9fa;">
+            <MudText Typo="Typo.h6" Class="mb-4">¿Te resultó útil este artículo?</MudText>
+            
+            @if (feedbackSubmitted)
+            {
+                <MudAlert Severity="Severity.Success" Class="d-inline-flex">¡Gracias por tus comentarios! Nos ayudan a mejorar.</MudAlert>
+            }
+            else
+            {
+                <div class="d-flex justify-content-center gap-4">
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.ThumbUp" OnClick="() => SubmitFeedback(true)">
+                        Sí, fue útil (@article.HelpfulCount)
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.ThumbDown" OnClick="() => SubmitFeedback(false)">
+                        No me sirvió (@article.NotHelpfulCount)
+                    </MudButton>
+                </div>
+            }
+        </MudPaper>
+    }
+</MudContainer>
+
+<style>
+    /* Basic Markdown Styling */
+    .kb-markdown-content h1, .kb-markdown-content h2, .kb-markdown-content h3 {
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        font-weight: bold;
+        color: #1e293b;
+    }
+    .kb-markdown-content p {
+        margin-bottom: 1rem;
+        line-height: 1.6;
+        color: #334155;
+    }
+    .kb-markdown-content ul, .kb-markdown-content ol {
+        margin-bottom: 1rem;
+        padding-left: 2rem;
+    }
+    .kb-markdown-content li {
+        margin-bottom: 0.5rem;
+    }
+    .kb-markdown-content code {
+        background-color: #f1f5f9;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-family: monospace;
+    }
+    .kb-markdown-content pre {
+        background-color: #1e293b;
+        color: #f8fafc;
+        padding: 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin-bottom: 1.5rem;
+    }
+    .kb-markdown-content blockquote {
+        border-left: 4px solid #3b82f6;
+        padding-left: 1rem;
+        margin-left: 0;
+        color: #64748b;
+        font-style: italic;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public long Id { get; set; }
+
+    private bool isLoading = true;
+    private KbArticleResponseDto? article;
+    private string htmlContent = string.Empty;
+    private bool feedbackSubmitted = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            article = await KbService.GetByIdAsync(Id);
+            if (article != null)
+            {
+                var pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+                htmlContent = Markdown.ToHtml(article.Content ?? "", pipeline);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[KbArticleDetail] Error al cargar el artículo: {ex.Message}");
+            Snackbar.Add("Error al cargar el artículo", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        NavManager.NavigateTo("/kb");
+    }
+
+    private async Task SubmitFeedback(bool isHelpful)
+    {
+        var success = await KbService.SubmitFeedbackAsync(Id, isHelpful, null);
+        if (success)
+        {
+            feedbackSubmitted = true;
+            if (article != null)
+            {
+                if (isHelpful) article.HelpfulCount++;
+                else article.NotHelpfulCount++;
+            }
+        }
+        else
+        {
+            Snackbar.Add("No se pudo enviar el feedback. Intenta de nuevo.", Severity.Error);
+        }
+    }
+
+    private Color GetChipColor(string type)
+    {
+        return type switch
+        {
+            "Procedimiento" => Color.Info,
+            "FAQ" => Color.Success,
+            "Script" => Color.Warning,
+            "Texto Legal" => Color.Error,
+            _ => Color.Default
+        };
+    }
+}

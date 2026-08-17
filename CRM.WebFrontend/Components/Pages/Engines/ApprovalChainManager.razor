@@ -1,0 +1,90 @@
+@page "/engines/approval"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<PageTitle>Gestor de Aprobaciones y SOX — Nyx.ApprovalEngine</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">🛡️ Cadenas de Aprobación y Reglas SOX / ISO 27001</h2>
+            <p class="text-muted mb-0">Estructura flujos de autorización por departamento, gestiona delegaciones temporales y audita segregación de deberes.</p>
+        </div>
+        <div>
+            <a href="/engines/hub" class="btn btn-outline-secondary rounded-pill px-3">
+                ← Volver al Hub
+            </a>
+        </div>
+    </div>
+
+    <!-- Regla ISO 27001 / SOX Activa -->
+    <div class="alert alert-dark rounded-4 shadow-sm d-flex align-items-center justify-content-between mb-4">
+        <div class="d-flex align-items-center gap-3">
+            <span class="fs-3">🔒</span>
+            <div>
+                <h6 class="fw-bold mb-0 text-white">Cumplimiento ISO 27001 & SOX — Segregación de Deberes (SoD) Enforced</h6>
+                <small class="text-white-50">El motor autónomo rechaza automáticamente cualquier intento de un usuario de aprobar sus propias solicitudes (Requester != Approver).</small>
+            </div>
+        </div>
+        <span class="badge bg-success rounded-pill px-3 py-2">ACTIVO & AUDITADO</span>
+    </div>
+
+    <!-- Políticas de Aprobación -->
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-header bg-white border-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold">Políticas de Aprobación Configuradas</h5>
+            <button class="btn btn-dark btn-sm rounded-pill px-3">
+                + Nueva Cadena de Aprobación
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Entidad</th>
+                            <th>Pasos en Cadena</th>
+                            <th>Aprobadores Permitidos</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var policy in policies)
+                        {
+                            <tr>
+                                <td class="fw-bold text-primary">@policy.Code</td>
+                                <td>@policy.Name</td>
+                                <td><span class="badge bg-secondary">@policy.Entity</span></td>
+                                <td class="fw-bold">@policy.Steps Pasos</td>
+                                <td><span class="badge bg-light text-dark border">@policy.ApproverRoles</span></td>
+                                <td><span class="badge bg-success">ACTIVA</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ApprovalPolicyModel> policies = new()
+    {
+        new ApprovalPolicyModel { Code = "APPROVAL_HIGH_DISCOUNT", Name = "Aprobación de Descuentos Mayores a 15%", Entity = "ORDER", Steps = 2, ApproverRoles = "SUPERVISOR, MANAGER" },
+        new ApprovalPolicyModel { Code = "APPROVAL_ORDER_CANCELLATION", Name = "Autorización de Anulación de Pedido", Entity = "ORDER", Steps = 1, ApproverRoles = "SUPERVISOR" },
+        new ApprovalPolicyModel { Code = "APPROVAL_COMMISSION_SETTLEMENT", Name = "Aprobación de Liquidación de Comisiones (>1k)", Entity = "COMMISSION", Steps = 2, ApproverRoles = "FINANCE_MANAGER, DIRECTORS" },
+        new ApprovalPolicyModel { Code = "APPROVAL_KB_ARTICLE", Name = "Control Documental ISO 9001 de Artículos KB", Entity = "KB_ARTICLE", Steps = 1, ApproverRoles = "TECH_LEAD" }
+    };
+
+    private class ApprovalPolicyModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Entity { get; set; } = string.Empty;
+        public int Steps { get; set; }
+        public string ApproverRoles { get; set; } = string.Empty;
+    }
+}

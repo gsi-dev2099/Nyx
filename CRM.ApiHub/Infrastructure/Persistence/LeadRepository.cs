@@ -122,12 +122,12 @@ public class LeadRepository : ILeadRepository
                 return false;
             }
 
-            // 2. Obtener el rol del usuario actor
+           // 2. Obtener el rol del usuario actor
             const string selectRoleSql = @"
                 SELECT r.name 
-                FROM users u
-                LEFT JOIN user_role ur ON u.id_user = ur.id_user AND ur.is_active = true
-                LEFT JOIN role r ON ur.id_role = r.id_role AND r.is_active = true
+                FROM user_service.users u
+                LEFT JOIN access_control.user_role ur ON u.id_user = ur.id_user AND ur.is_active = true
+                LEFT JOIN access_control.role r ON ur.id_role = r.id_role AND r.is_active = true
                 WHERE u.id_user = @ActorId;";
 
             var roleName = await connection.ExecuteScalarAsync<string?>(

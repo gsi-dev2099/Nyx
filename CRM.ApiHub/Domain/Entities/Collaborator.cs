@@ -1,31 +1,25 @@
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CRM.ApiHub.Domain.Entities;
 
-[Table("collaborator", Schema = "ext_ecosystem")]
+[Table("collaborators", Schema = "ext_ecosystem")]
 public class Collaborator
 {
-    [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    [Column("id")]
-    public int Id { get; set; }
+    [Column("id_user")]
+    public long? IdUser { get; set; }
 
-    [Column("user_id")]
-    public int UserId { get; set; }
+    [Column("name")]
+    public string? Name { get; set; }
 
-    [Column("first_name")]
-    public string FirstName { get; set; } = string.Empty;
+    [Column("paternal_surname")]
+    public string? PaternalSurname { get; set; }
 
-    [Column("last_name")]
-    public string LastName { get; set; } = string.Empty;
+    [Column("maternal_surname")]
+    public string? MaternalSurname { get; set; }
 
-    [Column("email")]
-    public string Email { get; set; } = string.Empty;
+    [Column("document_number")]
+    public string? DocumentNumber { get; set; }
 
-    [Column("is_active")]
-    public bool IsActive { get; set; }
-
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [Column("state")]
+    public short? State { get; set; }
 }

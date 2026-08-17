@@ -1,0 +1,481 @@
+@page "/supervisor/reports"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SUPERVISOR")]
+@using CRM.WebFrontend.Services
+@inject IReportService ReportService
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<PageTitle>Dashboard de Métricas del Supervisor | Nyx CRM</PageTitle>
+
+<style>
+    :root {
+        --bg-app: #f4f4f5;
+        --surface: #ffffff;
+        --border-color: #e4e4e7;
+        --text-main: #18181b;
+        --text-muted: #71717a;
+        --accent: #09090b;
+        --radius-lg: 16px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
+    }
+
+    .report-card {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        border: none;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.02);
+        padding: 1.5rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .report-card:hover {
+        box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+    }
+
+    .section-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+
+    .kpi-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: var(--text-main);
+        line-height: 1.2;
+    }
+
+    .funnel-stage {
+        position: relative;
+        background: #ffffff;
+        border-radius: var(--radius-md);
+        border: none;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+        padding: 1rem 1.25rem;
+        margin-bottom: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .funnel-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #18181b 0%, #3f3f46 100%);
+        transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .stat-badge {
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 20px;
+    }
+</style>
+
+<div class="container-fluid py-4" style="max-width: 1280px;">
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <a href="/supervisor" class="text-decoration-none text-muted d-flex align-items-center gap-1 mb-2" style="font-size: 0.85rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Volver al Panel Supervisor
+            </a>
+            <h2 class="fw-bold m-0">Dashboard de Métricas del Supervisor</h2>
+            <p class="text-muted m-0" style="font-size: 0.9rem;">Análisis de embudo, rendimiento de asesores, incidencias y activaciones</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-outline-dark rounded-pill px-3 py-2 d-flex align-items-center gap-2" style="font-size: 0.85rem;" @onclick="ExportToCsv">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Exportar a Excel / CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- Panel de Filtros -->
+    <div class="report-card mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label section-title">Fecha Inicio</label>
+                <input type="date" class="form-control form-control-sm rounded-3" @bind="_dateFrom" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label section-title">Fecha Fin</label>
+                <input type="date" class="form-control form-control-sm rounded-3" @bind="_dateTo" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label section-title">Campaña</label>
+                <select class="form-select form-select-sm rounded-3" @bind="_idCmpg">
+                    <option value="1">Campaña Principal (ID: 1)</option>
+                    <option value="2">Campaña Móvil (ID: 2)</option>
+                    <option value="3">Campaña Fibra (ID: 3)</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-dark btn-sm rounded-3 w-100 py-2 fw-semibold" disabled="@_isLoading" @onclick="LoadReportsData">
+                    @if (_isLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Aplicar Filtros
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="report-card d-flex flex-column align-items-center justify-content-center py-5">
+            <div class="spinner-border text-dark mb-3" role="status"></div>
+            <span class="text-muted">Cargando métricas y reportes en tiempo real...</span>
+        </div>
+    }
+    else
+    {
+        <!-- Sección 1: Gráfico Embudo + Métricas de Activaciones -->
+        <div class="row g-4 mb-4">
+            <!-- Gráfico de Embudo (Funnel) -->
+            <div class="col-lg-7">
+                <div class="report-card h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-4">
+                        <div>
+                            <span class="section-title">Gráfico 1</span>
+                            <h4 class="fw-bold m-0" style="font-size: 1.1rem;">Embudo de Conversión de Ventas</h4>
+                        </div>
+                        <span class="badge bg-dark rounded-pill px-3 py-2" style="font-size: 0.75rem;">
+                            Eficiencia Global: @GetOverallConversionRate()%
+                        </span>
+                    </div>
+
+                    <div class="funnel-container">
+                        @if (_funnelStages.Count == 0)
+                        {
+                            <div class="text-muted text-center py-4">No hay datos de embudo para este período.</div>
+                        }
+                        else
+                        {
+                            @for (int i = 0; i < _funnelStages.Count; i++)
+                            {
+                                var stage = _funnelStages[i];
+                                var maxCount = _funnelStages.Max(s => s.Count);
+                                var percent = maxCount > 0 ? (stage.Count / (double)maxCount) * 100 : 0;
+                                var prevCount = i > 0 ? _funnelStages[i - 1].Count : (int?)null;
+                                var stepConversion = prevCount.HasValue && prevCount.Value > 0 
+                                    ? Math.Round((stage.Count / (double)prevCount.Value) * 100, 1) 
+                                    : (double?)null;
+
+                                <div class="funnel-stage">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="fw-bold text-dark">@stage.StageName</span>
+                                            <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.65rem;">@stage.StageCode</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-3">
+                                            @if (stepConversion.HasValue)
+                                            {
+                                                <span class="text-muted" style="font-size: 0.75rem;">
+                                                    Paso previo: <strong class="text-dark">@stepConversion%</strong>
+                                                </span>
+                                            }
+                                            <span class="fw-bold fs-6">@stage.Count.ToString("N0")</span>
+                                        </div>
+                                    </div>
+                                    <div class="w-100 bg-light rounded-pill p-1">
+                                        <div class="funnel-bar" style="width: @Math.Max(percent, 5)%;"></div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Métricas de Activación por Proveedor -->
+            <div class="col-lg-5">
+                <div class="report-card h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <span class="section-title">Métricas de Activación</span>
+                        <h4 class="fw-bold mb-3" style="font-size: 1.1rem;">Estado de Provisión por Proveedor</h4>
+
+                        @if (_activationStats != null)
+                        {
+                            <div class="row g-3 mb-4">
+                                <div class="col-6">
+                                    <div class="p-3 bg-light rounded-3 border">
+                                        <span class="text-muted d-block" style="font-size: 0.75rem;">TOTAL EN PROVISIÓN</span>
+                                        <div class="kpi-value">@_activationStats.TotalActivations</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-3 bg-success bg-opacity-10 rounded-3 border border-success border-opacity-25">
+                                        <span class="text-success fw-bold d-block" style="font-size: 0.75rem;">ACTIVADAS OK</span>
+                                        <div class="kpi-value text-success">@_activationStats.ActivatedActivations</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-3 bg-warning bg-opacity-10 rounded-3 border border-warning border-opacity-25">
+                                        <span class="text-warning fw-bold d-block" style="font-size: 0.75rem;">EN PROCESO / RETRASADAS</span>
+                                        <div class="kpi-value text-warning">@(_activationStats.InProcessActivations + _activationStats.DelayedActivations)</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-3 bg-danger bg-opacity-10 rounded-3 border border-danger border-opacity-25">
+                                        <span class="text-danger fw-bold d-block" style="font-size: 0.75rem;">FALLIDAS / CANCELADAS</span>
+                                        <div class="kpi-value text-danger">@(_activationStats.FailedActivations + _activationStats.CancelledActivations)</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-3 rounded-3 border bg-white d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-2">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-muted"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                    <span class="fw-medium" style="font-size: 0.85rem;">Tiempo Promedio de Demora:</span>
+                                </div>
+                                <span class="badge bg-dark rounded-pill fs-6">@_activationStats.AverageDelayDays.ToString("0.0") días</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección 2: Tabla Top Asesores + Gráfico de Incidencias -->
+        <div class="row g-4">
+            <!-- Tabla Top Asesores por Ventas -->
+            <div class="col-lg-7">
+                <div class="report-card">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <span class="section-title">Ranking del Período</span>
+                            <h4 class="fw-bold m-0" style="font-size: 1.1rem;">Top Asesores por Ventas</h4>
+                        </div>
+                        <span class="text-muted" style="font-size: 0.8rem;">Total: @_topAsesores.Count asesores</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="section-title">Asesor</th>
+                                    <th class="section-title text-center">Órdenes</th>
+                                    <th class="section-title text-center">Aprobadas</th>
+                                    <th class="section-title text-center">% Eficacia</th>
+                                    <th class="section-title text-end">Monto Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (_topAsesores.Count == 0)
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-4">No hay datos registrados para este período.</td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var asesor in _topAsesores)
+                                    {
+                                        var rate = asesor.TotalOrders > 0 ? Math.Round((asesor.ApprovedOrders / (double)asesor.TotalOrders) * 100, 1) : 0;
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="bg-dark text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.75rem;">
+                                                        @GetInitials(asesor.AdvisorName)
+                                                    </div>
+                                                    <div>
+                                                        <div class="fw-bold style-main">@asesor.AdvisorName</div>
+                                                        <div class="text-muted" style="font-size: 0.75rem;">@@@asesor.Username</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center fw-semibold">@asesor.TotalOrders</td>
+                                            <td class="text-center text-success fw-bold">@asesor.ApprovedOrders</td>
+                                            <td class="text-center">
+                                                <span class="stat-badge @(rate >= 80 ? "bg-success bg-opacity-10 text-success" : "bg-warning bg-opacity-10 text-warning")">
+                                                    @rate%
+                                                </span>
+                                            </td>
+                                            <td class="text-end fw-bold">
+                                                S/ @asesor.TotalAmountPen.ToString("N2")
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráfico de Incidencias por Tipo -->
+            <div class="col-lg-5">
+                <div class="report-card">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <span class="section-title">Control de Calidad</span>
+                            <h4 class="fw-bold m-0" style="font-size: 1.1rem;">Incidencias por Tipo y Estado</h4>
+                        </div>
+                    </div>
+
+                    @if (_incidentStats != null)
+                    {
+                        <div class="d-flex gap-2 mb-4">
+                            <div class="p-2 border rounded text-center flex-fill">
+                                <span class="text-muted d-block" style="font-size: 0.7rem;">ABIERTAS</span>
+                                <strong class="text-danger fs-5">@_incidentStats.OpenIncidents</strong>
+                            </div>
+                            <div class="p-2 border rounded text-center flex-fill">
+                                <span class="text-muted d-block" style="font-size: 0.7rem;">EN PROCESO</span>
+                                <strong class="text-warning fs-5">@_incidentStats.InProgressIncidents</strong>
+                            </div>
+                            <div class="p-2 border rounded text-center flex-fill">
+                                <span class="text-muted d-block" style="font-size: 0.7rem;">RESUELTAS</span>
+                                <strong class="text-success fs-5">@_incidentStats.ResolvedIncidents</strong>
+                            </div>
+                        </div>
+
+                        <h6 class="fw-bold mb-3" style="font-size: 0.85rem;">Desglose por Categoría</h6>
+                        <div class="d-flex flex-column gap-2">
+                            @if (_incidentStats.CategoryBreakdown.Count == 0)
+                            {
+                                <div class="text-muted text-center py-3" style="font-size: 0.85rem;">No hay incidencias reportadas.</div>
+                            }
+                            else
+                            {
+                                @foreach (var cat in _incidentStats.CategoryBreakdown)
+                                {
+                                    var maxCatCount = _incidentStats.CategoryBreakdown.Max(c => c.Count);
+                                    var catPercent = maxCatCount > 0 ? (cat.Count / (double)maxCatCount) * 100 : 0;
+                                    
+                                    <div class="p-2 rounded border bg-light">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="fw-medium text-truncate" style="max-width: 220px; font-size: 0.85rem;">@cat.CategoryName</span>
+                                            <span class="badge bg-secondary bg-opacity-10 text-dark">@cat.Count</span>
+                                        </div>
+                                        <div class="w-100 bg-white rounded-pill p-1">
+                                            <div class="bg-dark rounded-pill" style="height: 6px; width: @Math.Max(catPercent, 4)%;"></div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DateTime _dateFrom = DateTime.Today.AddDays(-30);
+    private DateTime _dateTo = DateTime.Today;
+    private long _idCmpg = 1;
+    private long _idProvider = 1;
+    private bool _isLoading = true;
+
+    private List<ConversionFunnelStageViewModel> _funnelStages = new();
+    private List<SalesByAsesorViewModel> _topAsesores = new();
+    private IncidentStatsViewModel? _incidentStats;
+    private ActivationStatsViewModel? _activationStats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReportsData();
+    }
+
+    private async Task LoadReportsData()
+    {
+        _isLoading = true;
+        try
+        {
+            var funnelTask = ReportService.GetConversionFunnelAsync(_idCmpg, _dateFrom, _dateTo);
+            var salesTask = ReportService.GetSalesByAsesorAsync(_dateFrom, _dateTo);
+            var incidentTask = ReportService.GetIncidentStatsAsync(_idCmpg, _dateFrom, _dateTo);
+            var activationTask = ReportService.GetActivationStatsAsync(_idProvider, _dateFrom, _dateTo);
+
+            await Task.WhenAll(funnelTask, salesTask, incidentTask, activationTask);
+
+            _funnelStages = await funnelTask;
+            _topAsesores = await salesTask;
+            _incidentStats = await incidentTask;
+            _activationStats = await activationTask;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar reportes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private double GetOverallConversionRate()
+    {
+        if (_funnelStages.Count == 0) return 0;
+        var first = _funnelStages.First().Count;
+        var last = _funnelStages.Last().Count;
+        if (first == 0) return 0;
+        return Math.Round((last / (double)first) * 100, 1);
+    }
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "U";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][..1].ToUpper();
+        return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+    }
+
+    private async Task ExportToCsv()
+    {
+        try
+        {
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("REPORTE DE VENTAS Y METRICAS DE SUPERVISOR");
+            csv.AppendLine($"Periodo: {_dateFrom:yyyy-MM-dd} a {_dateTo:yyyy-MM-dd}");
+            csv.AppendLine();
+
+            csv.AppendLine("EMBUDO DE CONVERSION");
+            csv.AppendLine("Etapa,Conteo");
+            foreach (var s in _funnelStages)
+            {
+                csv.AppendLine($"\"{s.StageName}\",{s.Count}");
+            }
+            csv.AppendLine();
+
+            csv.AppendLine("TOP ASESORES");
+            csv.AppendLine("Asesor,Usuario,Total Ordenes,Aprobadas,Monto PEN");
+            foreach (var a in _topAsesores)
+            {
+                csv.AppendLine($"\"{a.AdvisorName}\",\"{a.Username}\",{a.TotalOrders},{a.ApprovedOrders},{a.TotalAmountPen}");
+            }
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+            var bom = new byte[] { 0xEF, 0xBB, 0xBF };
+            var fullBytes = new byte[bom.Length + bytes.Length];
+            Buffer.BlockCopy(bom, 0, fullBytes, 0, bom.Length);
+            Buffer.BlockCopy(bytes, 0, fullBytes, bom.Length, bytes.Length);
+            var base64 = Convert.ToBase64String(fullBytes);
+
+            await JSRuntime.InvokeVoidAsync("eval", $@"
+                var a = document.createElement('a');
+                a.href = 'data:text/csv;charset=utf-8;base64,{base64}';
+                a.download = 'Reporte_Supervisor_{DateTime.Now:yyyyMMdd_HHmmss}.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            ");
+
+            Snackbar.Add("Reporte exportado a CSV exitosamente.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar reporte: {ex.Message}", Severity.Error);
+        }
+    }
+}

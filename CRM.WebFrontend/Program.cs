@@ -1,22 +1,30 @@
-using CRM.WebFrontend.Components;
+using CRM.WebFrontend.Services;
+using CRM.WebFrontend.Server.Components;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text;
 using Yarp.ReverseProxy.Transforms;
+using MudBlazor.Services;
+using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+var razorBuilder = builder.Services.AddRazorComponents();
+razorBuilder.AddInteractiveServerComponents();
+razorBuilder.AddInteractiveWebAssemblyComponents();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<CRM.WebFrontend.ServerAuthHandler>();
 
 // Add HttpClient for calling the backend API
 builder.Services.AddHttpClient("BackendApi", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5068");
-});
+}).AddHttpMessageHandler<CRM.WebFrontend.ServerAuthHandler>()
+  .AddTransientHttpErrorPolicy(p => p.WaitAndRetryAsync(3, _ => TimeSpan.FromSeconds(2)));
 
 // Configure native Cookie Authentication for Blazor Server
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -28,12 +36,13 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Lax;
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(20);
-        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
+        options.SlidingExpiration = false;
     });
 
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, CRM.WebFrontend.Providers.PersistingServerAuthenticationStateProvider>();
 
 // Configure YARP with Request Transformation to automatically inject the Bearer Token
 builder.Services.AddReverseProxy()
@@ -56,6 +65,34 @@ builder.Services.AddReverseProxy()
         });
     });
 
+builder.Services.AddScoped<IBackofficeService, BackofficeService>();
+builder.Services.AddScoped<ISalesOrderService, SalesOrderService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IActivationService, ActivationService>();
+builder.Services.AddScoped<CRM.WebFrontend.Client.Services.NotificationService>();
+
+
+builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IKbService, CRM.WebFrontend.Client.Services.KbService>();
+builder.Services.AddScoped<CRM.WebFrontend.Client.Services.ICommissionService, CRM.WebFrontend.Client.Services.CommissionService>();
+builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IActivationService, CRM.WebFrontend.Client.Services.ActivationService>();
+builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IMaintenanceService, CRM.WebFrontend.Client.Services.MaintenanceService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<CRM.WebFrontend.ServerAuthHandler>();
+builder.Services.AddScoped(sp =>
+{
+    var navManager = sp.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+    var handler = sp.GetRequiredService<CRM.WebFrontend.ServerAuthHandler>();
+    handler.InnerHandler = new HttpClientHandler();
+    var client = new System.Net.Http.HttpClient(handler, disposeHandler: true)
+    {
+        BaseAddress = new Uri(navManager.BaseUri)
+    };
+    return client;
+});
+
+// Agregar servicios de MudBlazor
+builder.Services.AddMudServices();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -94,10 +131,19 @@ app.MapPost("/login-endpoint", async (HttpContext httpContext, IHttpClientFactor
         var payload = JsonSerializer.Serialize(new { username, password });
         var content = new StringContent(payload, Encoding.UTF8, "application/json");
 
+        Console.WriteLine($"[LOGIN-DEBUG] Sending login request for user: '{username}'");
+        Console.WriteLine($"[LOGIN-DEBUG] Payload: {payload}");
+        Console.WriteLine($"[LOGIN-DEBUG] Backend URL: {client.BaseAddress}/api/auth/login");
+
         var response = await client.PostAsync("/api/auth/login", content);
+
+        Console.WriteLine($"[LOGIN-DEBUG] Response status: {response.StatusCode} ({(int)response.StatusCode})");
+        var responseBody = await response.Content.ReadAsStringAsync();
+        Console.WriteLine($"[LOGIN-DEBUG] Response body: {responseBody}");
+
         if (!response.IsSuccessStatusCode)
         {
-            return Results.Redirect("/login?error=Credenciales incorrectas");
+            return Results.Redirect($"/login?error=Credenciales incorrectas (API: {(int)response.StatusCode})");
         }
 
         var responseBytes = await response.Content.ReadAsByteArrayAsync();
@@ -155,12 +201,8 @@ app.MapPost("/login-endpoint", async (HttpContext httpContext, IHttpClientFactor
 
         await httpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 
-        // Redirect based on role
-        if (role.Equals("SUPERVISOR", StringComparison.OrdinalIgnoreCase))
-        {
-            return Results.Redirect("/supervisor");
-        }
-        return Results.Redirect("/asesor");
+        // Redirect to root so Home.razor handles role-based routing
+        return Results.Redirect("/");
     }
     catch (Exception ex)
     {
@@ -180,6 +222,8 @@ app.MapReverseProxy();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .AddInteractiveWebAssemblyRenderMode()
+    .AddAdditionalAssemblies(typeof(CRM.WebFrontend.Client._Imports).Assembly);
 
 app.Run();

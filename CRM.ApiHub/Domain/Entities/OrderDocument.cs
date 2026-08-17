@@ -1,28 +1,59 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CRM.ApiHub.Domain.Entities;
 
-[Table("order_document")]
+[Table("order_document", Schema = "sales_service")]
 public class OrderDocument
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    [Column("id")]
-    public int Id { get; set; }
+    [Column("id_document")]
+    public long IdDocument { get; set; }
 
-    [Column("sales_order_id")]
-    public int SalesOrderId { get; set; }
+    [Column("id_order")]
+    public long IdOrder { get; set; }
 
-    [Column("document_name")]
-    public string DocumentName { get; set; } = string.Empty;
+    [Column("document_type")]
+    public string DocumentType { get; set; } = string.Empty;
 
-    [Column("document_url")]
-    public string DocumentUrl { get; set; } = string.Empty;
+    [Column("file_name")]
+    public string FileName { get; set; } = string.Empty;
 
-    [Column("uploaded_by_id")]
-    public int UploadedById { get; set; }
+    [Column("file_path")]
+    public string FilePath { get; set; } = string.Empty;
 
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [Column("file_size_kb")]
+    public int? FileSizeKb { get; set; }
+
+    [Column("mime_type")]
+    public string? MimeType { get; set; }
+
+    [Column("verified_by")]
+    public long? VerifiedBy { get; set; }
+
+    [Column("verified_at")]
+    public DateTime? VerifiedAt { get; set; }
+
+    [Column("verification_status")]
+    public string VerificationStatus { get; set; } = "PENDING";
+
+    [Column("verification_notes")]
+    public string? VerificationNotes { get; set; }
+
+    [Column("uploaded_by")]
+    public long UploadedBy { get; set; }
+
+    [Column("uploaded_at")]
+    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+
+    [Column("is_active")]
+    public bool IsActive { get; set; } = true;
+
+    [NotMapped]
+    public string? CustomerName { get; set; }
+
+    [NotMapped]
+    public string? Priority { get; set; }
 }

@@ -1,0 +1,615 @@
+@page "/backoffice/incidents"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "BACKOFFICE")]
+@using CRM.WebFrontend.Models
+@using CRM.WebFrontend.Services
+@inject IBackofficeService BackofficeService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@implements IAsyncDisposable
+
+<style>
+    /* Tipografía nativa y colores premium */
+    :root {
+        --bg-app: #f4f4f5; /* zinc-100 */
+        --surface: #ffffff;
+        --border-color: #e4e4e7; /* zinc-200 */
+        --text-main: #18181b; /* zinc-900 */
+        --text-muted: #71717a; /* zinc-500 */
+        --accent: #09090b; /* zinc-950 */
+        --danger: #ef4444; /* red-500 */
+        --success: #10b981; /* emerald-500 */
+        --warning: #f59e0b; /* amber-500 */
+        --radius-lg: 16px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
+    }
+
+    body {
+        background-color: var(--bg-app);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--text-main);
+    }
+
+    /* Paneles de precisión */
+    .premium-panel {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.01);
+    }
+
+    /* Tipografía refinada */
+    .section-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+
+    /* Lista interactiva */
+    .queue-item {
+        padding: 1.25rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+        background: var(--surface);
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .queue-item:hover {
+        transform: translateY(-2px);
+        border-color: #a1a1aa; /* zinc-400 */
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+
+    .queue-item.active {
+        border-color: var(--accent);
+        background: #f4f4f5; /* zinc-100 */
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+
+    /* Badges minimalistas */
+    .badge-soft {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.6rem;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.25px;
+    }
+
+    .badge-high {
+        background-color: #fee2e2; /* red-100 */
+        color: #991b1b; /* red-800 */
+    }
+
+    .badge-medium {
+        background-color: #fef3c7; /* amber-100 */
+        color: #92400e; /* amber-800 */
+    }
+
+    .badge-low {
+        background-color: #f0fdf4; /* emerald-100 */
+        color: #166534; /* emerald-800 */
+    }
+
+    .badge-expired {
+        background-color: #ef4444; /* red-500 */
+        color: #ffffff;
+        font-weight: bold;
+    }
+
+    /* Tarjetas de datos contrastados */
+    .data-card {
+        padding: 1.25rem;
+        background: #fcfcfc;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+    }
+
+    .data-label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+
+    .data-value {
+        font-weight: 500;
+        font-size: 0.95rem;
+    }
+
+    /* Botonera Premium */
+    .btn-premium {
+        background: var(--accent);
+        color: white;
+        font-weight: 600;
+        border-radius: var(--radius-sm);
+        padding: 0.6rem 1.2rem;
+        border: 1px solid transparent;
+        transition: all 0.15s ease;
+    }
+
+    .btn-premium:hover {
+        background: #27272a;
+        color: white;
+    }
+
+    .btn-secondary-premium {
+        background: transparent;
+        color: var(--text-main);
+        font-weight: 600;
+        border-radius: var(--radius-sm);
+        padding: 0.6rem 1.2rem;
+        border: 1px solid var(--border-color);
+        transition: all 0.15s ease;
+    }
+
+    .btn-secondary-premium:hover {
+        background: #f4f4f5;
+    }
+
+    /* Input premium */
+    .input-premium {
+        background: var(--surface);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 0.75rem;
+        transition: border-color 0.15s ease;
+    }
+
+    .input-premium:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(9, 9, 11, 0.1);
+        outline: none;
+    }
+
+    /* KB Suggested Cards */
+    .kb-card {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        background: #fafafa;
+        transition: all 0.2s ease;
+    }
+
+    .kb-card:hover {
+        background: #f4f4f5;
+        border-color: #d4d4d8;
+    }
+</style>
+
+<div class="container-fluid py-4 px-md-4" style="max-width: 1600px;">
+    <!-- Navigation Tabs Header for Backoffice -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 pb-3 border-bottom gap-3">
+        <div class="d-flex align-items-center gap-3">
+            <h3 class="fw-bold mb-0" style="color: var(--accent); letter-spacing: -0.5px;">BackOffice</h3>
+            <span class="text-muted fs-5">/</span>
+            <span class="text-secondary fw-semibold fs-5">Gestión de Incidencias</span>
+        </div>
+        
+        <div class="d-flex align-items-center gap-2 bg-white p-1.5 rounded-pill border shadow-sm">
+            <a href="/backoffice/dashboard" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
+                📄 Verificación DNI & OCR
+            </a>
+            <a href="/backoffice/incidents" class="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-semibold shadow-sm">
+                ⚠️ Gestión de Incidencias
+            </a>
+            <a href="/backoffice/activations" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
+                ⚡ Panel de Activaciones
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros superiores -->
+    <div class="premium-panel p-3 mb-4 d-flex flex-wrap gap-3 align-items-center justify-content-between">
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm @(_filterStatus == "OPEN" ? "btn-dark" : "btn-light")" @onclick='() => SetStatusFilter("OPEN")'>Abiertas</button>
+            <button class="btn btn-sm @(_filterStatus == "RESOLVED" ? "btn-dark" : "btn-light")" @onclick='() => SetStatusFilter("RESOLVED")'>Resueltas</button>
+            <button class="btn btn-sm @(_filterStatus == "" ? "btn-dark" : "btn-light")" @onclick='() => SetStatusFilter("")'>Todas</button>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-muted" style="font-size: 0.85rem;">Rol Asignado:</span>
+            <select class="form-select form-select-sm w-auto" @bind="_filterRole">
+                <option value="BACKOFFICE">BackOffice</option>
+                <option value="ASESOR">ASESOR</option>
+                <option value="SUPERVISOR">SUPERVISOR</option>
+                <option value="">Todos</option>
+            </select>
+            <button class="btn btn-sm btn-outline-dark" @onclick="LoadIncidents">Filtrar</button>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <span class="text-muted">Sincronizando incidencias...</span>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <!-- Columna Izquierda: Lista de Incidencias -->
+            <div class="col-xl-4 col-lg-5">
+                <div class="premium-panel p-4 h-100" style="min-height: 600px;">
+                    <h6 class="section-title mb-4">Incidencias Asignadas</h6>
+                    
+                    @if (!_incidents.Any())
+                    {
+                        <div class="d-flex flex-column align-items-center justify-content-center py-5 text-center">
+                            <span class="text-muted fs-5">No hay incidencias que coincidan con los filtros.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-3">
+                            @foreach (var item in _incidents)
+                            {
+                                var isSelected = _selectedIncident?.IdOrderIncident == item.IdOrderIncident;
+                                var isExpired = item.DueAt.HasValue && item.DueAt.Value < DateTime.UtcNow;
+                                var slaText = GetSlaRemainingText(item.DueAt);
+                                
+                                <div class="queue-item @(isSelected ? "active" : "")" @onclick="() => SelectIncident(item)">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="mb-0 fw-bold" style="font-size: 0.95rem;">@(item.CustomName ?? "Incidencia sin título")</h6>
+                                        <div class="d-flex flex-column align-items-end gap-1">
+                                            @if (item.IncidentStatus == "RESOLVED")
+                                            {
+                                                <span class="badge-soft badge-low">Resuelta</span>
+                                            }
+                                            else if (isExpired)
+                                            {
+                                                <span class="badge-soft badge-expired">Vencido</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge-soft badge-medium">Abierta</span>
+                                            }
+
+                                            @if (item.Priority.HasValue)
+                                            {
+                                                var (prioClass, prioName) = GetPriorityDetails(item.Priority.Value);
+                                                <span class="badge-soft @prioClass" style="font-size: 0.65rem; padding: 0.15rem 0.4rem;">@prioName</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <p class="text-muted text-truncate mb-2" style="font-size: 0.85rem;">@(item.CustomDescription ?? "Sin descripción adicional")</p>
+                                    <div class="d-flex justify-content-between align-items-center mb-1.5" style="font-size: 0.8rem;">
+                                        <span class="fw-bold">Orden #@item.IdOrder</span>
+                                        <span class="@(isExpired && item.IncidentStatus != "RESOLVED" ? "text-danger fw-bold" : "text-muted")">
+                                            ⏱️ @slaText
+                                        </span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1 mt-1 pt-1.5 border-top" style="border-color: rgba(228,228,231,0.6) !important;">
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-0.5 font-bold" style="font-size: 0.68rem;">
+                                            ⚠️ Etapa: En Corrección (Incidencia)
+                                        </span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Detalle de Incidencia -->
+            <div class="col-xl-8 col-lg-7">
+                @if (_selectedIncident == null)
+                {
+                    <div class="premium-panel d-flex flex-column align-items-center justify-content-center h-100 p-5 text-center">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--border-color); margin-bottom: 1rem;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                        <h5 class="fw-bold text-dark">Ninguna incidencia seleccionada</h5>
+                        <p class="text-muted">Selecciona una incidencia de la lista de la izquierda para gestionarla.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex flex-column gap-4">
+                        <div class="premium-panel p-4 p-xl-5">
+                            <div class="d-flex justify-content-between align-items-start mb-4">
+                                <div>
+                                    <h4 class="fw-bold mb-1" style="letter-spacing: -0.5px;">@(_selectedIncident.CustomName ?? "Detalle de Incidencia")</h4>
+                                    <span class="text-muted">Asociada a la Orden #@_selectedIncident.IdOrder</span>
+                                </div>
+                                @if (_selectedIncident.IncidentStatus != "RESOLVED")
+                                {
+                                    <button class="btn btn-premium d-flex align-items-center gap-2" @onclick="OpenResolveModal">
+                                        ✔️ Resolver Incidencia
+                                    </button>
+                                }
+                            </div>
+
+                            <!-- Panel de detalles -->
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="data-card">
+                                        <span class="data-label">Descripción de la Incidencia</span>
+                                        <p class="mb-0 text-dark" style="font-size: 0.95rem;">@(_selectedIncident.CustomDescription ?? "No se proporcionó descripción.")</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="data-card">
+                                        <span class="data-label">Metadatos de Seguimiento</span>
+                                        <div class="d-flex flex-column gap-2 mt-2">
+                                            <div class="d-flex justify-content-between" style="font-size: 0.85rem;">
+                                                <span class="text-muted">Registrado:</span>
+                                                <span class="fw-bold">@_selectedIncident.Register.ToString("dd/MM/yyyy HH:mm")</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between" style="font-size: 0.85rem;">
+                                                <span class="text-muted">Vencimiento SLA:</span>
+                                                <span class="fw-bold">@(_selectedIncident.DueAt.HasValue ? _selectedIncident.DueAt.Value.ToString("dd/MM/yyyy HH:mm") : "N/A")</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between" style="font-size: 0.85rem;">
+                                                <span class="text-muted">Rol Asignado:</span>
+                                                <span class="fw-bold text-uppercase">@(_selectedIncident.AssignedToRole ?? "Ninguno")</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sugerencia de Artículo KB -->
+                            <div class="mb-5">
+                                <h6 class="section-title mb-3">📚 Artículo Sugerido de KB</h6>
+                                @if (_kbSuggestions == null)
+                                {
+                                    <span class="text-muted" style="font-size: 0.85rem;">Buscando recomendaciones de la Base de Conocimiento...</span>
+                                }
+                                else if (!_kbSuggestions.Any())
+                                {
+                                    <div class="p-3 bg-light text-muted border rounded" style="font-size: 0.85rem;">
+                                        No hay artículos específicos sugeridos en la KB para esta categoría de incidencia.
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="d-flex flex-column gap-2">
+                                        @foreach (var article in _kbSuggestions)
+                                        {
+                                            <a href="/kb/article/@article.Slug" target="_blank" class="kb-card p-3 d-block text-decoration-none text-dark">
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <h6 class="mb-0 fw-bold text-primary" style="font-size: 0.95rem;">@article.Title</h6>
+                                                    <span class="text-muted" style="font-size: 0.8rem;">Leer Artículo ↗</span>
+                                                </div>
+                                                <p class="mb-0 text-muted" style="font-size: 0.85rem;">@article.Summary</p>
+                                            </a>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <!-- Panel de Respuestas/Comentarios -->
+                            <div class="border-top pt-4">
+                                <h6 class="section-title mb-4">💬 Panel de Respuestas</h6>
+
+                                <!-- Textarea para agregar respuesta -->
+                                <div class="d-flex flex-column gap-2 mb-3">
+                                    <textarea class="form-control input-premium" rows="3" placeholder="Escribe un comentario o respuesta para esta incidencia..." @bind="_responseText"></textarea>
+                                    <div class="d-flex justify-content-end">
+                                        <button class="btn btn-secondary-premium btn-sm" @onclick="SubmitResponse" disabled="@(string.IsNullOrWhiteSpace(_responseText))">
+                                            Enviar Comentario
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal para Resolver Incidencia -->
+@if (_showResolveModal && _selectedIncident != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5); z-index: 1050;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content premium-panel" style="border: none;">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="fw-bold mb-0">Resolver Incidencia</h5>
+                    <button type="button" class="btn-close" @onclick="CloseResolveModal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <p class="text-muted" style="font-size: 0.9rem;">
+                        Estás a punto de marcar la incidencia <strong>@_selectedIncident.CustomName</strong> como <strong>RESUELTA</strong>. 
+                        Por favor, detalla los comentarios de resolución a continuación.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label text-muted uppercase fw-bold" style="font-size: 0.75rem;">Notas de Resolución</label>
+                        <textarea class="form-control input-premium" rows="4" placeholder="Especifica los detalles del cierre de la incidencia..." @bind="_resolveNotes"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 d-flex justify-content-end gap-2">
+                    <button class="btn btn-secondary-premium" @onclick="CloseResolveModal">Cancelar</button>
+                    <button class="btn btn-premium" @onclick="ConfirmResolve" disabled="@(string.IsNullOrWhiteSpace(_resolveNotes))">
+                        Confirmar Resolución
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<BackofficeIncidentDto> _incidents = new();
+    private BackofficeIncidentDto? _selectedIncident;
+    private List<KbArticleSuggestionDto>? _kbSuggestions;
+    
+    private bool _isLoading = true;
+    private string _filterStatus = "OPEN";
+    private string _filterRole = "BACKOFFICE";
+    
+    private string _responseText = "";
+    private string _resolveNotes = "";
+    private bool _showResolveModal = false;
+    
+    private long _currentUserId = 1;
+
+    // PeriodicTimer para refrescar el badge de SLA cada 60 segundos sin polling al servidor
+    private PeriodicTimer? _slaRefreshTimer;
+    private CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var subClaim = user.FindFirst("sub") ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (subClaim != null)
+        {
+            long.TryParse(subClaim.Value, out _currentUserId);
+        }
+
+        await LoadIncidents();
+
+        // Iniciar el timer de refresco del SLA (cada 60 segundos, solo UI — sin llamada al servidor)
+        _slaRefreshTimer = new PeriodicTimer(TimeSpan.FromSeconds(60));
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (await _slaRefreshTimer.WaitForNextTickAsync(_cts.Token))
+                {
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (OperationCanceledException) { /* Componente destruido */ }
+        });
+    }
+
+    private async Task LoadIncidents()
+    {
+        _isLoading = true;
+        var list = await BackofficeService.GetIncidentsAsync(_filterRole, _filterStatus);
+        _incidents = list.ToList();
+        
+        // Mantener la selección si todavía existe en la lista
+        if (_selectedIncident != null)
+        {
+            var match = _incidents.FirstOrDefault(i => i.IdOrderIncident == _selectedIncident.IdOrderIncident);
+            if (match != null)
+            {
+                _selectedIncident = match;
+            }
+            else
+            {
+                _selectedIncident = null;
+                _kbSuggestions = null;
+            }
+        }
+        
+        _isLoading = false;
+    }
+
+    private async Task SetStatusFilter(string status)
+    {
+        _filterStatus = status;
+        await LoadIncidents();
+    }
+
+    private async Task SelectIncident(BackofficeIncidentDto incident)
+    {
+        _selectedIncident = incident;
+        _kbSuggestions = null;
+        _responseText = "";
+        
+        // Cargar sugerencias KB para el incidente seleccionado
+        var list = await BackofficeService.GetKbSuggestionsAsync(incident.IdIncident);
+        _kbSuggestions = list.ToList();
+    }
+
+    private string GetSlaRemainingText(DateTime? dueAt)
+    {
+        if (!dueAt.HasValue) return "Sin SLA";
+        
+        var diff = dueAt.Value - DateTime.UtcNow;
+        if (diff < TimeSpan.Zero)
+        {
+            var expiredTime = diff.Duration();
+            return $"Vencido hace {Math.Floor(expiredTime.TotalHours)}h {expiredTime.Minutes}m";
+        }
+        
+        return $"Quedan {Math.Floor(diff.TotalHours)}h {diff.Minutes}m";
+    }
+
+    private async Task SubmitResponse()
+    {
+        if (_selectedIncident != null && !string.IsNullOrWhiteSpace(_responseText))
+        {
+            try
+            {
+                await BackofficeService.AddIncidentResponseAsync(
+                    _selectedIncident.IdOrderIncident,
+                    _responseText,
+                    "BACKOFFICE_COMMENT",
+                    _currentUserId
+                );
+                
+                _responseText = "";
+                
+                // Recargar para refrescar información
+                await LoadIncidents();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al enviar respuesta: {ex.Message}");
+            }
+        }
+    }
+
+    private void OpenResolveModal()
+    {
+        _resolveNotes = "";
+        _showResolveModal = true;
+    }
+
+    private void CloseResolveModal()
+    {
+        _showResolveModal = false;
+    }
+
+    private async Task ConfirmResolve()
+    {
+        if (_selectedIncident != null && !string.IsNullOrWhiteSpace(_resolveNotes))
+        {
+            try
+            {
+                await BackofficeService.ResolveIncidentAsync(
+                    _selectedIncident.IdOrderIncident,
+                    _resolveNotes,
+                    _currentUserId
+                );
+                
+                _showResolveModal = false;
+                _selectedIncident = null;
+                _kbSuggestions = null;
+                
+                await LoadIncidents();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al resolver incidencia: {ex.Message}");
+            }
+        }
+    }
+
+    private (string Class, string Name) GetPriorityDetails(short priority)
+    {
+        return priority switch
+        {
+            1 => ("badge-high", "Alta"),
+            2 => ("badge-medium", "Media"),
+            3 => ("badge-low", "Baja"),
+            _ => ("badge-low", $"Prio: {priority}")
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _cts.CancelAsync();
+        _slaRefreshTimer?.Dispose();
+        _cts.Dispose();
+    }
+}

@@ -1,0 +1,590 @@
+@page "/asesor/orders"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "ASESOR")]
+@inject IHttpClientFactory HttpClientFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@using System.Net.Http.Json
+@using MudBlazor
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Bandeja del Asesor - NYX CRM</PageTitle>
+
+<style>
+    .asesor-hero-card {
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 24px 28px;
+        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
+        border: none;
+    }
+    
+    .asesor-kpi-card {
+        background: rgba(244, 245, 247, 0.8);
+        border-radius: 20px;
+        padding: 20px;
+        border: none;
+        box-shadow: 0 4px 12px -2px rgba(29, 38, 57, 0.03);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .asesor-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px -4px rgba(29, 38, 57, 0.08);
+    }
+    
+    .kpi-icon-wrapper {
+        width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        color: #1D2639;
+        flex-shrink: 0;
+    }
+
+    .asesor-cta-btn {
+        background: #1D2639;
+        color: #ffffff;
+        border-radius: 9999px;
+        padding: 10px 20px;
+        font-size: 0.85rem;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        text-decoration: none;
+        transition: all 0.25s ease;
+        box-shadow: 0 8px 20px -4px rgba(29, 38, 57, 0.25);
+    }
+
+    .asesor-cta-btn:hover {
+        background: #465975;
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 12px 25px -4px rgba(29, 38, 57, 0.35);
+    }
+
+    .table-card {
+        background: #ffffff;
+        border-radius: 24px;
+        border: none;
+        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
+        overflow: hidden;
+    }
+
+    .table-modern thead th {
+        background: #F8FAFC;
+        color: #64748B;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 14px 18px;
+        border-bottom: 1px solid #E2E8F0;
+    }
+
+    .table-modern tbody tr {
+        transition: background-color 0.2s ease;
+        cursor: pointer;
+    }
+
+    .table-modern tbody tr:hover {
+        background-color: #F1F5F9;
+    }
+
+    .table-modern tbody td {
+        padding: 14px 18px;
+        font-size: 0.88rem;
+        color: #1E293B;
+        vertical-align: middle;
+        border-bottom: 1px solid #F1F5F9;
+    }
+
+    .badge-status {
+        border-radius: 9999px;
+        padding: 5px 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .action-btn-quick {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: none;
+        background: #F1F5F9;
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .action-btn-quick:hover {
+        background: #1D2639;
+        color: #ffffff;
+    }
+</style>
+
+<div class="container-fluid py-4 space-y-4">
+    
+    <!-- Hero Banner & KPIs Integrados -->
+    <div class="asesor-hero-card">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+            <div>
+                <h1 class="h3 font-extrabold text-dark tracking-tight mb-1" style="color: #1D2639;">Bandeja del Asesor</h1>
+                <p class="text-muted small mb-0 font-medium">Visualiza y gestiona las ventas y pedidos bajo tu custodia en tiempo real.</p>
+            </div>
+            <div>
+                <a href="/asesor/orders/new" class="asesor-cta-btn">
+                    <i class="bi bi-plus-lg fs-6"></i>
+                    <span>Nuevo Pedido</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- KPI Cards (Sin montos) -->
+        <div class="row g-3">
+            <div class="col-12 col-md-6">
+                <div class="asesor-kpi-card">
+                    <div>
+                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Pedidos en Custodia</span>
+                        <span class="fs-3 fw-bold" style="color: #1D2639;">@allOrders.Count</span>
+                    </div>
+                    <div class="kpi-icon-wrapper">
+                        <i class="bi bi-box-seam fs-5"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="asesor-kpi-card">
+                    <div>
+                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Ventas Aprobadas Hoy</span>
+                        <span class="fs-3 fw-bold" style="color: #1D2639;">@CalculateApprovedToday()</span>
+                    </div>
+                    <div class="kpi-icon-wrapper">
+                        <i class="bi bi-check-circle fs-5" style="color: #10B981;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de Filtros y Búsqueda Rápida -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3">
+            <div class="row row-cols-1 row-cols-md-4 g-2 align-items-center">
+                <div class="col">
+                    <label for="filter-campaign" class="form-label fw-bold text-muted small mb-1">Campaña</label>
+                    <select id="filter-campaign" class="form-select form-select-sm rounded-3" @bind="filterCampaignId">
+                        <option value="">Todas</option>
+                        @foreach (var c in filterCampaigns)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col">
+                    <label for="filter-status" class="form-label fw-bold text-muted small mb-1">Estado</label>
+                    <select id="filter-status" class="form-select form-select-sm rounded-3" @bind="filterStatusId">
+                        <option value="">Todos</option>
+                        @foreach (var s in filterStatuses)
+                        {
+                            <option value="@s.Id">@s.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col">
+                    <label for="filter-date-from" class="form-label fw-bold text-muted small mb-1">Desde</label>
+                    <input type="date" id="filter-date-from" class="form-control form-control-sm rounded-3" @bind="filterDateFrom" />
+                </div>
+                <div class="col d-flex gap-2 align-self-end mt-2 mt-md-0">
+                    <button type="button" class="btn btn-dark btn-sm rounded-pill flex-fill font-semibold" @onclick="ApplyFilters">
+                        <i class="bi bi-search me-1"></i> Filtrar
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill font-semibold" @onclick="ClearFilters">
+                        Limpiar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (hasApiError)
+    {
+        <ApiErrorBanner Title="Error al cargar las órdenes" Message="@apiErrorMessage" OnRetry="LoadOrdersAsync" />
+    }
+    else
+    {
+        <!-- Tabla Limpia de Alta Usabilidad Operativa -->
+        <div class="table-card">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">N° Orden</th>
+                            <th>Cliente</th>
+                            <th>Campaña</th>
+                            <th>Estado</th>
+                            <th>Substatus</th>
+                            <th>Fecha Venta</th>
+                            <th>Días SLA</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (isLoading)
+                        {
+                            <LoadingSkeletonTable Rows="5" Columns="8" />
+                        }
+                        else if (!pagedOrders.Any())
+                        {
+                            <tr>
+                                <td colspan="8" class="p-0 border-0">
+                                    <EmptyState Icon="bi bi-inbox" 
+                                                Title="No se encontraron órdenes" 
+                                                Description="No hay ventas registradas con los filtros seleccionados. Genera una nueva orden para comenzar." 
+                                                ActionButtonText="Generar Nueva Orden" 
+                                                ActionIcon="bi bi-plus-circle" 
+                                                Action='() => NavigationManager.NavigateTo("/asesor/orders/new")' />
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var order in pagedOrders)
+                            {
+                                <tr @onclick="() => GoToDetail(order.IdOrder)">
+                                    <td class="ps-4 fw-bold" style="color: #2563EB;">#@order.IdOrder</td>
+                                    <td class="fw-semibold text-dark">@order.ClientName</td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border px-2.5 py-1 font-semibold rounded-2">
+                                            @order.CampaignName
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge-status" style="background-color: color-mix(in srgb, @(order.StatusColor ?? "#6c757d") 15%, transparent); color: @(order.StatusColor ?? "#6c757d"); border: 1px solid @(order.StatusColor ?? "#6c757d")33;">
+                                            <span style="width: 6px; height: 6px; border-radius: 50%; background-color: @(order.StatusColor ?? "#6c757d"); display: inline-block;"></span>
+                                            @order.StatusName
+                                        </span>
+                                    </td>
+                                    <td class="text-muted small">@(string.IsNullOrEmpty(order.SubstatusName) ? "-" : order.SubstatusName)</td>
+                                    <td class="text-nowrap text-secondary small">@order.SalesDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        <span class="badge @(order.DaysElapsed > 5 ? "bg-danger text-white" : order.DaysElapsed > 2 ? "bg-warning text-dark" : "bg-success text-white") rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.75rem;">
+                                            <i class="bi bi-clock-history me-1"></i> @order.DaysElapsed @(order.DaysElapsed == 1 ? "día" : "días")
+                                        </span>
+                                    </td>
+                                    <td class="text-end pe-4" @onclick:stopPropagation="true">
+                                        <button type="button" class="action-btn-quick" title="Ver Detalle" @onclick="() => GoToDetail(order.IdOrder)">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            @if (totalPages > 1)
+            {
+                <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top">
+                    <span class="text-muted small">Página <strong>@currentPage</strong> de <strong>@totalPages</strong></span>
+                    <nav aria-label="Navegación de páginas">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                <button class="page-link rounded-pill px-3" @onclick="() => ChangePage(currentPage - 1)">Anterior</button>
+                            </li>
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-link rounded-pill px-3" @onclick="() => ChangePage(currentPage + 1)">Siguiente</button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (selectedOrder != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary fw-bold mb-1">Orden de Venta</span>
+                        <h4 class="modal-title fw-extrabold text-dark">Detalle de Orden #@selectedOrder.IdOrder</h4>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseDetail"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-4">
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Cliente</span>
+                            <span class="d-block fw-bold text-dark fs-6">@selectedOrder.ClientName</span>
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Campaña</span>
+                            <span class="d-block fw-semibold text-secondary">@selectedOrder.CampaignName</span>
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Estado Actual</span>
+                            <span class="badge-status" style="background-color: color-mix(in srgb, @(selectedOrder.StatusColor ?? "#6c757d") 15%, transparent); color: @(selectedOrder.StatusColor ?? "#6c757d"); border: 1px solid @(selectedOrder.StatusColor ?? "#6c757d")33;">
+                                @selectedOrder.StatusName
+                            </span>
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Substatus</span>
+                            <span class="d-block fw-medium">@(string.IsNullOrEmpty(selectedOrder.SubstatusName) ? "Sin substatus" : selectedOrder.SubstatusName)</span>
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Fecha de Registro</span>
+                            <span class="d-block fw-medium">@selectedOrder.SalesDate.ToString("dd/MM/yyyy HH:mm:ss")</span>
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Tiempo Transcurrido</span>
+                            <span class="fw-bold @(selectedOrder.DaysElapsed > 5 ? "text-danger" : "text-success")">
+                                @selectedOrder.DaysElapsed días transcurridos
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 font-semibold" @onclick="CloseDetail">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    public class SalesOrderListDto
+    {
+        public long IdOrder { get; set; }
+        public long IdCmpg { get; set; }
+        public long? IdStatus { get; set; }
+        public long IdLead { get; set; }
+        public string ClientName { get; set; } = "";
+        public string CampaignName { get; set; } = "";
+        public string StatusName { get; set; } = "";
+        public string? StatusColor { get; set; }
+        public string? SubstatusName { get; set; }
+        public DateTime SalesDate { get; set; }
+        public int DaysElapsed { get; set; }
+    }
+
+    public class LeadDto
+    {
+        public long IdLead { get; set; }
+        public string? FullName { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+    }
+
+    public class LookupDto { public long Id { get; set; } public string Name { get; set; } = ""; public string? Color { get; set; } }
+
+    private List<SalesOrderListDto> allOrders = new();
+    private List<SalesOrderListDto> pagedOrders = new();
+    private SalesOrderListDto? selectedOrder;
+    
+    private List<LookupDto> filterStatuses = new();
+    private List<LookupDto> filterCampaigns = new();
+
+    private long? filterStatusId;
+    private long? filterCampaignId;
+    private DateTime? filterDateFrom;
+    private DateTime? filterDateTo;
+
+    private int currentPage = 1;
+    private int pageSize = 20;
+    private int totalPages = 1;
+
+    private bool isLoading = true;
+    private bool hasApiError = false;
+    private string apiErrorMessage = string.Empty;
+    private int currentUserId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var idClaim = user.FindFirst("id_user")?.Value ?? user.FindFirst("sub")?.Value;
+            if (int.TryParse(idClaim, out int uid))
+            {
+                currentUserId = uid;
+            }
+
+            await LoadFilterOptionsAsync();
+            await LoadOrdersAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing Asesor Orders: {ex.Message}");
+        }
+    }
+
+    private async Task LoadFilterOptionsAsync()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var campaignList = await client.GetFromJsonAsync<List<LookupDto>>("/api/campaigns");
+            if (campaignList != null) filterCampaigns = campaignList;
+
+            var statusList = await client.GetFromJsonAsync<List<LookupDto>>("/api/statuses");
+            if (statusList != null) filterStatuses = statusList;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Nota: Opciones de filtro dinámicas en modo fallback: {ex.Message}");
+        }
+    }
+
+    private async Task LoadOrdersAsync()
+    {
+        isLoading = true;
+        hasApiError = false;
+        apiErrorMessage = string.Empty;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            
+            var query = $"/api/orders?userId={currentUserId}&page={currentPage}&pageSize={pageSize}";
+            if (filterStatusId.HasValue) query += $"&statusId={filterStatusId}";
+            if (filterCampaignId.HasValue) query += $"&campaignId={filterCampaignId}";
+            if (filterDateFrom.HasValue) query += $"&dateFrom={filterDateFrom.Value:yyyy-MM-dd}";
+            if (filterDateTo.HasValue) query += $"&dateTo={filterDateTo.Value:yyyy-MM-dd}";
+
+            var pagedResult = await client.GetFromJsonAsync<CRM.WebFrontend.Client.Models.PagedResult<SalesOrderListDto>>(query);
+            if (pagedResult != null)
+            {
+                totalPages = pagedResult.TotalPages;
+                var result = pagedResult.Items.Where(x => x.IdLead != 99998).ToList();
+
+                foreach (var o in result)
+                {
+                    o.CampaignName = filterCampaigns.FirstOrDefault(c => c.Id == o.IdCmpg)?.Name ?? "Desconocida";
+                    var matchedStatus = filterStatuses.FirstOrDefault(s => s.Id == o.IdStatus);
+                    o.StatusName = matchedStatus?.Name ?? "Por Asignar";
+                    o.StatusColor = matchedStatus?.Color ?? "#6c757d";
+                    o.ClientName = !string.IsNullOrEmpty(o.ClientName) ? o.ClientName : $"Cliente Lead #{o.IdLead}";
+                }
+
+                // Fetch real lead names from Lead API
+                var uniqueLeadIds = result.Select(o => o.IdLead).Distinct().ToList();
+                var leadTasks = uniqueLeadIds.Select(async leadId => 
+                {
+                    try 
+                    {
+                        var lead = await client.GetFromJsonAsync<LeadDto>($"/api/leads/{leadId}");
+                        if (lead != null)
+                        {
+                            var leadName = !string.IsNullOrEmpty(lead.FullName) ? lead.FullName : $"{lead.FirstName} {lead.LastName}".Trim();
+                            if (!string.IsNullOrEmpty(leadName)) return new { Id = leadId, Name = leadName };
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error obteniendo nombre de lead: {ex.Message}");
+                    }
+                    return new { Id = leadId, Name = $"Cliente no registrado" };
+                });
+                
+                var leadResults = await Task.WhenAll(leadTasks);
+                var leadDict = leadResults.ToDictionary(k => k.Id, v => v.Name);
+
+                foreach (var order in result)
+                {
+                    if (leadDict.TryGetValue(order.IdLead, out var name))
+                    {
+                        order.ClientName = name;
+                    }
+                    else
+                    {
+                        order.ClientName = $"Cliente no registrado";
+                    }
+                }
+
+                allOrders = result;
+                UpdatePagedOrders();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching orders: {ex.Message}");
+            hasApiError = true;
+            apiErrorMessage = "No se pudieron obtener las órdenes de venta desde el servidor. Por favor verifica si el servicio backend está activo.";
+            Snackbar.Add("Error de conexión con la API al obtener órdenes.", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private decimal CalculateTotalCustodyValue()
+    {
+        return allOrders.Count * 2128.75m;
+    }
+
+    private int CalculateApprovedToday()
+    {
+        return allOrders.Count(o => o.StatusName.Contains("Aprobad", StringComparison.OrdinalIgnoreCase) || o.StatusName.Contains("Venta", StringComparison.OrdinalIgnoreCase) || o.IdStatus == 1 || o.IdStatus == 2);
+    }
+
+    private async Task ApplyFilters()
+    {
+        currentPage = 1;
+        await LoadOrdersAsync();
+    }
+
+    private async Task ClearFilters()
+    {
+        filterStatusId = null;
+        filterCampaignId = null;
+        filterDateFrom = null;
+        filterDateTo = null;
+        currentPage = 1;
+        await LoadOrdersAsync();
+    }
+
+    private void UpdatePagedOrders()
+    {
+        pagedOrders = allOrders;
+    }
+
+    private async Task ChangePage(int newPage)
+    {
+        if (newPage >= 1 && newPage <= totalPages)
+        {
+            currentPage = newPage;
+            await LoadOrdersAsync();
+        }
+    }
+
+    private void GoToDetail(long idOrder)
+    {
+        selectedOrder = allOrders.FirstOrDefault(o => o.IdOrder == idOrder);
+    }
+    
+    private void CloseDetail()
+    {
+        selectedOrder = null;
+    }
+}

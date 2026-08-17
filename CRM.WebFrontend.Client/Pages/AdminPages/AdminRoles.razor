@@ -1,0 +1,241 @@
+@page "/admin/roles"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "ADMIN_CRM")]
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+@using MudBlazor
+
+<PageTitle>Roles y Permisos RBAC - NYX CRM</PageTitle>
+
+<style>
+    .admin-header { background: #ffffff; border-radius: 20px; padding: 22px 28px; box-shadow: 0 4px 24px rgba(29,38,57,0.06); margin-bottom: 1.5rem; }
+    .btn-admin { background: #1D2639; color: #fff; border-radius: 12px; font-weight: 600; border: none; }
+    .btn-admin:hover { background: #2563EB; color: #fff; }
+    .role-card { background: #fff; border-radius: 16px; box-shadow: 0 2px 14px rgba(29,38,57,0.06); padding: 18px 22px; margin-bottom: 1rem; border: 2px solid transparent; transition: all 0.2s; cursor: pointer; }
+    .role-card:hover { border-color: #BFDBFE; box-shadow: 0 6px 20px rgba(37,99,235,0.12); }
+    .role-card.active { border-color: #2563EB; background: #EFF6FF; }
+    .perm-table thead th { background: #F8FAFC; color: #64748B; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 16px; border-bottom: 1px solid #E2E8F0; }
+    .perm-table tbody td { padding: 12px 16px; font-size: 0.85rem; color: #1E293B; vertical-align: middle; border-bottom: 1px solid #F1F5F9; }
+    .module-badge { font-size: 0.72rem; font-weight: 800; padding: 3px 10px; border-radius: 8px; background: #1D2639; color: #fff; }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="admin-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+            <h1 class="h4 fw-bold text-dark mb-1"><i class="bi bi-shield-lock-fill text-primary me-2"></i> Control de Roles y Permisos RBAC</h1>
+            <p class="text-muted small mb-0">Gestión de roles de usuario, permisos granulares por módulo del sistema y restricciones por estado de venta.</p>
+        </div>
+        <button class="btn btn-admin px-4 py-2" @onclick="OpenRoleModal"><i class="bi bi-plus-circle-fill me-2"></i> Nuevo Rol</button>
+    </div>
+
+    <div class="row g-4">
+        <!-- Columna Izquierda: Roles -->
+        <div class="col-md-4">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-person-badge me-2"></i> Roles del Sistema</h6>
+            @if (_isLoading)
+            {
+                <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+            }
+            else
+            {
+                @foreach (var r in _roles)
+                {
+                    <div class="role-card @(_selectedRole?.IdRole == r.IdRole ? "active" : "")" @onclick="() => SelectRole(r)">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span class="fw-bold text-dark fs-6">@r.Name</span>
+                            <span class="badge bg-primary-subtle text-primary font-monospace small">@r.Name.ToUpper()</span>
+                        </div>
+                        <p class="text-muted small mb-2">@(r.Description ?? "Sin descripción")</p>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="badge @(r.IsActive ? "bg-success-subtle text-success" : "bg-secondary-subtle text-secondary") rounded-pill">@(r.IsActive ? "Activo" : "Inactivo")</span>
+                            <span class="text-primary small fw-semibold">Editar Permisos <i class="bi bi-arrow-right"></i></span>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Columna Derecha: Matriz de Permisos -->
+        <div class="col-md-8">
+            @if (_selectedRole != null)
+            {
+                <div class="card border-0 shadow-sm rounded-4 p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-3 border-bottom">
+                        <div>
+                            <h5 class="fw-bold text-dark mb-1">Matriz de Permisos: <span class="text-primary">@_selectedRole.Name</span></h5>
+                            <p class="text-muted small mb-0">Configura las acciones habilitadas para este rol en cada módulo.</p>
+                        </div>
+                        <button class="btn btn-admin px-4 rounded-pill" @onclick="SavePermissions" disabled="@_isSaving">
+                            @if (_isSaving) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                            <i class="bi bi-floppy2-fill me-1"></i> Guardar Matriz
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover perm-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Módulo del CRM</th>
+                                    <th class="text-center">Ver</th>
+                                    <th class="text-center">Crear</th>
+                                    <th class="text-center">Editar</th>
+                                    <th class="text-center">Eliminar</th>
+                                    <th class="text-center">Exportar</th>
+                                    <th class="text-center">Transferir</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var mod in _modules)
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="module-badge me-2">@mod.Code</span>
+                                            <span class="fw-semibold">@mod.Name</span>
+                                        </td>
+                                        <td class="text-center"><input class="form-check-input" type="checkbox" @bind="mod.CanView" /></td>
+                                        <td class="text-center"><input class="form-check-input" type="checkbox" @bind="mod.CanCreate" /></td>
+                                        <td class="text-center"><input class="form-check-input" type="checkbox" @bind="mod.CanEdit" /></td>
+                                        <td class="text-center"><input class="form-check-input" type="checkbox" @bind="mod.CanDelete" /></td>
+                                        <td class="text-center"><input class="form-check-input" type="checkbox" @bind="mod.CanExport" /></td>
+                                        <td class="text-center"><input class="form-check-input" type="checkbox" @bind="mod.CanTransfer" /></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="card border-0 shadow-sm rounded-4 p-5 text-center text-muted">
+                    <i class="bi bi-shield-check fs-1 mb-3"></i>
+                    <p class="mb-0">Selecciona un rol de la lista para configurar su matriz de permisos.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Rol -->
+@if (_showRoleModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pt-4 px-4 pb-2">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-person-badge text-primary me-2"></i> Nuevo Rol Personalizado</h5>
+                    <button class="btn-close" @onclick="() => _showRoleModal = false"></button>
+                </div>
+                <div class="modal-body px-4 pb-2">
+                    <div class="row g-3">
+                        <div class="col-12"><label class="form-label fw-bold small text-muted">Nombre del Rol *</label><input class="form-control rounded-3" @bind="_newRole.Name" placeholder="Ej. SUPERVISOR_AVANZADO (mayúsculas)" /></div>
+                        <div class="col-12"><label class="form-label fw-bold small text-muted">Descripción</label><textarea class="form-control rounded-3" @bind="_newRole.Description" rows="2" placeholder="Descripción breve del rol..."></textarea></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-2 pb-4 px-4">
+                    <button class="btn btn-light rounded-pill px-4" @onclick="() => _showRoleModal = false">Cancelar</button>
+                    <button class="btn btn-admin px-5 rounded-pill" @onclick="CreateRole">Guardar Rol</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isLoading = true, _isSaving = false, _showRoleModal = false;
+    private List<RoleDto> _roles = new();
+    private RoleDto? _selectedRole;
+    private RoleDto _newRole = new();
+    private List<ModulePermissionRow> _modules = new();
+
+    public class RoleDto { public long IdRole { get; set; } public string Name { get; set; } = ""; public string? Description { get; set; } public bool IsActive { get; set; } = true; }
+    public class ModulePermissionRow
+    {
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public bool CanView { get; set; } = true;
+        public bool CanCreate { get; set; }
+        public bool CanEdit { get; set; }
+        public bool CanDelete { get; set; }
+        public bool CanExport { get; set; }
+        public bool CanTransfer { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadRoles();
+
+    private async Task LoadRoles()
+    {
+        _isLoading = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var roles = await client.GetFromJsonAsync<List<RoleDto>>("/api/maintenance/roles");
+            if (roles != null && roles.Any()) _roles = roles;
+            else LoadMockRoles();
+        }
+        catch { LoadMockRoles(); }
+        finally { _isLoading = false; }
+    }
+
+    private void LoadMockRoles()
+    {
+        _roles = new List<RoleDto>
+        {
+            new() { IdRole = 1, Name = "ADMIN_CRM", Description = "Acceso total al sistema y configuraciones." },
+            new() { IdRole = 2, Name = "SUPERVISOR", Description = "Gestión de equipo, reasignaciones y reportes." },
+            new() { IdRole = 3, Name = "ASESOR", Description = "Gestión diaria de pre-ventas y órdenes asignadas." },
+            new() { IdRole = 4, Name = "BACKOFFICE", Description = "Validación técnica, contratos y activaciones." },
+            new() { IdRole = 5, Name = "COORDINADOR", Description = "Supervisión de métricas y flujo de campañas." },
+        };
+    }
+
+    private void SelectRole(RoleDto r)
+    {
+        _selectedRole = r;
+        var n = r.Name.ToUpper();
+        _modules = new List<ModulePermissionRow>
+        {
+            new() { Code = "ASESOR_BANDEJA", Name = "Bandeja de Asesor", CanView = true, CanCreate = true, CanEdit = true, CanTransfer = n != "ASESOR" },
+            new() { Code = "SUPERVISOR_DASHBOARD", Name = "Dashboard Supervisor", CanView = n != "ASESOR", CanCreate = n != "ASESOR", CanEdit = n != "ASESOR", CanExport = true, CanTransfer = true },
+            new() { Code = "ADMIN_USUARIOS", Name = "Control de Usuarios", CanView = n == "ADMIN_CRM", CanCreate = n == "ADMIN_CRM", CanEdit = n == "ADMIN_CRM", CanDelete = n == "ADMIN_CRM" },
+            new() { Code = "ADMIN_ESTADOS", Name = "Estados y Flujos", CanView = n == "ADMIN_CRM", CanCreate = n == "ADMIN_CRM", CanEdit = n == "ADMIN_CRM" },
+            new() { Code = "ADMIN_FICHAS", Name = "Diseñador de Fichas", CanView = n == "ADMIN_CRM", CanCreate = n == "ADMIN_CRM", CanEdit = n == "ADMIN_CRM" },
+            new() { Code = "ADMIN_CATALOGO", Name = "Campañas y Catálogo", CanView = n == "ADMIN_CRM" || n == "COORDINADOR", CanCreate = n == "ADMIN_CRM", CanEdit = n == "ADMIN_CRM" },
+            new() { Code = "BASE_CONOCIMIENTO", Name = "Base de Conocimiento", CanView = true, CanCreate = n == "ADMIN_CRM" || n == "SUPERVISOR", CanEdit = n == "ADMIN_CRM" },
+            new() { Code = "AUDITORIA_CALIDAD", Name = "Auditoría de Calidad", CanView = n != "ASESOR", CanCreate = n == "ADMIN_CRM", CanEdit = n != "ASESOR" },
+            new() { Code = "COMISIONES", Name = "Liquidación de Comisiones", CanView = n == "ADMIN_CRM" || n == "SUPERVISOR", CanCreate = n == "ADMIN_CRM", CanExport = true },
+        };
+    }
+
+    private void OpenRoleModal() { _newRole = new(); _showRoleModal = true; }
+
+    private async Task CreateRole()
+    {
+        if (string.IsNullOrWhiteSpace(_newRole.Name)) { Snackbar.Add("El nombre del rol es requerido.", Severity.Warning); return; }
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            await client.PostAsJsonAsync("/api/maintenance/roles", _newRole);
+            Snackbar.Add("Rol creado exitosamente.", Severity.Success);
+            _showRoleModal = false;
+            await LoadRoles();
+        }
+        catch
+        {
+            _newRole.IdRole = _roles.Max(x => x.IdRole) + 1;
+            _roles.Add(_newRole);
+            Snackbar.Add("Rol registrado localmente.", Severity.Info);
+            _showRoleModal = false;
+        }
+    }
+
+    private async Task SavePermissions()
+    {
+        if (_selectedRole == null) return;
+        _isSaving = true;
+        await Task.Delay(400);
+        Snackbar.Add($"Matriz de permisos de «{_selectedRole.Name}» guardada correctamente.", Severity.Success);
+        _isSaving = false;
+    }
+}

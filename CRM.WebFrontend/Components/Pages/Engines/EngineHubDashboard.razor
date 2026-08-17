@@ -1,0 +1,157 @@
+@page "/engines/hub"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+<PageTitle>Nyx Engines Hub — Centro de Orquestación</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">⚙️ Centro de Orquestación de Motores Nyx</h2>
+            <p class="text-muted mb-0">Administración unificada, configuración de políticas y monitoreo en tiempo real.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-dark rounded-pill px-3" @onclick="RefreshStatusAsync">
+                🔄 Refrescar Estado
+            </button>
+        </div>
+    </div>
+
+    <!-- Indicadores de Salud de Microservicios -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0 rounded-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fs-4">⏱️</span>
+                            <h5 class="fw-bold mb-0">Nyx.SlaEngine</h5>
+                        </div>
+                        <span class="badge @(isSlaOnline ? "bg-success" : "bg-danger") rounded-pill px-3 py-2">
+                            @(isSlaOnline ? "ONLINE (5070)" : "OFFLINE")
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-3">Medición autónoma de tiempos de atención, alertas de warning/breach y calendarios laborales.</p>
+                    <a href="/engines/sla" class="btn btn-sm btn-dark w-100 rounded-pill">
+                        Gestionar Políticas SLA →
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0 rounded-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fs-4">🔄</span>
+                            <h5 class="fw-bold mb-0">Nyx.FlowEngine</h5>
+                        </div>
+                        <span class="badge @(isFlowOnline ? "bg-success" : "bg-danger") rounded-pill px-3 py-2">
+                            @(isFlowOnline ? "ONLINE (5072)" : "OFFLINE")
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-3">Gobernanza de etapas por pipeline, catálogo de checkpoints de Capa 1 y validación de bloqueos.</p>
+                    <a href="/engines/flow" class="btn btn-sm btn-dark w-100 rounded-pill">
+                        Diseñar Flujos & Checkpoints →
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0 rounded-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fs-4">🛡️</span>
+                            <h5 class="fw-bold mb-0">Nyx.ApprovalEngine</h5>
+                        </div>
+                        <span class="badge @(isApprovalOnline ? "bg-success" : "bg-danger") rounded-pill px-3 py-2">
+                            @(isApprovalOnline ? "ONLINE (5071)" : "OFFLINE")
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-3">Cadenas de aprobación multinivel, delegaciones de autoridad y regla ISO 27001 / SOX.</p>
+                    <a href="/engines/approval" class="btn btn-sm btn-dark w-100 rounded-pill">
+                        Configurar Cadenas & SOX →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mapeo Rápido de Entidades -->
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-header bg-white border-0 pt-4 pb-0">
+            <h5 class="fw-bold">🔗 Vincular Motores a Entidades del CRM</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Entidad CRM</th>
+                            <th>Motor SLA</th>
+                            <th>Motor de Flujos</th>
+                            <th>Motor de Aprobaciones</th>
+                            <th>Estado de Reglas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="fw-bold">🛒 Órdenes de Venta</td>
+                            <td><span class="badge bg-primary">SLA_SALES_VALIDATION (24h)</span></td>
+                            <td><span class="badge bg-info text-dark">PIPELINE_ALARMAS (9 Etapas)</span></td>
+                            <td><span class="badge bg-warning text-dark">APPROVAL_HIGH_DISCOUNT (>15%)</span></td>
+                            <td><span class="badge bg-success">ACTIVO</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">🚨 Incidencias Críticas</td>
+                            <td><span class="badge bg-primary">SLA_INCIDENT_CRITICAL (2h)</span></td>
+                            <td><span class="badge bg-secondary">Checkpoints Subsanables</span></td>
+                            <td><span class="badge bg-secondary">Aprobación de Cierre</span></td>
+                            <td><span class="badge bg-success">ACTIVO</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">🎯 Leads & Prospectos</td>
+                            <td><span class="badge bg-primary">SLA_LEAD_FIRST_CONTACT (15m)</span></td>
+                            <td><span class="badge bg-info text-dark">PIPELINE_PROSPECCION</span></td>
+                            <td><span class="badge bg-light text-dark">No Requiere</span></td>
+                            <td><span class="badge bg-success">ACTIVO</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">💼 Liquidación de Comisiones</td>
+                            <td><span class="badge bg-light text-dark">No Requiere</span></td>
+                            <td><span class="badge bg-secondary">Flujo de Pago</span></td>
+                            <td><span class="badge bg-warning text-dark">APPROVAL_COMMISSION_SETTLEMENT</span></td>
+                            <td><span class="badge bg-success">ACTIVO</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isSlaOnline = true;
+    private bool isApprovalOnline = true;
+    private bool isFlowOnline = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshStatusAsync();
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        // En una app completa, esto consulta /api/engines/status
+        isSlaOnline = true;
+        isApprovalOnline = true;
+        isFlowOnline = true;
+        StateHasChanged();
+    }
+}

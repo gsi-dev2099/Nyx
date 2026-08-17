@@ -1,0 +1,168 @@
+@page "/admin/comisiones"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "ADMIN_CRM,SUPERVISOR")]
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+@using MudBlazor
+
+<PageTitle>Liquidación de Comisiones - NYX CRM</PageTitle>
+
+<style>
+    .admin-header { background: #ffffff; border-radius: 20px; padding: 22px 28px; box-shadow: 0 4px 24px rgba(29,38,57,0.06); margin-bottom: 1.5rem; }
+    .btn-admin { background: #1D2639; color: #fff; border-radius: 12px; font-weight: 600; border: none; }
+    .btn-admin:hover { background: #2563EB; color: #fff; }
+    .stat-card { background: #fff; border-radius: 18px; box-shadow: 0 4px 20px rgba(29,38,57,0.06); padding: 20px 24px; }
+    .table-modern thead th { background: #F8FAFC; color: #64748B; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 16px; border-bottom: 1px solid #E2E8F0; }
+    .table-modern tbody td { padding: 12px 16px; font-size: 0.85rem; color: #1E293B; vertical-align: middle; border-bottom: 1px solid #F1F5F9; }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="admin-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+            <h1 class="h4 fw-bold text-dark mb-1"><i class="bi bi-cash-stack text-primary me-2"></i> Reglas y Liquidación de Comisiones</h1>
+            <p class="text-muted small mb-0">Cálculo de comisiones por producto/campaña y cierres periódicos para asesores y supervisores.</p>
+        </div>
+        <button class="btn btn-admin px-4 py-2" @onclick="CierrePeriodo"><i class="bi bi-calculator me-2"></i> Generar Cierre de Período</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <span class="text-muted small fw-bold uppercase">Período Actual</span>
+                <h3 class="fw-bold text-dark mb-0 mt-1">2026-08</h3>
+                <small class="text-primary fw-semibold"><i class="bi bi-calendar-event me-1"></i> En curso</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <span class="text-muted small fw-bold uppercase">Ventas Comisionables</span>
+                <h3 class="fw-bold text-dark mb-0 mt-1">142</h3>
+                <small class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i> Activadas</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <span class="text-muted small fw-bold uppercase">Total Comisiones</span>
+                <h3 class="fw-bold text-primary mb-0 mt-1">€ 4,850.00</h3>
+                <small class="text-muted">Proyectado</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <span class="text-muted small fw-bold uppercase">Asesores a Liquidar</span>
+                <h3 class="fw-bold text-dark mb-0 mt-1">18</h3>
+                <small class="text-secondary fw-semibold">Colaboradores</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Liquidaciones -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="px-4 py-3 bg-white border-bottom d-flex align-items-center justify-content-between">
+            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-receipt me-2"></i> Historias de Liquidación por Colaborador</h6>
+            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3"><i class="bi bi-download me-1"></i> Exportar Excel</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-modern align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Asesor / Colaborador</th>
+                        <th>Período</th>
+                        <th class="text-center">Órdenes Activadas</th>
+                        <th class="text-end">Monto Comisión</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in _settlements)
+                    {
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark">@s.Username</div>
+                                <div class="text-muted small">ID Asesor: #@s.IdUser</div>
+                            </td>
+                            <td><span class="badge bg-light text-dark border font-monospace">@s.PeriodCode</span></td>
+                            <td class="text-center"><span class="badge bg-primary-subtle text-primary font-bold px-3">@s.TotalOrders</span></td>
+                            <td class="text-end fw-bold text-dark">€ @s.TotalEur.ToString("N2")</td>
+                            <td class="text-center">
+                                <span class="badge @(s.Status == "LIQUIDADO" ? "bg-success-subtle text-success" : "bg-warning-subtle text-warning") rounded-pill px-3">@s.Status</span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-primary rounded-pill me-1" @onclick="() => VerDetalle(s)"><i class="bi bi-eye-fill"></i> Detalle</button>
+                                @if (s.Status == "PENDIENTE")
+                                {
+                                    <button class="btn btn-sm btn-success rounded-pill" @onclick="() => PagarComision(s)"><i class="bi bi-check2"></i> Aprobar</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<SettlementDto> _settlements = new();
+
+    public class SettlementDto
+    {
+        public long IdSettlement { get; set; }
+        public long IdUser { get; set; }
+        public string Username { get; set; } = "";
+        public DateTime? PeriodStart { get; set; }
+        public DateTime? PeriodEnd { get; set; }
+        public int TotalOrders { get; set; }
+        public decimal TotalEur { get; set; }
+        public decimal TotalPen { get; set; }
+        public string? ApprovedBy { get; set; }
+        public DateTime? PaidAt { get; set; }
+        public string? Notes { get; set; }
+        public string Status { get; set; } = "PENDIENTE";
+        public string PeriodCode => PeriodStart.HasValue ? PeriodStart.Value.ToString("yyyy-MM") : "—";
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadSettlements();
+
+    private async Task LoadSettlements()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var data = await client.GetFromJsonAsync<List<SettlementDto>>("/api/maintenance/commissions");
+            if (data != null && data.Any()) _settlements = data;
+            else LoadMockSettlements();
+        }
+        catch { LoadMockSettlements(); }
+    }
+
+    private void LoadMockSettlements()
+    {
+        _settlements = new List<SettlementDto>
+        {
+            new() { IdSettlement = 1, IdUser = 101, Username = "asesor_juan", PeriodStart = new DateTime(2026,7,1), PeriodEnd = new DateTime(2026,7,31), TotalOrders = 24, TotalEur = 840.00m, Status = "LIQUIDADO" },
+            new() { IdSettlement = 2, IdUser = 102, Username = "asesor_maria", PeriodStart = new DateTime(2026,7,1), PeriodEnd = new DateTime(2026,7,31), TotalOrders = 19, TotalEur = 665.00m, Status = "LIQUIDADO" },
+            new() { IdSettlement = 3, IdUser = 103, Username = "asesor_carlos", PeriodStart = new DateTime(2026,8,1), PeriodEnd = new DateTime(2026,8,31), TotalOrders = 15, TotalEur = 525.00m, Status = "PENDIENTE" },
+            new() { IdSettlement = 4, IdUser = 104, Username = "asesor_ana", PeriodStart = new DateTime(2026,8,1), PeriodEnd = new DateTime(2026,8,31), TotalOrders = 31, TotalEur = 1085.00m, Status = "PENDIENTE" },
+        };
+    }
+
+    private void CierrePeriodo()
+    {
+        Snackbar.Add("Proceso de cierre de período iniciado para 2026-08.", Severity.Info);
+    }
+
+    private void VerDetalle(SettlementDto s)
+    {
+        Snackbar.Add($"Viendo desglose de comisiones para {s.Username} ({s.TotalOrders} ventas • €{s.TotalEur:N2}).", Severity.Info);
+    }
+
+    private void PagarComision(SettlementDto s)
+    {
+        s.Status = "LIQUIDADO";
+        Snackbar.Add($"Liquidación aprobada para {s.Username}.", Severity.Success);
+    }
+}

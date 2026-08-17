@@ -44,6 +44,12 @@ public class LeadPreSale
     [Column("current_user_id")]
     public long CurrentUserId { get; set; }
 
+    [NotMapped]
+    public string? OwnerUserName { get; set; }
+
+    [NotMapped]
+    public string? CurrentUserName { get; set; }
+
     [Column("notes")]
     public string? Notes { get; set; }
 

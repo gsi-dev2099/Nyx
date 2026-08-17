@@ -1,0 +1,68 @@
+@CRM.ApiHub_HostAddress = http://localhost:5068
+
+# @name login
+POST {{CRM.ApiHub_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "mfarfan",
+  "password": "password123"
+}
+
+###
+
+@token = {{login.response.body.token}}
+
+### Obtener Plantillas de la Campaña 1, Etapa 1
+GET {{CRM.ApiHub_HostAddress}}/api/forms/campaign/1/stage/1
+Authorization: Bearer {{token}}
+
+###
+
+### Obtener Campos de la Plantilla 2 (Datos de Venta Vodafone)
+GET {{CRM.ApiHub_HostAddress}}/api/forms/2/fields
+Authorization: Bearer {{token}}
+
+###
+
+### Guardar Datos de Formulario para la Orden 1, Plantilla 2
+POST {{CRM.ApiHub_HostAddress}}/api/forms/order/1/template/2
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+[
+  {
+    "idFld": 1,
+    "valueText": "76543210",
+    "fieldStatus": "PENDING"
+  },
+  {
+    "idFld": 2,
+    "valueText": "Carlos Alcántara",
+    "fieldStatus": "PENDING"
+  },
+  {
+    "idFld": 3,
+    "valueText": "Av. Larco 123, Miraflores",
+    "fieldStatus": "PENDING"
+  }
+]
+
+###
+
+### Obtener Datos Guardados de la Orden 1
+GET {{CRM.ApiHub_HostAddress}}/api/forms/order/1/data
+Authorization: Bearer {{token}}
+
+###
+
+### Actualizar Estado del Campo de Datos Guardado
+# Nota: Reemplazar {idData} con un ID real retornado por la consulta anterior
+PUT {{CRM.ApiHub_HostAddress}}/api/forms/data/1/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "VALIDATED",
+  "validatedBy": 69
+}

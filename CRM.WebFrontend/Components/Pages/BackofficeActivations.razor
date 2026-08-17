@@ -1,0 +1,460 @@
+@page "/backoffice/activations"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "BACKOFFICE,SUPERVISOR,ADMIN_CRM")]
+@using CRM.WebFrontend.Services
+@inject IActivationService ActivationService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+
+<PageTitle>Panel Visual de Activaciones | BackOffice Nyx CRM</PageTitle>
+
+<style>
+    :root {
+        --bg-app: #f4f4f5;
+        --surface: #ffffff;
+        --border-color: #e4e4e7;
+        --text-main: #18181b;
+        --text-muted: #71717a;
+        --accent: #09090b;
+        --radius-lg: 16px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
+    }
+
+    .activation-card {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        border: none;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.02);
+        padding: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 0.775rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+
+    .badge-status {
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 5px 12px;
+        border-radius: 20px;
+        text-transform: uppercase;
+    }
+
+    .status-pending { background: #f4f4f5; color: #52525b; border: 1px solid #e4e4e7; }
+    .status-inprocess { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .status-activated { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .status-delayed { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    .status-failed { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+    /* Modal styling */
+    .modal-backdrop-blur {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(9, 9, 11, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-container {
+        background: #fff;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        width: 100%;
+        max-width: 520px;
+        overflow: hidden;
+    }
+</style>
+
+<div class="container-fluid py-4" style="max-width: 1400px;">
+    <!-- Navigation Tabs Header for Backoffice -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 pb-3 border-bottom gap-3">
+        <div>
+            <h3 class="fw-bold mb-0" style="color: var(--accent); letter-spacing: -0.5px;">BackOffice</h3>
+            <p class="text-muted m-0" style="font-size: 0.85rem;">Seguimiento en tiempo real de provisión, retrasos de SLA e historial de servicios</p>
+        </div>
+        
+        <div class="d-flex align-items-center gap-2 bg-white p-1.5 rounded-pill border shadow-sm">
+            <a href="/backoffice/dashboard" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
+                📄 Verificación DNI & OCR
+            </a>
+            <a href="/backoffice/incidents" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
+                ⚠️ Gestión de Incidencias
+            </a>
+            <a href="/backoffice/activations" class="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-semibold shadow-sm">
+                ⚡ Panel de Activaciones
+            </a>
+            <a href="/engines/checkpoints" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
+                🛡️ Checkpoints & Aprobaciones
+            </a>
+            <button class="btn btn-sm btn-outline-dark rounded-pill px-3 py-1.5 text-nowrap ms-2" style="font-size: 0.85rem;" @onclick="LoadActivations">
+                ↻ Actualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Metrics Summary Bar -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-2 col-6">
+            <div class="activation-card p-3 text-center">
+                <span class="section-title d-block mb-1">Total Solicitudes</span>
+                <span class="fs-4 fw-bold text-dark">@_allActivations.Count</span>
+            </div>
+        </div>
+        <div class="col-md-2 col-6">
+            <div class="activation-card p-3 text-center bg-light">
+                <span class="section-title d-block mb-1">Pendientes</span>
+                <span class="fs-4 fw-bold text-secondary">@_allActivations.Count(a => a.Status == "PENDING")</span>
+            </div>
+        </div>
+        <div class="col-md-2 col-6">
+            <div class="activation-card p-3 text-center bg-primary bg-opacity-10 border-primary border-opacity-25">
+                <span class="section-title text-primary d-block mb-1">En Proceso</span>
+                <span class="fs-4 fw-bold text-primary">@_allActivations.Count(a => a.Status == "IN_PROCESS")</span>
+            </div>
+        </div>
+        <div class="col-md-2 col-6">
+            <div class="activation-card p-3 text-center bg-warning bg-opacity-10 border-warning border-opacity-25">
+                <span class="section-title text-warning d-block mb-1">⚠️ SLA Retrasado</span>
+                <span class="fs-4 fw-bold text-warning">@_allActivations.Count(a => a.IsDelayed)</span>
+            </div>
+        </div>
+        <div class="col-md-2 col-6">
+            <div class="activation-card p-3 text-center bg-success bg-opacity-10 border-success border-opacity-25">
+                <span class="section-title text-success d-block mb-1">Activadas OK</span>
+                <span class="fs-4 fw-bold text-success">@_allActivations.Count(a => a.Status == "ACTIVATED")</span>
+            </div>
+        </div>
+        <div class="col-md-2 col-6">
+            <div class="activation-card p-3 text-center bg-danger bg-opacity-10 border-danger border-opacity-25">
+                <span class="section-title text-danger d-block mb-1">Fallidas</span>
+                <span class="fs-4 fw-bold text-danger">@_allActivations.Count(a => a.Status == "FAILED")</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra Superior de Filtros (Sueltos sobre el fondo) -->
+    <div class="row g-3 align-items-center mb-4">
+        <div class="col-lg-5 col-md-6">
+            <div class="search-pill-container">
+                <input type="text" class="search-pill-input" placeholder="Buscar por cliente, producto u orden..." @bind="_searchFilter" @bind:event="oninput" />
+                <button class="search-icon-btn" title="Buscar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </button>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <select class="form-select filter-pill-select" @bind="_selectedStatus">
+                <option value="TODOS">Todos los Estados</option>
+                <option value="PENDING">Pendientes</option>
+                <option value="IN_PROCESS">En Proceso</option>
+                <option value="ACTIVATED">Activadas OK</option>
+                <option value="DELAYED">SLA Retrasado</option>
+                <option value="FAILED">Fallidas</option>
+            </select>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <select class="form-select filter-pill-select" @bind="_selectedProvider">
+                <option value="0">Todos los Proveedores</option>
+                <option value="1">Telecom / Fibra (Movistar, Orange)</option>
+                <option value="2">Móvil (Vodafone, Yoigo)</option>
+                <option value="3">Energía / Luz (Iberdrola, Endesa)</option>
+                <option value="4">Gas Natural (Naturgy)</option>
+            </select>
+        </div>
+        <div class="col-lg-1 col-md-6 text-end">
+            <button class="search-icon-btn border-0 shadow-none position-static w-auto h-auto p-2" title="Limpiar Filtros" @onclick="ResetFilters">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabla Principal de Activaciones -->
+    @if (_isLoading)
+    {
+        <div class="activation-card d-flex flex-column align-items-center justify-content-center py-5">
+            <div class="spinner-border text-dark mb-3" role="status"></div>
+            <span class="text-muted">Cargando historial de activaciones...</span>
+        </div>
+    }
+    else
+    {
+        <div class="activation-card">
+            <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-3">
+                <h5 class="fw-bold m-0" style="font-size: 1.05rem;">Historial de Provisión de Productos</h5>
+                <span class="text-muted" style="font-size: 0.85rem;">Mostrando @FilteredActivations.Count registros</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle table-hover">
+                    <thead>
+                        <tr>
+                            <th class="section-title" style="width: 8%;">Orden</th>
+                            <th class="section-title" style="width: 20%;">Cliente Titular</th>
+                            <th class="section-title" style="width: 20%;">Etapa Nyx Flow</th>
+                            <th class="section-title" style="width: 22%;">Producto / Servicio</th>
+                            <th class="section-title" style="width: 12%;">Proveedor</th>
+                            <th class="section-title" style="width: 8%;">Días</th>
+                            <th class="section-title text-center" style="width: 10%;">Estado SLA</th>
+                            <th class="section-title text-end" style="width: 10%;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (FilteredActivations.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-5">
+                                    No se encontraron productos de activación que coincidan con los filtros aplicados.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var item in FilteredActivations)
+                            {
+                                <tr>
+                                    <td class="fw-bold text-dark">#@item.IdOrder</td>
+                                    <td>
+                                        <div class="fw-semibold">@item.CustomerName</div>
+                                        <div class="text-muted" style="font-size: 0.75rem;">Solicitado: @item.RequestedDate.ToString("dd/MM/yyyy")</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-dark text-white rounded-pill px-2.5 py-1 font-bold" style="font-size: 0.72rem;">
+                                            ⚡ Activación & Provisión
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="fw-medium text-truncate" style="max-width: 260px;">@item.ProductName</div>
+                                        @if (!string.IsNullOrEmpty(item.Notes))
+                                        {
+                                            <div class="text-muted text-truncate" style="font-size: 0.75rem; max-width: 260px;">📝 @item.Notes</div>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border rounded-pill px-3 py-1" style="font-size: 0.75rem;">
+                                            @item.ProviderName
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-semibold @(item.IsDelayed ? "text-danger" : "text-muted")" style="font-size: 0.85rem;">
+                                            @item.DaysElapsed d
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge-status @GetStatusCssClass(item.Status)">
+                                            @GetStatusDisplayName(item.Status)
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-dark rounded-pill px-3" @onclick="() => OpenUpdateModal(item)">
+                                            Gestionar
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal de Actualización de Estado de Activación -->
+@if (_showModal && _selectedItem != null)
+{
+    <div class="modal-backdrop-blur">
+        <div class="modal-container">
+            <div class="border-bottom p-3 bg-light d-flex align-items-center justify-content-between">
+                <h5 class="fw-bold m-0" style="font-size: 1.05rem;">Gestión de Activación de Producto</h5>
+                <button type="button" class="btn-close" @onclick="CloseUpdateModal"></button>
+            </div>
+
+            <div class="p-4">
+                <div class="mb-3">
+                    <span class="section-title">Orden de Venta</span>
+                    <div class="fw-bold fs-5">#@_selectedItem.IdOrder - @_selectedItem.CustomerName</div>
+                    <div class="text-muted" style="font-size: 0.85rem;">@_selectedItem.ProductName (@_selectedItem.ProviderName)</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label section-title">Nuevo Estado de Provisión</label>
+                    <select class="form-select" @bind="_modalStatus">
+                        <option value="IN_PROCESS">En Proceso con Proveedor</option>
+                        <option value="ACTIVATED">✅ Activada Exitosamente</option>
+                        <option value="DELAYED">⚠️ Retrasada (SLA Excedido)</option>
+                        <option value="FAILED">❌ Fallida / Rechazada por Proveedor</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label section-title">Fecha Efectiva de Instalación/Activación</label>
+                    <input type="date" class="form-control" @bind="_modalActualDate" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label section-title">Notas / Observaciones del Operador</label>
+                    <textarea class="form-control" rows="3" placeholder="Ingresa detalles o comentarios de seguimiento..." @bind="_modalNotes"></textarea>
+                </div>
+            </div>
+
+            <div class="border-top p-3 d-flex align-items-center justify-content-end gap-2 bg-light">
+                <button class="btn btn-outline-secondary rounded-pill px-4" @onclick="CloseUpdateModal">Cancelar</button>
+                <button class="btn btn-dark rounded-pill px-4" disabled="@_isSaving" @onclick="SaveActivationStatus">
+                    @if (_isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ProductActivationViewModel> _allActivations = new();
+    private bool _isLoading = true;
+    private bool _isSaving = false;
+
+    // Filter states
+    private string _searchFilter = string.Empty;
+    private string _selectedStatus = "TODOS";
+    private long _selectedProvider = 0;
+
+    // Modal state
+    private bool _showModal = false;
+    private ProductActivationViewModel? _selectedItem;
+    private string _modalStatus = "ACTIVATED";
+    private DateTime _modalActualDate = DateTime.Today;
+    private string _modalNotes = string.Empty;
+
+    private List<ProductActivationViewModel> FilteredActivations
+    {
+        get
+        {
+            return _allActivations.Where(a =>
+                (string.IsNullOrWhiteSpace(_searchFilter) ||
+                 a.CustomerName.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase) ||
+                 a.ProductName.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase) ||
+                 a.IdOrder.ToString().Contains(_searchFilter)) &&
+                (_selectedStatus == "TODOS" || a.Status.Equals(_selectedStatus, StringComparison.OrdinalIgnoreCase) || (_selectedStatus == "DELAYED" && a.IsDelayed)) &&
+                (_selectedProvider == 0 || a.IdProvider == _selectedProvider)
+            ).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadActivations();
+    }
+
+    private async Task LoadActivations()
+    {
+        _isLoading = true;
+        try
+        {
+            _allActivations = await ActivationService.GetPendingActivationsAsync(_selectedProvider);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar activaciones: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ResetFilters()
+    {
+        _searchFilter = string.Empty;
+        _selectedStatus = "TODOS";
+        _selectedProvider = 0;
+    }
+
+    private string GetStatusCssClass(string status)
+    {
+        return status switch
+        {
+            "PENDING" => "status-pending",
+            "IN_PROCESS" => "status-inprocess",
+            "ACTIVATED" => "status-activated",
+            "DELAYED" => "status-delayed",
+            "FAILED" => "status-failed",
+            _ => "status-pending"
+        };
+    }
+
+    private string GetStatusDisplayName(string status)
+    {
+        return status switch
+        {
+            "PENDING" => "Pendiente",
+            "IN_PROCESS" => "En Proceso",
+            "ACTIVATED" => "Activada OK",
+            "DELAYED" => "Retrasada SLA",
+            "FAILED" => "Fallida",
+            _ => status
+        };
+    }
+
+    private void OpenUpdateModal(ProductActivationViewModel item)
+    {
+        _selectedItem = item;
+        _modalStatus = item.Status == "PENDING" ? "IN_PROCESS" : item.Status;
+        _modalActualDate = item.ActualDate ?? DateTime.Today;
+        _modalNotes = item.Notes ?? string.Empty;
+        _showModal = true;
+    }
+
+    private void CloseUpdateModal()
+    {
+        _showModal = false;
+        _selectedItem = null;
+    }
+
+    private async Task SaveActivationStatus()
+    {
+        if (_selectedItem == null) return;
+        _isSaving = true;
+
+        try
+        {
+            var success = await ActivationService.UpdateActivationAsync(_selectedItem.IdItem, _modalStatus, _modalActualDate, _modalNotes);
+            if (success)
+            {
+                _selectedItem.Status = _modalStatus;
+                _selectedItem.ActualDate = _modalActualDate;
+                _selectedItem.Notes = _modalNotes;
+
+                Snackbar.Add($"Estado de activación para la orden #{_selectedItem.IdOrder} actualizado a {GetStatusDisplayName(_modalStatus)}.", Severity.Success);
+                CloseUpdateModal();
+            }
+            else
+            {
+                Snackbar.Add("Error al actualizar el estado de activación en el servidor.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

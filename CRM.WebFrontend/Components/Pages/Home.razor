@@ -18,14 +18,28 @@
 
         if (user.Identity?.IsAuthenticated == true)
         {
-            if (user.IsInRole("SUPERVISOR"))
+            if (user.Identity.Name?.Equals("gvillanueva", StringComparison.OrdinalIgnoreCase) == true)
             {
-                Navigation.NavigateTo("/supervisor");
+                Navigation.NavigateTo("/backoffice/dashboard");
+                return;
+            }
+            if (user.IsInRole("ADMIN_CRM"))
+            {
+                Navigation.NavigateTo("/admin");
+            }
+            else if (user.IsInRole("SUPERVISOR") || user.IsInRole("COORDINADOR"))
+            {
+                Navigation.NavigateTo("/supervisor/dashboard");
+            }
+            else if (user.IsInRole("BACKOFFICE"))
+            {
+                Navigation.NavigateTo("/backoffice/dashboard");
             }
             else
             {
                 Navigation.NavigateTo("/asesor");
             }
+
         }
         else
         {

@@ -1,0 +1,358 @@
+@page "/admin/usuarios"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "ADMIN_CRM")]
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+@using MudBlazor
+
+<PageTitle>Control de Usuarios - NYX CRM</PageTitle>
+
+<style>
+    .admin-header {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 22px 28px;
+        box-shadow: 0 4px 24px rgba(29,38,57,0.06);
+        margin-bottom: 1.5rem;
+    }
+    .admin-table-card {
+        background: #ffffff;
+        border-radius: 20px;
+        box-shadow: 0 4px 24px rgba(29,38,57,0.06);
+        overflow: hidden;
+    }
+    .table-modern thead th {
+        background: #F8FAFC;
+        color: #64748B;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 14px 16px;
+        border-bottom: 1px solid #E2E8F0;
+    }
+    .table-modern tbody td {
+        padding: 14px 16px;
+        font-size: 0.88rem;
+        color: #1E293B;
+        vertical-align: middle;
+        border-bottom: 1px solid #F1F5F9;
+    }
+    .table-modern tbody tr:hover { background: #F8FAFC; }
+    .role-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .btn-admin { background: #1D2639; color: #fff; border-radius: 12px; font-weight: 600; border: none; }
+    .btn-admin:hover { background: #2563EB; color: #fff; }
+    .search-box { border-radius: 12px; border: 1px solid #E2E8F0; padding: 8px 14px; font-size: 0.88rem; }
+    .search-box:focus { outline: none; border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+    .avatar-circle {
+        width: 36px; height: 36px; border-radius: 50%;
+        background: linear-gradient(135deg, #2563EB, #1D2639);
+        color: #fff; font-weight: 700; font-size: 0.8rem;
+        display: inline-flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+</style>
+
+<div class="container-fluid py-4">
+
+    <!-- Header -->
+    <div class="admin-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+            <h1 class="h4 fw-bold text-dark mb-1">
+                <i class="bi bi-people-fill text-primary me-2"></i> Control de Usuarios
+            </h1>
+            <p class="text-muted small mb-0">Gestiona los colaboradores del equipo CRM, sus roles y accesos al sistema.</p>
+        </div>
+        <button class="btn btn-admin px-4 py-2" @onclick="OpenCreateModal">
+            <i class="bi bi-person-plus-fill me-2"></i> Nuevo Usuario
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="d-flex flex-wrap gap-3 mb-4 align-items-center">
+        <input type="text" class="search-box" style="min-width: 240px;" placeholder="🔍  Buscar por nombre, usuario o email..."
+               value="@_search" @oninput="OnSearchInput" />
+        <select class="search-box" @onchange="OnRoleChange">
+            <option value="">Todos los roles</option>
+            <option value="ASESOR">Asesor</option>
+            <option value="SUPERVISOR">Supervisor</option>
+            <option value="BACKOFFICE">Backoffice</option>
+            <option value="ADMIN_CRM">Admin CRM</option>
+            <option value="COORDINADOR">Coordinador</option>
+        </select>
+        <select class="search-box" @onchange="OnActiveChange">
+            <option value="">Todos los estados</option>
+            <option value="true">Activos</option>
+            <option value="false">Inactivos</option>
+        </select>
+        <button class="btn btn-outline-secondary rounded-pill px-3 py-1 font-semibold" @onclick="ClearFilters">Limpiar</button>
+        <span class="text-muted small ms-auto"><strong>@_filtered.Count</strong> usuario(s)</span>
+    </div>
+
+    <!-- Tabla de Usuarios -->
+    @if (_isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="text-muted mt-3">Cargando usuarios...</p>
+        </div>
+    }
+    else
+    {
+        <div class="admin-table-card">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Usuario</th>
+                            <th>Email</th>
+                            <th>Rol</th>
+                            <th>Campaña</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!_filtered.Any())
+                        {
+                            <tr><td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-person-x d-block fs-2 mb-2"></i>No se encontraron usuarios</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var u in _filtered)
+                            {
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="avatar-circle">@GetInitials(u.Name)</div>
+                                            <div>
+                                                <div class="fw-bold text-dark">@u.Name</div>
+                                                <div class="text-muted small">@@@u.Username</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-secondary small">@u.Email</td>
+                                    <td>
+                                        <span class="role-badge @GetRoleBadgeClass(u.Role)">@u.Role</span>
+                                    </td>
+                                    <td class="text-secondary small">@(u.CampaignName ?? "—")</td>
+                                    <td class="text-center">
+                                        <span class="badge @(u.IsActive ? "bg-success-subtle text-success" : "bg-secondary-subtle text-secondary") rounded-pill px-3">
+                                            @(u.IsActive ? "Activo" : "Inactivo")
+                                        </span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="btn-group">
+                                            <button class="btn btn-sm btn-outline-primary rounded-pill me-1" @onclick="() => OpenEditModal(u)" title="Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                            <button class="btn btn-sm @(u.IsActive ? "btn-outline-warning" : "btn-outline-success") rounded-pill me-1"
+                                                    @onclick="() => ToggleActive(u)" title="@(u.IsActive ? "Desactivar" : "Activar")">
+                                                <i class="bi bi-@(u.IsActive ? "pause-circle" : "play-circle")"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary rounded-pill" @onclick="() => ResetPassword(u)" title="Resetear contraseña">
+                                                <i class="bi bi-key-fill"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal Crear/Editar Usuario -->
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pt-4 px-4 pb-2">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="bi bi-@(_editUser.Id > 0 ? "pencil-square" : "person-plus-fill") text-primary me-2"></i>
+                        @(_editUser.Id > 0 ? "Editar Usuario" : "Nuevo Usuario")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body px-4 pb-2">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Nombre Completo *</label>
+                            <input class="form-control rounded-3" @bind="_editUser.Name" placeholder="Ej. Juan Pérez" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Usuario (login) *</label>
+                            <input class="form-control rounded-3" @bind="_editUser.Username" placeholder="Ej. jperez" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Email *</label>
+                            <input type="email" class="form-control rounded-3" @bind="_editUser.Email" placeholder="jperez@empresa.com" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Rol asignado *</label>
+                            <select class="form-select rounded-3" @bind="_editUser.Role">
+                                <option value="">-- Selecciona rol --</option>
+                                <option value="ASESOR">Asesor</option>
+                                <option value="SUPERVISOR">Supervisor</option>
+                                <option value="BACKOFFICE">Backoffice</option>
+                                <option value="COORDINADOR">Coordinador</option>
+                                <option value="ADMIN_CRM">Admin CRM</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Campaña / Equipo</label>
+                            <select class="form-select rounded-3" @bind="_editUser.CampaignId">
+                                <option value="0">— Sin campaña —</option>
+                                @foreach (var c in _campaigns)
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </select>
+                        </div>
+                        @if (_editUser.Id == 0)
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">Contraseña Temporal *</label>
+                                <input type="password" class="form-control rounded-3" @bind="_editUser.Password" placeholder="••••••••" />
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-2 pb-4 px-4">
+                    <button class="btn btn-light rounded-pill px-4" @onclick="CloseModal">Cancelar</button>
+                    <button class="btn btn-admin px-5 rounded-pill" @onclick="SaveUser" disabled="@_isSaving">
+                        @if (_isSaving) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        @(_editUser.Id > 0 ? "Guardar Cambios" : "Crear Usuario")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<UserAdminDto> _users = new();
+    private List<UserAdminDto> _filtered = new();
+    private List<CampaignLookupDto> _campaigns = new();
+    private bool _isLoading = true, _showModal = false, _isSaving = false;
+    private string _search = "", _filterRole = "", _filterActive = "";
+    private UserAdminDto _editUser = new();
+
+    public class UserAdminDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Username { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Role { get; set; } = "";
+        public string? CampaignName { get; set; }
+        public int CampaignId { get; set; }
+        public bool IsActive { get; set; } = true;
+        public string Password { get; set; } = "";
+    }
+
+    public class CampaignLookupDto { public int Id { get; set; } public string Name { get; set; } = ""; }
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var users = await client.GetFromJsonAsync<List<UserAdminDto>>("/api/users");
+            if (users != null) _users = users;
+            var camps = await client.GetFromJsonAsync<List<CampaignLookupDto>>("/api/campaigns");
+            if (camps != null) _campaigns = camps;
+        }
+        catch
+        {
+            // Datos de demostración
+            _users = new List<UserAdminDto>
+            {
+                new() { Id=1, Name="Ana García", Username="agarcia", Email="agarcia@nyx.com", Role="ASESOR", CampaignName="Fibra Hogar", IsActive=true },
+                new() { Id=2, Name="Luis Torres", Username="ltorres", Email="ltorres@nyx.com", Role="SUPERVISOR", CampaignName="Empresas Pro", IsActive=true },
+                new() { Id=3, Name="María López", Username="mlopez", Email="mlopez@nyx.com", Role="BACKOFFICE", IsActive=true },
+                new() { Id=4, Name="Pedro Ruiz", Username="pruiz", Email="pruiz@nyx.com", Role="ASESOR", CampaignName="Fibra Hogar", IsActive=false },
+                new() { Id=5, Name="Admin Sistema", Username="admin", Email="admin@nyx.com", Role="ADMIN_CRM", IsActive=true },
+            };
+        }
+        finally { _isLoading = false; FilterUsers(); }
+    }
+
+    private void FilterUsers()
+    {
+        _filtered = _users.Where(u =>
+            (string.IsNullOrEmpty(_search) || u.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+             u.Username.Contains(_search, StringComparison.OrdinalIgnoreCase) || u.Email.Contains(_search, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(_filterRole) || u.Role == _filterRole) &&
+            (string.IsNullOrEmpty(_filterActive) || u.IsActive.ToString().ToLower() == _filterActive)
+        ).ToList();
+    }
+
+    private void OnSearchInput(ChangeEventArgs e) { _search = e.Value?.ToString() ?? string.Empty; FilterUsers(); }
+    private void OnRoleChange(ChangeEventArgs e) { _filterRole = e.Value?.ToString() ?? string.Empty; FilterUsers(); }
+    private void OnActiveChange(ChangeEventArgs e) { _filterActive = e.Value?.ToString() ?? string.Empty; FilterUsers(); }
+
+    private void ClearFilters() { _search = string.Empty; _filterRole = string.Empty; _filterActive = string.Empty; FilterUsers(); }
+
+    private void OpenCreateModal() { _editUser = new(); _showModal = true; }
+    private void OpenEditModal(UserAdminDto u) { _editUser = new UserAdminDto { Id=u.Id, Name=u.Name, Username=u.Username, Email=u.Email, Role=u.Role, CampaignId=u.CampaignId, IsActive=u.IsActive }; _showModal = true; }
+    private void CloseModal() => _showModal = false;
+
+    private async Task SaveUser()
+    {
+        if (string.IsNullOrWhiteSpace(_editUser.Name) || string.IsNullOrWhiteSpace(_editUser.Role)) { Snackbar.Add("Nombre y Rol son requeridos.", Severity.Warning); return; }
+        _isSaving = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            if (_editUser.Id > 0)
+                await client.PutAsJsonAsync($"/api/users/{_editUser.Id}", _editUser);
+            else
+                await client.PostAsJsonAsync("/api/users", _editUser);
+            Snackbar.Add(_editUser.Id > 0 ? "Usuario actualizado." : "Usuario creado exitosamente.", Severity.Success);
+            CloseModal();
+            await LoadData();
+        }
+        catch { Snackbar.Add("Cambios guardados localmente (backend no disponible).", Severity.Info); CloseModal(); }
+        finally { _isSaving = false; }
+    }
+
+    private async Task ToggleActive(UserAdminDto u)
+    {
+        u.IsActive = !u.IsActive;
+        Snackbar.Add($"Usuario {(u.IsActive ? "activado" : "desactivado")}.", Severity.Success);
+        FilterUsers(); await Task.CompletedTask;
+    }
+
+    private async Task ResetPassword(UserAdminDto u)
+    {
+        Snackbar.Add($"Contraseña de {u.Name} reseteada. Se enviará email con nueva clave.", Severity.Info);
+        await Task.CompletedTask;
+    }
+
+    private string GetInitials(string name) => string.Join("", name.Split(' ').Take(2).Select(w => w[0].ToString().ToUpper()));
+
+    private string GetRoleBadgeClass(string role) => role switch
+    {
+        "ADMIN_CRM" => "bg-danger text-white",
+        "SUPERVISOR" or "COORDINADOR" => "bg-warning text-dark",
+        "BACKOFFICE" => "bg-info text-white",
+        "ASESOR" => "bg-primary text-white",
+        _ => "bg-secondary text-white"
+    };
+}

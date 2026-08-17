@@ -1,0 +1,268 @@
+@page "/profile"
+@page "/admin/perfil"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Perfil y Configuración de Accesibilidad — NYX CRM</PageTitle>
+
+<style>
+    .profile-wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    }
+
+    .profile-header-card {
+        background: #ffffff;
+        border: 1px solid #E2E8F0;
+        border-radius: 20px;
+        padding: 28px 32px;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+        margin-bottom: 24px;
+    }
+
+    .user-avatar-large {
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+        background: #0F172A;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        font-weight: 800;
+    }
+
+    .theme-card {
+        background: #ffffff;
+        border: 2px solid #E2E8F0;
+        border-radius: 18px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .theme-card:hover {
+        transform: translateY(-3px);
+        border-color: #0F172A;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    .theme-card.active {
+        border-color: #0F172A;
+        background: #F8FAFC;
+        box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
+    }
+
+    .palette-swatch {
+        display: flex;
+        gap: 6px;
+        margin-top: 12px;
+    }
+
+    .swatch-circle {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 1px solid rgba(0,0,0,0.1);
+    }
+
+    .badge-role {
+        background: #F1F5F9;
+        color: #0F172A;
+        border: 1px solid #CBD5E1;
+        font-weight: 700;
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 12px;
+    }
+</style>
+
+<div class="profile-wrap">
+    <!-- Header Card -->
+    <div class="profile-header-card d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-4">
+            <div class="user-avatar-large shadow-sm">
+                @(_username.Length > 0 ? _username.Substring(0, 1).ToUpper() : "U")
+            </div>
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <h3 class="fw-bold text-dark m-0">@_name</h3>
+                    <span class="badge-role">@_role</span>
+                </div>
+                <p class="text-muted small m-0">
+                    <i class="bi bi-person-badge me-1"></i> Usuario: <strong>@_username</strong> &nbsp;|&nbsp; 
+                    <i class="bi bi-briefcase me-1"></i> Campaña: <strong>@(_campaign ?? "General")</strong>
+                </p>
+            </div>
+        </div>
+        <div>
+            <span class="badge bg-success-subtle text-success fw-bold px-3 py-2 rounded-pill">
+                <i class="bi bi-check-circle-fill me-1"></i> Sesión Activa
+            </span>
+        </div>
+    </div>
+
+    <!-- Accessibility Theme Selector Section -->
+    <div class="card border-0 rounded-4 p-4 shadow-sm mb-4">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-palette-fill text-primary fs-4"></i>
+            <h4 class="fw-bold text-dark m-0">Paleta de Colores & Accesibilidad Visual</h4>
+        </div>
+        <p class="text-muted small mb-4">
+            Personaliza el tema visual del CRM para adaptar la legibilidad a tus necesidades. Incluye soporte para daltonismo (Protanopía/Deuteranopía, Tritanopía) y prevención de fatiga visual / heterocromía.
+        </p>
+
+        <div class="row g-3">
+            <!-- Theme 1: Default Corporate Matte -->
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="theme-card @(_currentTheme == "theme-default" ? "active" : "")" @onclick='() => SelectTheme("theme-default")'>
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-dark">NYX Corporativo</span>
+                            @if (_currentTheme == "theme-default")
+                            {
+                                <i class="bi bi-check-circle-fill text-dark fs-5"></i>
+                            }
+                        </div>
+                        <p class="text-muted small m-0">Diseño neutro mate de alta legibilidad sin degradados saturados.</p>
+                    </div>
+                    <div class="palette-swatch">
+                        <div class="swatch-circle" style="background: #0F172A;" title="Azul Marino Mate"></div>
+                        <div class="swatch-circle" style="background: #F8FAFC;" title="Gris Claro"></div>
+                        <div class="swatch-circle" style="background: #10B981;" title="Esmeralda"></div>
+                        <div class="swatch-circle" style="background: #F59E0B;" title="Ámbar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Theme 2: Protanopia / Deuteranopia -->
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="theme-card @(_currentTheme == "theme-protanopia" ? "active" : "")" @onclick='() => SelectTheme("theme-protanopia")'>
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-dark">Rojo-Verde (Protan)</span>
+                            @if (_currentTheme == "theme-protanopia")
+                            {
+                                <i class="bi bi-check-circle-fill text-dark fs-5"></i>
+                            }
+                        </div>
+                        <p class="text-muted small m-0">Optimizado para daltonismo de tonos rojos y verdes. Uso de Azul Cobalto / Ámbar.</p>
+                    </div>
+                    <div class="palette-swatch">
+                        <div class="swatch-circle" style="background: #1D4ED8;" title="Azul Cobalto"></div>
+                        <div class="swatch-circle" style="background: #D97706;" title="Ámbar Ocre"></div>
+                        <div class="swatch-circle" style="background: #475569;" title="Pizarra"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Theme 3: Tritanopia -->
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="theme-card @(_currentTheme == "theme-tritanopia" ? "active" : "")" @onclick='() => SelectTheme("theme-tritanopia")'>
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-dark">Azul-Amarillo (Tritan)</span>
+                            @if (_currentTheme == "theme-tritanopia")
+                            {
+                                <i class="bi bi-check-circle-fill text-dark fs-5"></i>
+                            }
+                        </div>
+                        <p class="text-muted small m-0">Adaptación para visión limitada de azul y amarillo. Uso de Carmesí y Teal.</p>
+                    </div>
+                    <div class="palette-swatch">
+                        <div class="swatch-circle" style="background: #DC2626;" title="Carmesí"></div>
+                        <div class="swatch-circle" style="background: #0D9488;" title="Verde Teal"></div>
+                        <div class="swatch-circle" style="background: #1E293B;" title="Pizarra Oscuro"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Theme 4: High Contrast Dark / Heterochromia -->
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="theme-card @(_currentTheme == "theme-high-contrast" ? "active" : "")" @onclick='() => SelectTheme("theme-high-contrast")'>
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-dark">Alto Contraste</span>
+                            @if (_currentTheme == "theme-high-contrast")
+                            {
+                                <i class="bi bi-check-circle-fill text-dark fs-5"></i>
+                            }
+                        </div>
+                        <p class="text-muted small m-0">Fondo oscuro mate sobrio. Previene la fatiga ocular y favorece la heterocromía.</p>
+                    </div>
+                    <div class="palette-swatch">
+                        <div class="swatch-circle" style="background: #0F172A;" title="Negro Azabache"></div>
+                        <div class="swatch-circle" style="background: #38BDF8;" title="Cian Vivo"></div>
+                        <div class="swatch-circle" style="background: #ffffff;" title="Blanco Puro"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _name = "Usuario CRM";
+    private string _username = "usuario";
+    private string _role = "ASESOR";
+    private string? _campaign = "General";
+    private string _currentTheme = "theme-default";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            _username = user.Identity.Name ?? "usuario";
+            var roleClaim = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            if (!string.IsNullOrEmpty(roleClaim)) _role = roleClaim;
+            _name = _username.ToUpper();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var saved = await JS.InvokeAsync<string>("themeManager.getSavedTheme");
+                if (!string.IsNullOrEmpty(saved))
+                {
+                    _currentTheme = saved;
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UserProfileConfig] Error reading theme: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task SelectTheme(string themeName)
+    {
+        _currentTheme = themeName;
+        try
+        {
+            await JS.InvokeVoidAsync("themeManager.setTheme", themeName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[UserProfileConfig] Error setting theme: {ex.Message}");
+        }
+    }
+}

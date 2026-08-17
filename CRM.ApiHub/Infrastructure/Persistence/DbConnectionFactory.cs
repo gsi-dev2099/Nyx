@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Data;
+using System.Threading.Tasks; // Necesario para Task
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -8,6 +9,7 @@ namespace CRM.ApiHub.Infrastructure.Persistence;
 
 public interface IDbConnectionFactory
 {
+    Task<IDbConnection> CreateConnectionAsync(); 
     IDbConnection CreateConnection();
 }
 
@@ -22,7 +24,6 @@ public class NpgsqlConnectionFactory : IDbConnectionFactory
         var rawConnectionString = config.GetConnectionString("DefaultConnection") 
             ?? throw new ArgumentNullException(nameof(config), "La cadena de conexión 'DefaultConnection' no está configurada.");
             
-        // Desencripta si la cadena comienza con "Encrypted:"
         var decrypted = EncryptionHelper.Decrypt(rawConnectionString);
         
         try
@@ -51,42 +52,46 @@ public class NpgsqlConnectionFactory : IDbConnectionFactory
             if (schemas.Count > 0)
             {
                 var combinedSearchPath = string.Join(",", schemas);
-                
                 if (decrypted.Contains("Search Path="))
                 {
                     var startIndex = decrypted.IndexOf("Search Path=");
                     var endIndex = decrypted.IndexOf(";", startIndex);
-                    
                     var replacement = $"Search Path={combinedSearchPath}";
-                    if (endIndex != -1)
-                    {
-                        decrypted = decrypted.Substring(0, startIndex) + replacement + decrypted.Substring(endIndex);
-                    }
-                    else
-                    {
-                        decrypted = decrypted.Substring(0, startIndex) + replacement;
-                    }
+                    decrypted = (endIndex != -1) 
+                        ? decrypted.Substring(0, startIndex) + replacement + decrypted.Substring(endIndex)
+                        : decrypted.Substring(0, startIndex) + replacement;
                 }
                 else
                 {
-                    if (!decrypted.EndsWith(";"))
-                    {
-                        decrypted += ";";
-                    }
+                    if (!decrypted.EndsWith(";")) decrypted += ";";
                     decrypted += $"Search Path={combinedSearchPath};";
                 }
             }
         }
         catch (System.Exception ex)
         {
-            // En caso de error (ej. migración o db caída temporalmente en arranque),
-            // se continúa con la cadena descifrada original pero registrando la excepción.
-            _logger.LogError(ex, "Error al intentar obtener los esquemas de la base de datos en el arranque de NpgsqlConnectionFactory. Se continuará con la cadena descifrada original.");
+            _logger.LogError(ex, "Error al intentar obtener esquemas de DB. Se continuará con la cadena original.");
+        }
+        
+        // Asegurar configuración de Pool de conexiones Npgsql para producción
+        if (!decrypted.Contains("Pooling=", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!decrypted.EndsWith(";")) decrypted += ";";
+            decrypted += "Pooling=true;Minimum Pool Size=5;Maximum Pool Size=50;Connection Idle Lifetime=60;Timeout=15;";
         }
         
         _connectionString = decrypted;
     }
 
+    // Implementación síncrona
     public IDbConnection CreateConnection()
         => new NpgsqlConnection(_connectionString);
+
+    // Implementación asíncrona solicitada por la interfaz
+    public async Task<IDbConnection> CreateConnectionAsync()
+    {
+        var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+        return connection;
+    }
 }

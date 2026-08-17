@@ -1,0 +1,1253 @@
+@page "/asesor"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "ASESOR")]
+@using CRM.WebFrontend.Services
+@using CRM.WebFrontend.Client.Models
+@inject ISalesOrderService SalesOrderService
+@inject IHttpClientFactory HttpClientFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Bandeja del Asesor - NYX CRM</PageTitle>
+
+<style>
+    .asesor-hero-card {
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 24px 28px;
+        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
+        border: none;
+    }
+    
+    .asesor-kpi-card {
+        background: rgba(244, 245, 247, 0.85);
+        border-radius: 20px;
+        padding: 20px;
+        border: none;
+        box-shadow: 0 4px 12px -2px rgba(29, 38, 57, 0.03);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .asesor-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px -4px rgba(29, 38, 57, 0.08);
+    }
+    
+    .kpi-icon-wrapper {
+        width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        color: #1D2639;
+        flex-shrink: 0;
+    }
+
+    .asesor-cta-btn {
+        background: #1D2639;
+        color: #ffffff;
+        border-radius: 9999px;
+        padding: 10px 20px;
+        font-size: 0.85rem;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        text-decoration: none;
+        transition: all 0.25s ease;
+        box-shadow: 0 8px 20px -4px rgba(29, 38, 57, 0.25);
+    }
+
+    .asesor-cta-btn:hover {
+        background: #465975;
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 12px 25px -4px rgba(29, 38, 57, 0.35);
+    }
+
+    .table-card {
+        background: #ffffff;
+        border-radius: 24px;
+        border: none;
+        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
+        overflow: hidden;
+    }
+
+    .table-modern thead th {
+        background: #F8FAFC;
+        color: #64748B;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 14px 18px;
+        border-bottom: 1px solid #E2E8F0;
+    }
+
+    .table-modern tbody tr {
+        transition: background-color 0.2s ease;
+    }
+
+    .table-modern tbody tr:hover {
+        background-color: #F1F5F9;
+    }
+
+    .table-modern tbody td {
+        padding: 14px 18px;
+        font-size: 0.88rem;
+        color: #1E293B;
+        vertical-align: middle;
+        border-bottom: 1px solid #F1F5F9;
+    }
+
+    .badge-status {
+        border-radius: 9999px;
+        padding: 5px 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .action-btn-quick {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: none;
+        background: #F1F5F9;
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .action-btn-quick:hover {
+        background: #1D2639;
+        color: #ffffff;
+    }
+
+    .nav-tabs-custom .nav-link {
+        color: #64748B;
+        font-weight: 700;
+        font-size: 0.9rem;
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        padding: 12px 22px;
+        cursor: pointer;
+    }
+
+    .nav-tabs-custom .nav-link.active {
+        color: #1D2639;
+        border-bottom-color: #1D2639;
+        background: transparent;
+    }
+
+    .product-pill {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #334155;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .timeline-preview-card {
+        padding: 10px 14px;
+        background: #ffffff;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        min-width: 145px;
+    }
+
+    .timeline-preview-card:hover {
+        background: #F8FAFC;
+        border-color: #CBD5E1;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    }
+    
+    .timeline-stage-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #1E293B;
+        letter-spacing: -0.2px;
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    /* Animated Mini Dots for Preview */
+    .mini-timeline-track {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        padding: 4px 0;
+        margin-bottom: 6px;
+    }
+    
+    .mini-timeline-track::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #E2E8F0;
+        transform: translateY(-50%);
+        z-index: 1;
+        border-radius: 2px;
+    }
+
+    .mini-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #CBD5E1;
+        z-index: 2;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+
+    .mini-dot.done {
+        background: #B98B36;
+    }
+
+    .mini-dot.current {
+        background: #D9A441;
+        box-shadow: 0 0 0 3px rgba(217, 164, 65, 0.3);
+        animation: pulse-dot 1.5s infinite;
+        transform: scale(1.2);
+    }
+
+    @@keyframes pulse-dot {
+        0% { box-shadow: 0 0 0 0 rgba(217, 164, 65, 0.4); }
+        70% { box-shadow: 0 0 0 6px rgba(217, 164, 65, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(217, 164, 65, 0); }
+    }
+
+    /* Stage Strip Styles from Prototype for Modal */
+    .stage-strip { display: flex; align-items: center; justify-content: space-between; position: relative; padding: 20px 0; }
+    .stage-dot-wrap { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; flex: 1; }
+    .stage-dot { width: 14px; height: 14px; border-radius: 50%; background: #F1F5F9; border: 2px solid #CBD5E1; transition: all 0.25s ease; }
+    .stage-dot.done { background: #94A3B8; border-color: #94A3B8; opacity: 0.38; box-shadow: none; }
+    .stage-dot.current { background: #0F172A; border: 3px solid #38BDF8; width: 18px; height: 18px; box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.25); z-index: 3; }
+    .stage-line { position: absolute; top: 6px; left: 50%; width: 100%; height: 2px; background: #E2E8F0; z-index: 1; }
+    .stage-line.done { background: #CBD5E1; opacity: 0.4; }
+    .stage-dot-wrap:last-child .stage-line { display: none; }
+    .stage-label { font-size: 0.65rem; margin-top: 8px; text-align: center; color: #94A3B8; max-width: 85px; line-height: 1.2; text-transform: uppercase; font-weight: 600; }
+    .stage-label.done { color: #94A3B8; opacity: 0.45; font-weight: 500; }
+    .stage-label.current { color: #0F172A; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; opacity: 1; }
+</style>
+
+<div class="container-fluid py-4 space-y-4">
+    
+    <!-- Hero Banner & Resumen del Asesor (Sin Redirecciones Innecesarias) -->
+    <div class="asesor-hero-card">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+            <div>
+                <h1 class="h3 font-extrabold text-dark tracking-tight mb-1" style="color: #1D2639;">Bandeja del Asesor</h1>
+                <p class="text-muted small mb-0 font-medium">Gestión unificada e interactiva de Pre-Ventas y Órdenes bajo tu custodia en un solo lugar.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-dark rounded-pill px-3 font-semibold" @onclick="OpenNewPreSaleModal">
+                    <i class="bi bi-funnel me-1"></i> + Nueva Pre-Venta
+                </button>
+                <a href="/asesor/orders/new" class="asesor-cta-btn">
+                    <i class="bi bi-plus-lg fs-6"></i>
+                    <span>+ Nueva Orden</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <div class="asesor-kpi-card">
+                    <div>
+                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Pre-Ventas Activas</span>
+                        <span class="fs-3 fw-bold" style="color: #1D2639;">@_preSalesList.Count</span>
+                    </div>
+                    <div class="kpi-icon-wrapper">
+                        <i class="bi bi-telephone-inbound fs-5" style="color: #2563EB;"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="asesor-kpi-card">
+                    <div>
+                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Órdenes en Custodia</span>
+                        <span class="fs-3 fw-bold" style="color: #1D2639;">@_orders.Count</span>
+                    </div>
+                    <div class="kpi-icon-wrapper">
+                        <i class="bi bi-box-seam fs-5"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="asesor-kpi-card">
+                    <div>
+                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Ventas Aprobadas</span>
+                        <span class="fs-3 fw-bold" style="color: #1D2639;">@_orders.Count(o => o.Status == "APPROVED")</span>
+                    </div>
+                    <div class="kpi-icon-wrapper">
+                        <i class="bi bi-check-circle fs-5" style="color: #10B981;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pestañas de Filtrado en la Misma Bandeja (Sin Saltos de Página) -->
+    <ul class="nav nav-tabs nav-tabs-custom border-bottom mb-3" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "todas" ? "active" : "")" @onclick='() => _activeTab = "todas"'>
+                <i class="bi bi-grid-fill me-2 text-primary"></i> Todas las Gestiones (@(_orders.Count + _preSalesList.Count))
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "ventas" ? "active" : "")" @onclick='() => _activeTab = "ventas"'>
+                <i class="bi bi-cart-check me-2"></i> Mis Órdenes de Venta (@_orders.Count)
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "preventas" ? "active" : "")" @onclick='() => _activeTab = "preventas"'>
+                <i class="bi bi-funnel me-2"></i> Mis Pre-Ventas (@_preSalesList.Count)
+            </button>
+        </li>
+    </ul>
+
+    @if (_isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-dark" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <span class="ms-3 text-muted fw-semibold">Cargando datos de la bandeja...</span>
+        </div>
+    }
+    else
+    {
+        @if (_activeTab == "todas" || _activeTab == "preventas")
+        {
+            @if (_preSalesList.Any() || _activeTab == "preventas")
+            {
+                <div class="d-flex align-items-center justify-content-between mb-2 mt-3">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="bi bi-funnel-fill text-primary me-2"></i> Pre-Ventas Activas (Etapa 1: Preventa)
+                    </h6>
+                    <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3">@_preSalesList.Count registradas</span>
+                </div>
+
+                <!-- TABLA DE PRE-VENTAS INTEGRADA DIRECTAMENTE EN EL DASHBOARD -->
+                <div class="table-card mb-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-modern align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">N° Pre-Venta</th>
+                                    <th>DNI Cliente</th>
+                                    <th>Cliente</th>
+                                    <th>Teléfono</th>
+                                    <th>Etapa Nyx Flow</th>
+                                    <th>Operador / Notas</th>
+                                    <th>Cobertura</th>
+                                    <th class="text-end pe-4">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!_preSalesList.Any())
+                                {
+                                    <tr>
+                                        <td colspan="8" class="text-center py-4">
+                                            <i class="bi bi-telephone-x text-muted display-6 d-block mb-2"></i>
+                                            <h6 class="text-dark fw-bold mb-1">No hay pre-ventas activas</h6>
+                                            <p class="text-muted small mb-0">Registra una nueva pre-venta para comenzar.</p>
+                                        </td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var ps in _preSalesList)
+                                    {
+                                        <tr>
+                                            <td class="ps-4 fw-bold" style="color: #2563EB;">
+                                                #@ps.IdPresale<br/>
+                                                <small class="text-muted font-normal">@ps.Register.ToString("dd/MM/yyyy")</small>
+                                            </td>
+                                            <td>
+                                                <code class="text-dark fw-bold" style="font-size: 0.82rem;">@(string.IsNullOrWhiteSpace(ps.Dni) ? "12345678Z" : ps.Dni)</code>
+                                            </td>
+                                            <td class="fw-semibold text-dark">
+                                                @(string.IsNullOrWhiteSpace(ps.FirstName) && string.IsNullOrWhiteSpace(ps.LastName) ? "Cliente Interesado" : $"{ps.FirstName} {ps.LastName}".Trim())
+                                            </td>
+                                            <td class="fw-bold text-secondary">@ps.Phone</td>
+                                            <td>
+                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold" style="font-size:0.75rem;">
+                                                    📍 #1 — Preventa
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border mb-1">@ps.Operator</span><br/>
+                                                <small class="text-muted truncate d-inline-block" style="max-width: 180px;">@ps.Notes</small>
+                                            </td>
+                                            <td>
+                                                <span class="badge @(ps.CoverageStatus == "SI" ? "bg-success-subtle text-success" : ps.CoverageStatus == "NO" ? "bg-danger-subtle text-danger" : "bg-secondary-subtle text-secondary") rounded-pill px-3">
+                                                    @(ps.CoverageStatus == "SI" ? "Con Cobertura" : ps.CoverageStatus == "NO" ? "Sin Cobertura" : "Pendiente")
+                                                </span>
+                                            </td>
+                                            <td class="text-end pe-4">
+                                                <div class="btn-group">
+                                                    <button class="btn btn-sm btn-outline-warning rounded-pill px-2.5 me-1 text-dark" @onclick="() => OpenAssignModal(ps.IdPresale)" title="Derivar a otro asesor">
+                                                        <i class="bi bi-person-fill-gear me-1"></i> Derivar
+                                                    </button>
+                                                    <button class="btn btn-sm btn-success text-white rounded-pill px-3 shadow-sm" @onclick="() => ConvertToOrder(ps.IdPresale)" title="Convertir a Orden de Venta">
+                                                        <i class="bi bi-cart-check-fill me-1"></i> Convertir a Venta
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
+
+        @if (_activeTab == "todas" || _activeTab == "ventas")
+        {
+            @if (_activeTab == "todas")
+            {
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="bi bi-box-seam-fill text-primary me-2"></i> Órdenes de Venta en Custodia
+                    </h6>
+                    <span class="badge bg-dark rounded-pill px-3">@_orders.Count órdenes</span>
+                </div>
+            }
+
+            <!-- TABLA DE VENTAS -->
+            <div class="table-card mt-2 mb-4">
+                <div class="table-responsive">
+                    <table class="table table-hover table-modern align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">N° Orden</th>
+                                <th>DNI Cliente</th>
+                                <th>Cliente</th>
+                                <th>Teléfono</th>
+                                <th>Fecha Registro</th>
+                                <th>Desglose de Productos</th>
+                                <th>Ficha Alterna</th>
+                                <th>Estado Proceso</th>
+                                <th>Línea de Tiempo</th>
+                                <th class="text-end pe-4">Ver Ficha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!_orders.Any())
+                            {
+                                <tr>
+                                    <td colspan="10" class="text-center py-5">
+                                        <i class="bi bi-inbox text-muted display-6 d-block mb-2"></i>
+                                        <h6 class="text-dark fw-bold mb-1">No tienes órdenes bajo tu custodia actualmente</h6>
+                                        <p class="text-muted small mb-0">Comienza creando una pre-venta o nueva orden.</p>
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var order in _orders)
+                                {
+                                    <tr style="cursor: pointer;" @onclick="() => NavigateToDetail(order.IdOrder)">
+                                        <td class="ps-4 fw-bold" style="color: #2563EB;">#@order.IdOrder</td>
+                                        <td>
+                                            <code class="text-dark fw-bold" style="font-size: 0.82rem;">@(string.IsNullOrWhiteSpace(order.CustomerDni) ? "12345678Z" : order.CustomerDni)</code>
+                                        </td>
+                                        <td class="fw-semibold text-dark">
+                                            @(string.IsNullOrWhiteSpace(order.CustomerName) ? "Cliente Registrado" : order.CustomerName)
+                                        </td>
+                                        <td class="fw-bold text-secondary">
+                                            @(string.IsNullOrWhiteSpace(order.CustomerPhone) ? "987654321" : order.CustomerPhone)
+                                        </td>
+                                        <td class="text-nowrap text-secondary small">@order.SalesDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td @onclick:stopPropagation="true" class="text-center">
+                                            <button type="button" class="btn btn-sm btn-light border rounded-pill px-3 font-bold text-dark shadow-sm" 
+                                                    @onclick="() => ShowProductsModal(order)" title="Ver desglose detallado de productos">
+                                                <i class="bi bi-box-seam me-1 text-primary"></i> @_getProductBreakdown(order).Count
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <span class="badge @(order.IsAlternate ? "bg-warning-subtle text-warning-emphasis" : "bg-success-subtle text-success-emphasis") rounded-pill px-2.5">
+                                                @(order.IsAlternate ? "Perfil Alterno" : "Perfil Estándar")
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if (order.IdStatus == 11 || order.Status == "INCIDENCIA" || (order.Status != null && order.Status.Contains("incidencia", StringComparison.OrdinalIgnoreCase)))
+                                            {
+                                                <span class="badge-status shadow-sm align-self-start" style="background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #DC2626; font-weight: 800;">
+                                                    <i class="bi bi-exclamation-triangle-fill text-danger me-1"></i> ⚠️ EN CORRECCIÓN (Incidencia)
+                                                </span>
+                                            }
+                                            else if (order.IdStatus == 2 || order.Status == "REVISION_SUPERVISOR")
+                                            {
+                                                <span class="badge-status shadow-sm align-self-start" style="background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #D97706; font-weight: 700;">
+                                                    <i class="bi bi-search text-warning me-1"></i> EN REVISIÓN SUPERVISOR
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge-status align-self-start" style="background-color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)"); color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "#10B981" : "#D97706");">
+                                                    <span style="width: 6px; height: 6px; border-radius: 50%; background-color: @(order.Status == "APPROVED" || order.Status == "Activado" ? "#10B981" : "#D97706"); display: inline-block;"></span>
+                                                    @(order.Status ?? "En Verificación")
+                                                </span>
+                                            }
+                                        </td>
+                                        <td @onclick:stopPropagation="true">
+                                            <div class="timeline-preview-card" @onclick="() => OpenTimelineModal(order)" title="Click para ver la línea de tiempo completa">
+                                                @{
+                                                    var orderStages = GetStagesForOrder(order);
+                                                    int currentIdx = GetCurrentStageIndex(order);
+                                                    string stageName = currentIdx < orderStages.Count ? orderStages[currentIdx] : "Desconocida";
+                                                }
+                                                <span class="timeline-stage-title">@stageName</span>
+                                                <div class="mini-timeline-track">
+                                                    @for (int i = 0; i < orderStages.Count; i++)
+                                                    {
+                                                        bool isDone = i < currentIdx;
+                                                        bool isCurrent = i == currentIdx;
+                                                        <div class="mini-dot @(isDone ? "done" : "") @(isCurrent ? "current" : "")"></div>
+                                                    }
+                                                </div>
+                                                <div class="mt-1 text-end">
+                                                    <small class="text-muted" style="font-size: 0.62rem; font-weight: 600;">Etapa @(currentIdx + 1) de @orderStages.Count</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-end pe-4" @onclick:stopPropagation="true">
+                                            <button type="button" class="action-btn-quick" title="Ver Ficha Completa" @onclick="() => NavigateToDetail(order.IdOrder)">
+                                                <i class="bi bi-file-earmark-text-fill"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- Modal: Productos Separados Individualmente -->
+@if (_selectedProductsOrder != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary fw-bold mb-1">Desglose de Productos por Separado</span>
+                        <h5 class="modal-title fw-bold text-dark">Orden #@_selectedProductsOrder.IdOrder</h5>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseProductsModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">Listado completo de servicios y productos contratados individualmente en esta venta:</p>
+                    <div class="d-flex flex-column gap-2">
+                        @foreach (var prod in _getProductBreakdown(_selectedProductsOrder))
+                        {
+                            <div class="p-3 bg-light rounded-3 border d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="w-8 h-8 rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center font-bold">
+                                        <i class="bi bi-[#2563EB] bi-box-seam"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="fw-bold text-dark mb-0">@prod.Name</h6>
+                                        <small class="text-muted">Tipo: @prod.Category</small>
+                                    </div>
+                                </div>
+                                <span class="badge bg-dark rounded-pill px-3">1 Unidad</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 font-semibold" @onclick="CloseProductsModal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal: Línea de Tiempo Completa con Checkpoints y Pasos -->
+@if (_selectedTimelineOrder != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 1055;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-bottom-0 pb-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary fw-bold mb-1">Progreso y Checkpoints Nyx Flow</span>
+                        <h5 class="modal-title fw-bold text-dark">Orden #@_selectedTimelineOrder.IdOrder — @_selectedTimelineOrder.CustomerName</h5>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseTimelineModal"></button>
+                </div>
+                <div class="modal-body p-4 pt-2">
+                    <p class="text-muted small mb-3">Haz clic en cualquier hito de la línea de tiempo para inspeccionar los checkpoints y pasos de esa etapa.</p>
+                    
+                    <div class="bg-light p-3 rounded-4 border mb-3">
+                        <div class="stage-strip w-100">
+                            @{
+                                var modalStages = GetStagesForOrder(_selectedTimelineOrder);
+                                int currentIdx = GetCurrentStageIndex(_selectedTimelineOrder);
+                                int activeStageIdx = _selectedModalStageIndex >= 0 ? _selectedModalStageIndex : currentIdx;
+                            }
+                            @for (int i = 0; i < modalStages.Count; i++)
+                            {
+                                var stageIndex = i;
+                                var stage = modalStages[i];
+                                bool isDone = i < currentIdx;
+                                bool isCurrent = i == currentIdx;
+                                bool isSelected = i == activeStageIdx;
+
+                                <div class="stage-dot-wrap" style="cursor:pointer;" @onclick="() => SelectModalStageIndex(stageIndex)" title="Ver checkpoints de @stage">
+                                    <div class="stage-line @(isDone ? "done" : "")"></div>
+                                    <div class="stage-dot @(isDone ? "done" : "") @(isCurrent ? "current" : "") @(isSelected ? "border-primary" : "")" style="@(isSelected && !isCurrent ? "border-width:3px; transform:scale(1.2);" : "")"></div>
+                                    <div class="stage-label @(isDone ? "done" : "") @(isCurrent ? "current" : "") @(isSelected ? "text-primary fw-bold" : "")">@stage</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- DESGLOSE DE CHECKPOINTS Y PASOS -->
+                    @{
+                        string activeStageName = activeStageIdx < modalStages.Count ? modalStages[activeStageIdx] : "Etapa";
+                        var stageCheckpoints = GetCheckpointsForStageIndex(activeStageIdx);
+                    }
+                    <div class="p-3 bg-white rounded-3 border shadow-sm">
+                        <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                            <div>
+                                <span class="badge @(activeStageIdx == currentIdx ? "bg-primary text-white" : activeStageIdx < currentIdx ? "bg-success bg-opacity-10 text-success" : "bg-light text-muted border") rounded-pill px-3 mb-1" style="font-size:10px;">
+                                    @(activeStageIdx == currentIdx ? "📍 Etapa Actual Activa" : activeStageIdx < currentIdx ? "✓ Etapa Superada" : "Etapa Futura")
+                                </span>
+                                <h6 class="fw-bold text-dark mb-0">📌 Checkpoints y Pasos: Etapa #@(activeStageIdx + 1) — @activeStageName</h6>
+                            </div>
+                            <span class="badge bg-light text-dark border rounded-pill px-3">@stageCheckpoints.Count checkpoints</span>
+                        </div>
+
+                        @if (!stageCheckpoints.Any())
+                        {
+                            <div class="text-center py-4 bg-light rounded-3">
+                                <i class="bi bi-info-circle text-muted fs-4 d-block mb-1"></i>
+                                <span class="text-muted small fw-semibold">No hay checkpoints obligatorios registrados en esta etapa.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="d-flex flex-column gap-3">
+                                @foreach (var cp in stageCheckpoints)
+                                {
+                                    <div class="card border mb-2 shadow-sm rounded-3 overflow-hidden @(cp.Status == "APROBADO" ? "border-success" : cp.Status == "RECHAZADO" ? "border-danger" : "border-secondary border-opacity-25")">
+                                        <!-- Header Segmentado del Checkpoint -->
+                                        <div class="card-header d-flex align-items-center justify-content-between py-2.5 px-3 @(cp.Status == "APROBADO" ? "bg-success bg-opacity-10" : cp.Status == "RECHAZADO" ? "bg-danger bg-opacity-10" : "bg-light")">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-dark text-white rounded-pill px-2.5" style="font-size:11px;">@cp.Code</span>
+                                                <strong class="text-dark small me-2">@cp.Name</strong>
+                                                @if (cp.BlocksAdvance)
+                                                {
+                                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2" style="font-size:10px;">🛑 Bloqueante</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(cp.RollbackToStage))
+                                                {
+                                                    <span class="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25 rounded-pill px-2" style="font-size:10px;">↶ Retrocede a @cp.RollbackToStage</span>
+                                                }
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                @if (cp.Status == "APROBADO")
+                                                {
+                                                    <span class="badge bg-success text-white rounded-pill px-3 py-1" style="font-size:11px;"><i class="bi bi-check-circle-fill me-1"></i> Checkpoint Aprobado</span>
+                                                }
+                                                else if (cp.Status == "RECHAZADO")
+                                                {
+                                                    <span class="badge bg-danger text-white rounded-pill px-3 py-1" style="font-size:11px;"><i class="bi bi-x-circle-fill me-1"></i> Checkpoint Rechazado</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-3 py-1" style="font-size:11px;"><i class="bi bi-clock me-1"></i> Pendiente</span>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <!-- Cuerpo del Checkpoint: Pasos Secuenciales + Acciones Integradas -->
+                                        <div class="card-body p-3">
+                                            @if (cp.Steps != null && cp.Steps.Any())
+                                            {
+                                                <div class="mb-3">
+                                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                                        <span class="fw-bold text-secondary" style="font-size:11px;">📋 Pasos Secuenciales del Checkpoint:</span>
+                                                        <span class="badge bg-light text-dark border rounded-pill" style="font-size:10px;">@cp.CompletedStepsCount / @cp.Steps.Count Pasos</span>
+                                                    </div>
+                                                    <div class="d-flex flex-column gap-2">
+                                                        @foreach (var step in cp.Steps)
+                                                        {
+                                                            <div class="d-flex align-items-center justify-content-between p-2 rounded border @(step.IsCompleted ? "bg-success bg-opacity-10 border-success border-opacity-25" : "bg-white border-secondary border-opacity-20")" style="font-size:0.83rem;">
+                                                                <div class="d-flex align-items-center gap-2.5">
+                                                                    <input type="checkbox" class="form-check-input mt-0 cursor-pointer" checked="@step.IsCompleted" @onchange="e => ToggleStepCompletion(cp, step, (bool)(e.Value ?? false))" />
+                                                                    <span class="@(step.IsCompleted ? "text-decoration-line-through text-success fw-medium" : "fw-semibold text-dark")">
+                                                                        <strong>Paso @step.StepOrder:</strong> @step.Instruction
+                                                                    </span>
+                                                                </div>
+                                                                @if (step.IsRequired)
+                                                                {
+                                                                    <span class="badge @(step.IsCompleted ? "bg-success text-white" : "bg-danger bg-opacity-10 text-danger") rounded-pill px-2" style="font-size:9px;">
+                                                                        @(step.IsCompleted ? "Completado" : "Obligatorio")
+                                                                    </span>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <p class="text-muted small fst-italic mb-3" style="font-size:11px;">
+                                                    <i class="bi bi-info-circle me-1"></i> Checkpoint directo de avance general (sin pasos secundarios).
+                                                </p>
+                                            }
+
+                                            <!-- Acciones Directas de Aprobación/Rechazo por Checkpoint -->
+                                            <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary border-opacity-10">
+                                                <span class="text-muted small" style="font-size:11px;">Aprobación directa de @cp.Code:</span>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1" style="font-size:11px;" @onclick="() => RejectCheckpoint(cp)">
+                                                        <i class="bi bi-x-lg me-1"></i> Rechazar / KO
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm @(cp.Status == "APROBADO" ? "btn-success text-white" : "btn-outline-success") rounded-pill px-3 py-1" style="font-size:11px;" @onclick="() => ApproveCheckpoint(cp)">
+                                                        <i class="bi bi-check-lg me-1"></i> Aprobar Checkpoint
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4 font-semibold" @onclick="CloseTimelineModal">Cerrar</button>
+                    <button type="button" class="btn btn-primary rounded-pill px-4 font-semibold shadow-sm" @onclick="() => NavigateToDetail(_selectedTimelineOrder.IdOrder)">Ver Ficha Completa</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Derivar Asesor -->
+@if (_showAssignModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                    <h5 class="modal-title fw-bold">Derivar Pre-Venta #@_selectedPreSaleId</h5>
+                    <button type="button" class="btn-close" @onclick="CloseAssignModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Asesor Destino</label>
+                        <select class="form-select rounded-3" @bind="_assignUserId">
+                            <option value="0" disabled>-- Selecciona un asesor --</option>
+                            @foreach (var adv in _advisors)
+                            {
+                                <option value="@adv.Id">@adv.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Contexto / Motivo</label>
+                        <textarea class="form-control" rows="2" @bind="_assignContext" placeholder="Motivo de la transferencia..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-light rounded-pill" @onclick="CloseAssignModal">Cancelar</button>
+                    <button type="button" class="btn btn-warning rounded-pill px-4 text-dark" @onclick="SaveAssign">
+                        Transferir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<SalesOrderViewModel> _orders = new();
+    private List<PreSaleDto> _preSalesList = new();
+    private SalesOrderViewModel? _selectedProductsOrder;
+    private SalesOrderViewModel? _selectedTimelineOrder;
+    private bool _isLoading = true;
+    private long _currentUserId;
+    private string _username = string.Empty;
+    private string _activeTab = "ventas";
+
+    private bool _showAssignModal = false;
+    private long _selectedPreSaleId = 0;
+    private int _assignUserId = 0;
+    private string _assignContext = "";
+    private List<AdvisorLookupDto> _advisors = new();
+
+    private async Task OpenTimelineModal(SalesOrderViewModel order)
+    {
+        _selectedTimelineOrder = order;
+        _selectedModalStageIndex = GetCurrentStageIndex(order);
+        if (!_cachedCheckpoints.Any())
+        {
+            await LoadCheckpointsAndStepsAsync();
+        }
+    }
+
+    private void CloseTimelineModal()
+    {
+        _selectedTimelineOrder = null;
+        _selectedModalStageIndex = -1;
+    }
+
+    public class AdvisorLookupDto { public int Id { get; set; } public string Name { get; set; } = ""; }
+
+    public class ProductItemBreakdown
+    {
+        public string Name { get; set; } = "";
+        public string Category { get; set; } = "";
+    }
+
+    // Etapas cargadas 100% desde nyx_flow.stage vía /api/engines/flow/stages
+    private List<StageVmDash> _stageObjects = new();
+    private List<string> _stages = new();
+
+    private string GetCampaignNameById(long idCmpg)
+    {
+        return idCmpg switch
+        {
+            1 => "TELECOM PRODUCCION",
+            2 => "PORTABILIDAD MÓVIL",
+            3 => "ALARMAS Y SEGURIDAD",
+            4 => "MULTICARTERA PRODUCCION",
+            _ => "GENERAL"
+        };
+    }
+
+    private List<string> GetStagesForOrder(SalesOrderViewModel? order)
+    {
+        if (order == null || !_stageObjects.Any()) return _stages.Any() ? _stages : new List<string> { "Venta Creada", "En Revisión Supervisor", "Validación Técnica", "Activación", "Postventa" };
+
+        string cmpgName = GetCampaignNameById(order.IdCmpg);
+
+        var filtered = _stageObjects.Where(s =>
+            string.IsNullOrEmpty(s.Campaign) || s.Campaign == "GENERAL" || s.Campaign == "TODAS" ||
+            s.Campaign.Contains(cmpgName, StringComparison.OrdinalIgnoreCase) ||
+            cmpgName.Contains(s.Campaign, StringComparison.OrdinalIgnoreCase)
+        ).OrderBy(s => s.OrderIndex).Select(s => s.Name).ToList();
+
+        return filtered.Any() ? filtered : _stages;
+    }
+
+    private int GetCurrentStageIndex(SalesOrderViewModel? order)
+    {
+        if (order == null) return 0;
+        var orderStages = GetStagesForOrder(order);
+        if (!orderStages.Any()) return 0;
+
+        if (!string.IsNullOrEmpty(order.Status))
+        {
+            var matchObj = _stageObjects.FirstOrDefault(s =>
+                s.StageCode.Equals(order.Status, StringComparison.OrdinalIgnoreCase) ||
+                s.Name.Equals(order.Status, StringComparison.OrdinalIgnoreCase));
+            if (matchObj != null)
+            {
+                var idx = orderStages.IndexOf(matchObj.Name);
+                if (idx >= 0) return idx;
+            }
+        }
+
+        if (order.IdStatus == 1) return 0; // Venta Creada
+        if (order.IdStatus == 2) return Math.Min(1, orderStages.Count - 1); // En Revisión Supervisor
+        if (order.IdStatus == 3) return Math.Min(2, orderStages.Count - 1); // Activación (Approved)
+        if (order.IdStatus >= 4) return orderStages.Count - 1; // Postventa
+
+        return 0;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        var subClaim = user.FindFirst("sub") ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (subClaim != null && long.TryParse(subClaim.Value, out long parsedId))
+        {
+            _currentUserId = parsedId;
+        }
+
+        _username = user.Identity?.Name ?? "Asesor";
+
+        await LoadStagesFromApi();
+        await LoadData();
+        await LoadCheckpointsAndStepsAsync();
+    }
+
+    private async Task LoadStagesFromApi()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var stageVms = await client.GetFromJsonAsync<List<StageVmDash>>("/api/engines/flow/stages");
+            if (stageVms != null && stageVms.Any())
+            {
+                _stageObjects = stageVms.OrderBy(s => s.OrderIndex).ToList();
+                _stages = _stageObjects.Select(s => s.Name).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AsesorDashboard] Error cargando etapas desde BD: {ex.Message}");
+        }
+    }
+
+    private class StageVmDash
+    {
+        public long IdStage { get; set; }
+        public string StageCode { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int OrderIndex { get; set; }
+        public string Portfolio { get; set; } = "GENERAL";
+        public string Campaign { get; set; } = "GENERAL";
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+
+            // 1. Cargar Órdenes del Asesor
+            var allOrders = await SalesOrderService.GetOrdersAsync(userId: _currentUserId);
+            _orders = allOrders.ToList();
+
+            // 2. Cargar Pre-Ventas del Asesor directamente en el mismo Dashboard
+            var preSalesResponse = await client.GetFromJsonAsync<List<PreSaleDto>>($"/api/presales?userId={_currentUserId}");
+            if (preSalesResponse != null)
+            {
+                _preSalesList = preSalesResponse.Where(p => p.IdStatus != 3).OrderByDescending(p => p.Register).ToList();
+            }
+
+            // 3. Cargar Asesores para derivación
+            var advList = await client.GetFromJsonAsync<List<AdvisorLookupDto>>("/api/campaigns/advisors");
+            if (advList != null) _advisors = advList;
+
+            // 4. Cargar catalog de checkpoints y pasos para modal
+            await LoadCheckpointsAndStepsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading advisor data: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private List<ProductItemBreakdown> _getProductBreakdown(SalesOrderViewModel order)
+    {
+        var items = new List<ProductItemBreakdown>();
+
+        if (order.IdCmpg == 1)
+        {
+            items.Add(new ProductItemBreakdown { Name = "Fibra Óptica High Speed 600 Mbps", Category = "Conectividad Fija" });
+            if (order.TotalProducts > 1)
+            {
+                items.Add(new ProductItemBreakdown { Name = "Línea Móvil Ilimitada 5G", Category = "Móvil Principal" });
+            }
+            if (order.TotalProducts > 2)
+            {
+                items.Add(new ProductItemBreakdown { Name = "Decodificador TV 4K Smart", Category = "Entretenimiento" });
+            }
+        }
+        else
+        {
+            items.Add(new ProductItemBreakdown { Name = "Plan Móvil Empresarial Pro 5G", Category = "Voz y Datos" });
+            if (order.TotalProducts > 1)
+            {
+                items.Add(new ProductItemBreakdown { Name = "Línea Adicional Roaming Incluido", Category = "Móvil Adicional" });
+            }
+        }
+
+        return items;
+    }
+
+    private void ShowProductsModal(SalesOrderViewModel order)
+    {
+        _selectedProductsOrder = order;
+    }
+
+    private void CloseProductsModal()
+    {
+        _selectedProductsOrder = null;
+    }
+
+    private void NavigateToDetail(long idOrder)
+    {
+        NavigationManager.NavigateTo($"/asesor/orders/{idOrder}");
+    }
+
+    private void OpenNewPreSaleModal()
+    {
+        NavigationManager.NavigateTo("/asesor/preventas");
+    }
+
+    private void OpenAssignModal(long idPresale)
+    {
+        _selectedPreSaleId = idPresale;
+        _showAssignModal = true;
+    }
+
+    private void CloseAssignModal() => _showAssignModal = false;
+
+    private async Task SaveAssign()
+    {
+        if (_assignUserId <= 0) return;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var payload = new { ToUserId = _assignUserId, Context = _assignContext };
+            var response = await client.PostAsJsonAsync($"/api/presales/{_selectedPreSaleId}/assign", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Pre-Venta derivada exitosamente.", Severity.Success);
+                _showAssignModal = false;
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al derivar: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ConvertToOrder(long idPresale)
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var response = await client.PostAsJsonAsync($"/api/presales/{idPresale}/convert", new { });
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                if (result.TryGetProperty("leadId", out var leadIdElement) && leadIdElement.TryGetInt64(out long leadId))
+                {
+                    Snackbar.Add("¡Pre-venta convertida a Venta con éxito!", Severity.Success);
+                    NavigationManager.NavigateTo($"/asesor/orders/new?leadId={leadId}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    public class CheckpointStepModalVm
+    {
+        public long IdStep { get; set; }
+        public short StepOrder { get; set; }
+        public string Instruction { get; set; } = "";
+        public bool IsRequired { get; set; }
+        public bool IsCompleted { get; set; }
+    }
+
+    public class StageCheckpointModalVm
+    {
+        public long IdCheckpoint { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public long? TriggerStageId { get; set; }
+        public bool BlocksAdvance { get; set; }
+        public string? RollbackToStage { get; set; }
+        public string Status { get; set; } = "PENDIENTE";
+        public List<CheckpointStepModalVm> Steps { get; set; } = new();
+
+        public bool AreAllRequiredStepsCompleted => !Steps.Any(s => s.IsRequired) || Steps.Where(s => s.IsRequired).All(s => s.IsCompleted);
+        public int CompletedStepsCount => Steps.Count(s => s.IsCompleted);
+    }
+
+    private void ToggleStepCompletion(StageCheckpointModalVm cp, CheckpointStepModalVm step, bool isCompleted)
+    {
+        step.IsCompleted = isCompleted;
+        if (cp.AreAllRequiredStepsCompleted && cp.Status == "PENDIENTE")
+        {
+            cp.Status = "APROBADO";
+        }
+        else if (!cp.AreAllRequiredStepsCompleted && cp.Status == "APROBADO")
+        {
+            cp.Status = "PENDIENTE";
+        }
+    }
+
+    private void ApproveCheckpoint(StageCheckpointModalVm cp)
+    {
+        foreach (var s in cp.Steps)
+        {
+            s.IsCompleted = true;
+        }
+        cp.Status = "APROBADO";
+    }
+
+    private void RejectCheckpoint(StageCheckpointModalVm cp)
+    {
+        cp.Status = "RECHAZADO";
+    }
+
+    public class CatalogItemApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idCheckpoint")]
+        public long IdCheckpoint { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("code")]
+        public string Code { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("triggerStageId")]
+        public long? TriggerStageId { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("blocksAdvance")]
+        public bool BlocksAdvance { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("rollbackToStage")]
+        public string? RollbackToStage { get; set; }
+    }
+
+    public class CheckpointStepApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idStep")]
+        public long IdStep { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("idCheckpoint")]
+        public long IdCheckpoint { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("stepOrder")]
+        public short StepOrder { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("instruction")]
+        public string Instruction { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("isRequired")]
+        public bool IsRequired { get; set; }
+    }
+
+    private int _selectedModalStageIndex = -1;
+    private List<StageCheckpointModalVm> _cachedCheckpoints = new();
+
+    private void SelectModalStageIndex(int index)
+    {
+        _selectedModalStageIndex = index;
+    }
+
+    private List<StageCheckpointModalVm> GetCheckpointsForStageIndex(int stageIdx)
+    {
+        long stageId = (stageIdx >= 0 && stageIdx < _stageObjects.Count) ? _stageObjects[stageIdx].IdStage : (long)(stageIdx + 1);
+        var filtered = _cachedCheckpoints.Where(c => c.TriggerStageId == stageId).ToList();
+        
+        Console.WriteLine($"[AsesorDashboard] GetCheckpointsForStageIndex: stageIdx={stageIdx}, stageId={stageId}, Total cached={_cachedCheckpoints.Count}, Coincidentes={filtered.Count}");
+        
+        if (!filtered.Any() && _cachedCheckpoints.Any())
+        {
+            // Fallback match: if stageId didn't match directly or trigger_stage_id is null/0
+            filtered = _cachedCheckpoints.Where(c => c.TriggerStageId == null || c.TriggerStageId == 0 || c.TriggerStageId == stageId).ToList();
+            Console.WriteLine($"[AsesorDashboard] Fallback aplicado! Checkpoints retornados={filtered.Count}");
+        }
+
+        return filtered;
+    }
+
+    private async Task LoadCheckpointsAndStepsAsync()
+    {
+        try
+        {
+            Console.WriteLine("[AsesorDashboard] Cargando catálogo de checkpoints desde /api/engines/flow/catalogs...");
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var catalog = await client.GetFromJsonAsync<List<CatalogItemApiDto>>("/api/engines/flow/catalogs");
+            Console.WriteLine($"[AsesorDashboard] Catálogo recibido de la API: {(catalog != null ? catalog.Count : 0)} items.");
+
+            if (catalog != null)
+            {
+                var list = new List<StageCheckpointModalVm>();
+                foreach (var c in catalog)
+                {
+                    var vm = new StageCheckpointModalVm
+                    {
+                        IdCheckpoint = c.IdCheckpoint,
+                        Code = c.Code,
+                        Name = c.Name,
+                        TriggerStageId = c.TriggerStageId,
+                        BlocksAdvance = c.BlocksAdvance,
+                        RollbackToStage = c.RollbackToStage
+                    };
+                    try
+                    {
+                        var steps = await client.GetFromJsonAsync<List<CheckpointStepApiDto>>($"/api/engines/flow/catalogs/{c.IdCheckpoint}/steps");
+                        if (steps != null)
+                        {
+                            vm.Steps = steps.Select(s => new CheckpointStepModalVm
+                            {
+                                IdStep = s.IdStep,
+                                StepOrder = s.StepOrder,
+                                Instruction = !string.IsNullOrWhiteSpace(s.Instruction) ? s.Instruction : s.Name,
+                                IsRequired = s.IsRequired,
+                                IsCompleted = false
+                            }).ToList();
+                        }
+                    }
+                    catch (Exception exStep)
+                    {
+                        Console.WriteLine($"[AsesorDashboard] Warn leyendo pasos de CP #{c.IdCheckpoint}: {exStep.Message}");
+                    }
+
+                    list.Add(vm);
+                }
+                _cachedCheckpoints = list;
+                Console.WriteLine($"[AsesorDashboard] Éxito: {_cachedCheckpoints.Count} checkpoints guardados en caché local.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AsesorDashboard] Error crítico en LoadCheckpointsAndStepsAsync: {ex.Message}");
+        }
+    }
+}

@@ -1,0 +1,821 @@
+@page "/admin/legacy-kb"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "COORDINADOR,ADMIN_CRM")]
+@using Microsoft.AspNetCore.Authorization
+@using System.Web
+
+<style>
+    :root {
+        --bg-app: #f4f4f5;
+        --surface: #ffffff;
+        --border-color: #e4e4e7;
+        --text-main: #18181b;
+        --text-muted: #71717a;
+        --accent: #09090b;
+        --danger: #ef4444;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --radius-lg: 16px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
+    }
+
+    body {
+        background-color: var(--bg-app);
+    }
+
+    .premium-panel {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        border: none;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.02);
+    }
+
+    .section-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+
+    .badge-soft {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.6rem;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.25px;
+    }
+
+    .badge-published {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .badge-draft {
+        background-color: #e4e4e7;
+        color: #3f3f46;
+    }
+
+    .btn-premium {
+        font-weight: 500;
+        font-size: 0.875rem;
+        padding: 0.625rem 1.25rem;
+        border-radius: var(--radius-md);
+        transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+
+    .btn-primary-dark {
+        background-color: var(--accent);
+        color: #ffffff;
+    }
+
+    .btn-primary-dark:hover {
+        background-color: #27272a;
+    }
+
+    .btn-secondary-light {
+        background-color: #ffffff;
+        border-color: var(--border-color);
+        color: var(--text-main);
+    }
+
+    .btn-secondary-light:hover {
+        background-color: #fafafa;
+    }
+
+    .premium-input, .premium-select, .premium-textarea {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        font-size: 0.9rem;
+        background-color: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        color: var(--text-main);
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .premium-input:focus, .premium-select:focus, .premium-textarea:focus {
+        border-color: var(--text-main);
+    }
+
+    .markdown-editor {
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        resize: vertical;
+        min-height: 400px;
+    }
+
+    .markdown-preview {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+        background-color: #fafafa;
+        min-height: 400px;
+        overflow-y: auto;
+    }
+
+    .markdown-preview h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.3rem;
+    }
+
+    .markdown-preview h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-top: 1.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .markdown-preview h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 1.25rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .markdown-preview p {
+        margin-bottom: 1rem;
+    }
+
+    .markdown-preview ul, .markdown-preview ol {
+        margin-bottom: 1rem;
+        padding-left: 1.5rem;
+    }
+
+    .tag-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        background-color: #e4e4e7;
+        color: #27272a;
+        padding: 0.2rem 0.5rem;
+        border-radius: var(--radius-sm);
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .tag-badge button {
+        background: none;
+        border: none;
+        color: #71717a;
+        padding: 0;
+        font-size: 0.75rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .tag-badge button:hover {
+        color: var(--danger);
+    }
+</style>
+
+<div class="container-fluid py-4 px-md-4" style="max-width: 1600px;">
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="d-flex align-items-center mb-1">
+                <h3 class="fw-bold mb-0" style="color: var(--accent); letter-spacing: -0.5px;">Administración de KB</h3>
+                <span class="mx-3 text-muted">/</span>
+                <span class="text-muted fs-5">Artículos de Conocimiento</span>
+            </div>
+            <p class="text-muted mb-0">Crea, edita, versiona y gestiona la base de conocimientos para los asesores.</p>
+        </div>
+        @if (!_isEditing)
+        {
+            <button class="btn-premium btn-primary-dark d-flex align-items-center gap-2" @onclick="CreateNewArticle">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Nuevo Artículo
+            </button>
+        }
+    </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <div class="alert alert-success d-flex align-items-center justify-content-between mb-4 p-3 border-0" style="border-radius: var(--radius-md); background-color: #d1fae5; color: #065f46;">
+            <div class="d-flex align-items-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                <span>@_alertMessage</span>
+            </div>
+            <button type="button" class="btn-close" style="filter: invert(30%) sepia(20%) saturate(1000%) hue-rotate(110deg);" @onclick="() => _alertMessage = null"></button>
+        </div>
+    }
+
+    <!-- MAIN GRID / LIST VIEW -->
+    @if (!_isEditing)
+    {
+        <!-- FILTERS (Sueltos sin contenedor) -->
+        <div class="row g-3 align-items-center mb-4">
+            <div class="col-md-4">
+                <div class="search-pill-container">
+                    <input type="text" class="search-pill-input" @bind="_searchQuery" @bind:event="oninput" placeholder="Buscar por título, contenido o tags..." />
+                    <button class="search-icon-btn" title="Buscar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select filter-pill-select" @bind="_selectedCampaignFilter">
+                    <option value="Todos">Todas las Campañas</option>
+                    <option value="Campaña ONG">Campaña ONG</option>
+                    <option value="Campaña Alarmas">Campaña Alarmas</option>
+                    <option value="Campaña Energía">Campaña Energía</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select filter-pill-select" @bind="_selectedCategoryFilter">
+                    <option value="Todos">Todas las Categorías</option>
+                    <option value="Políticas">Políticas</option>
+                    <option value="Procesos">Procesos</option>
+                    <option value="Ofertas">Ofertas</option>
+                    <option value="Legal">Legal</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select filter-pill-select" @bind="_selectedStatusFilter">
+                    <option value="Todos">Todos los Estados</option>
+                    <option value="Publicado">Publicados</option>
+                    <option value="Borrador">Borradores</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="search-icon-btn border-0 shadow-none position-static w-auto h-auto p-2" title="Limpiar Filtros" @onclick="ClearFilters">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                </button>
+            </div>
+        </div>
+
+            <!-- TABLE CONTAINER (Tarjeta redondeada de elevación) -->
+            <div class="premium-panel p-4">
+                <div class="table-responsive">
+                <table class="table align-middle" style="margin-bottom: 0;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border-color);">
+                            <th scope="col" class="section-title py-3" style="width: 80px;">ID</th>
+                            <th scope="col" class="section-title py-3">Título</th>
+                            <th scope="col" class="section-title py-3">Categoría</th>
+                            <th scope="col" class="section-title py-3">Campaña</th>
+                            <th scope="col" class="section-title py-3" style="width: 100px;">Versión</th>
+                            <th scope="col" class="section-title py-3" style="width: 130px;">Estado</th>
+                            <th scope="col" class="section-title py-3">Última Actualización</th>
+                            <th scope="col" class="section-title py-3 text-end" style="width: 200px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var art in GetFilteredArticles())
+                        {
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <td class="fw-bold text-muted">#@art.Id</td>
+                                <td>
+                                    <div class="fw-bold text-dark">@art.Title</div>
+                                    <div class="d-flex gap-1 mt-1">
+                                        @foreach (var tag in art.Tags)
+                                        {
+                                            <span class="badge bg-light text-secondary border">@tag</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td>@art.Category</td>
+                                <td>@art.Campaign</td>
+                                <td><span class="font-monospace text-muted fw-bold">v@(art.Version)</span></td>
+                                <td>
+                                    @if (art.Status == "Publicado")
+                                    {
+                                        <span class="badge-soft badge-published">Publicado</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-soft badge-draft">Borrador</span>
+                                    }
+                                </td>
+                                <td class="text-muted" style="font-size: 0.85rem;">@art.UpdatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="text-end">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <button class="btn btn-sm btn-outline-dark rounded-pill px-3" @onclick="() => EditArticle(art)">
+                                            Editar
+                                        </button>
+                                        @if (art.Status == "Publicado")
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger rounded-pill px-3" @onclick="() => ToggleStatus(art)">
+                                                Despublicar
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-success rounded-pill px-3" @onclick="() => ToggleStatus(art)">
+                                                Publicar
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- EDITOR / FORM VIEW -->
+        <div class="row g-4">
+            <!-- LEFT PANEL: FIELDS AND MARKDOWN EDITOR -->
+            <div class="col-xl-7 col-lg-6">
+                <div class="premium-panel p-4 p-xl-5">
+                    <h5 class="fw-bold mb-4">@(IsNewArticle ? "Crear Nuevo Artículo" : $"Editar Artículo #{CurrentArticle.Id}")</h5>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <span class="section-title d-block mb-1">Título del Artículo</span>
+                            <input type="text" class="premium-input" @bind="CurrentArticle.Title" placeholder="Ej: Guía de respuesta ante objeción de portabilidad..." />
+                        </div>
+                        <div class="col-md-6">
+                            <span class="section-title d-block mb-1">Categoría</span>
+                            <select class="premium-select" @bind="CurrentArticle.Category">
+                                <option value="Políticas">Políticas</option>
+                                <option value="Procesos">Procesos</option>
+                                <option value="Ofertas">Ofertas</option>
+                                <option value="Legal">Legal</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <span class="section-title d-block mb-1">Campaña Relacionada</span>
+                            <select class="premium-select" @bind="CurrentArticle.Campaign">
+                                <option value="Campaña ONG">Campaña ONG</option>
+                                <option value="Campaña Alarmas">Campaña Alarmas</option>
+                                <option value="Campaña Energía">Campaña Energía</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- TAGS MANAGEMENT -->
+                    <div class="mb-4">
+                        <span class="section-title d-block mb-2">Etiquetas / Tags</span>
+                        <div class="d-flex flex-wrap gap-2 mb-2 p-2 border rounded" style="min-height: 48px; background: #fafafa; border-radius: var(--radius-md);">
+                            @if (!CurrentArticle.Tags.Any())
+                            {
+                                <span class="text-muted p-1" style="font-size: 0.85rem;">Ningún tag seleccionado</span>
+                            }
+                            else
+                            {
+                                @foreach (var tag in CurrentArticle.Tags)
+                                {
+                                    <span class="tag-badge">
+                                        @tag
+                                        <button type="button" @onclick="() => RemoveTag(tag)">&times;</button>
+                                    </span>
+                                }
+                            }
+                        </div>
+                        <div class="d-flex gap-2">
+                            <input type="text" class="premium-input" @bind="_newTagInput" @onkeyup="HandleTagKeyUp" placeholder="Escribe un tag y presiona Enter..." />
+                            <button class="btn-premium btn-secondary-light" style="white-space: nowrap;" @onclick="AddTag">Agregar Tag</button>
+                        </div>
+                    </div>
+
+                    <!-- LINKED INCIDENTS -->
+                    <div class="mb-4">
+                        <span class="section-title d-block mb-2">Incidencias del Catálogo Vinculadas</span>
+                        <div class="row g-2 p-3 border rounded" style="background: #fafafa; max-height: 180px; overflow-y: auto;">
+                            @foreach (var inc in AvailableIncidents)
+                            {
+                                var isLinked = CurrentArticle.LinkedIncidentIds.Contains(inc.Id);
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" checked="@isLinked" id="inc-@inc.Id" @onclick="() => ToggleIncidentLink(inc.Id)" />
+                                        <label class="form-check-label text-dark" for="inc-@inc.Id" style="font-size: 0.85rem;">
+                                            @inc.Name
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- MARKDOWN CONTENT EDITOR -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="section-title">Contenido del Artículo (Markdown)</span>
+                            <span class="text-muted" style="font-size: 0.75rem;">Soporta títulos (#), negrita (**) y listas (* o -).</span>
+                        </div>
+                        <textarea class="premium-input markdown-editor" @bind="CurrentArticle.Content" @bind:event="oninput" placeholder="Escribe el contenido usando Markdown aquí..."></textarea>
+                    </div>
+
+                    <!-- ACTIONS / SUBMIT BUTTONS -->
+                    <div class="d-flex justify-content-between align-items-center border-top pt-4">
+                        <div>
+                            <button class="btn-premium btn-secondary-light" @onclick="CancelEditing">Cancelar</button>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <!-- Switch to toggle status directly on save -->
+                            <div class="d-flex align-items-center me-3">
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input" type="checkbox" id="publishedSwitch" @bind="CurrentArticleIsPublished" />
+                                    <label class="form-check-label text-dark fw-bold ms-1" for="publishedSwitch" style="font-size: 0.85rem;">Publicado</label>
+                                </div>
+                            </div>
+                            <button class="btn-premium btn-primary-dark px-4" @onclick="SaveArticle">Guardar Cambios</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: REAL-TIME PREVIEW -->
+            <div class="col-xl-5 col-lg-6">
+                <div class="premium-panel p-4 p-xl-5 h-100 d-flex flex-column">
+                    <h5 class="fw-bold mb-4">Vista Previa en Tiempo Real</h5>
+                    
+                    <div class="flex-grow-1 markdown-preview">
+                        @((MarkupString)ConvertMarkdownToHtml(CurrentArticle.Content))
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- VERSION INCREMENT CONFIRMATION MODAL -->
+@if (_showVersionModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">Actualización de Versión</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showVersionModal = false"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <p class="text-dark">Estás editando un artículo que ya se encuentra **Publicado**. Elige cómo deseas guardar los cambios:</p>
+                    
+                    <div class="d-flex flex-column gap-3 mt-3">
+                        <div class="p-3 border rounded cursor-pointer" style="background: #fafafa;" @onclick='() => SaveWithVersionUpdate("minor")'>
+                            <div class="fw-bold text-dark mb-1">Incremento Menor (v@(CurrentArticle.Version) → v@(GetIncrementedVersion("minor")))</div>
+                            <span class="text-muted" style="font-size: 0.8rem;">Úsalo para correcciones de redacción, pequeños detalles o fe de erratas.</span>
+                        </div>
+                        <div class="p-3 border rounded cursor-pointer" style="background: #fafafa;" @onclick='() => SaveWithVersionUpdate("major")'>
+                            <div class="fw-bold text-dark mb-1">Incremento Mayor (v@(CurrentArticle.Version) → v@(GetIncrementedVersion("major")))</div>
+                            <span class="text-muted" style="font-size: 0.8rem;">Úsalo cuando se actualice la política central, nuevas ofertas o procesos modificados.</span>
+                        </div>
+                        <div class="p-3 border rounded cursor-pointer" style="background: #fafafa;" @onclick='() => SaveWithVersionUpdate("keep")'>
+                            <div class="fw-bold text-dark mb-1">Mantener Versión (v@(CurrentArticle.Version))</div>
+                            <span class="text-muted" style="font-size: 0.8rem;">Úsalo si estás corrigiendo un borrador previo o un cambio administrativo simple.</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button class="btn-premium btn-secondary-light w-100" @onclick="() => _showVersionModal = false">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Models representing KB articles and catalog incidents
+    public class LocalKbArticle
+    {
+        public long Id { get; set; }
+        public string Title { get; set; } = "";
+        public string Category { get; set; } = "Políticas";
+        public string Campaign { get; set; } = "Campaña ONG";
+        public string Content { get; set; } = "";
+        public string Version { get; set; } = "1.0";
+        public string Status { get; set; } = "Borrador";
+        public List<string> Tags { get; set; } = new();
+        public List<long> LinkedIncidentIds { get; set; } = new();
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    public class LocalIncidentCatalogItem
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+
+    // State Variables
+    private List<LocalKbArticle> _articles = new();
+    private List<LocalIncidentCatalogItem> AvailableIncidents = new();
+    
+    private bool _isEditing = false;
+    private bool IsNewArticle = false;
+    private LocalKbArticle CurrentArticle = new();
+    private bool CurrentArticleIsPublished = false;
+    
+    // Filter values
+    private string _searchQuery = "";
+    private string _selectedCampaignFilter = "Todos";
+    private string _selectedCategoryFilter = "Todos";
+    private string _selectedStatusFilter = "Todos";
+
+    // Tags & Version modal state
+    private string _newTagInput = "";
+    private bool _showVersionModal = false;
+    private string? _alertMessage = null;
+
+    protected override void OnInitialized()
+    {
+        // Populate local catalog incidents
+        AvailableIncidents = new List<LocalIncidentCatalogItem>
+        {
+            new() { Id = 1, Name = "Firma no coincide con DNI" },
+            new() { Id = 2, Name = "Audio de grabación inaudible" },
+            new() { Id = 3, Name = "Falta cargar archivo de contrato" },
+            new() { Id = 4, Name = "Dato del cliente erróneo en formulario" },
+            new() { Id = 5, Name = "Falta DNI Reverso" },
+            new() { Id = 6, Name = "Firma no concuerda en el anexo" }
+        };
+
+        // Populate local mock KB articles
+        _articles = new List<LocalKbArticle>
+        {
+            new()
+            {
+                Id = 1,
+                Title = "Manual ante objeción: 'No tengo dinero'",
+                Category = "Políticas",
+                Campaign = "Campaña ONG",
+                Content = "# Objeción de Presupuesto / Falta de Fondos\n\nCuando el cliente alegue no tener presupuesto o no poder permitirse el donativo mensual, sigue esta pauta de respuesta rápida.\n\n## 1. Conexión y Empatía\n* Comenta: \"Entiendo perfectamente su posición, hoy en día cada sol cuenta.\"\n* Evita confrontar directamente o debatir sobre su situación económica.\n\n## 2. Redirección por Valor\n* **Punto fuerte**: Resalta que el donativo es equivalente a tan solo un café a la semana.\n* Menciona los beneficios e impacto inmediato de la campaña en los niños de las zonas rurales.\n\n## 3. Oferta Alternativa\n* Si se resiste, ofrece la membresía reducida de 20 soles mensuales.",
+                Version = "1.0",
+                Status = "Publicado",
+                Tags = new() { "objeciones", "ong", "empatia" },
+                LinkedIncidentIds = new() { 2, 4 },
+                UpdatedAt = DateTime.Now.AddDays(-5)
+            },
+            new()
+            {
+                Id = 2,
+                Title = "Requisitos legales para firma de Contrato de Alarmas",
+                Category = "Legal",
+                Campaign = "Campaña Alarmas",
+                Content = "# Documentación y Requisitos para el Contrato\n\nTodos los contratos de la campaña de Alarmas residenciales deben cumplir estrictamente con los siguientes estándares legales:\n\n* **Firma manuscrita o digital verificada**.\n* **DNI vigente y legible** (frontal y reverso).\n* **Comprobante de domicilio** no mayor a 3 meses.\n\n### Alertas Comunes:\n1. Si la firma difiere de la del documento de identidad, la auditoría lo marcará como KO.\n2. No se permiten fotos borrosas.",
+                Version = "1.2",
+                Status = "Publicado",
+                Tags = new() { "legal", "alarmas", "firma" },
+                LinkedIncidentIds = new() { 1, 3, 5 },
+                UpdatedAt = DateTime.Now.AddDays(-2)
+            },
+            new()
+            {
+                Id = 3,
+                Title = "Estrategias de Retención - Campaña Energía",
+                Category = "Ofertas",
+                Campaign = "Campaña Energía",
+                Content = "# Plan de Contingencia ante Desistimiento de Energía\n\nSi el cliente solicita la baja del servicio de energía durante el primer mes, sigue estos pasos:\n\n* **Paso 1**: Identificar el motivo del reclamo (Tarifa alta / Mal servicio).\n* **Paso 2**: Ofrecer descuento del 15% en las próximas 3 facturas.\n* **Paso 3**: Registrar la oferta en la pestaña de ficha alterna.",
+                Version = "0.9",
+                Status = "Borrador",
+                Tags = new() { "retencion", "descuentos", "energia" },
+                LinkedIncidentIds = new() { 4, 6 },
+                UpdatedAt = DateTime.Now.AddMinutes(-30)
+            }
+        };
+    }
+
+    // Filter Logic
+    private IEnumerable<LocalKbArticle> GetFilteredArticles()
+    {
+        var result = _articles.AsEnumerable();
+
+        if (!string.IsNullOrEmpty(_searchQuery))
+        {
+            var query = _searchQuery.ToLowerInvariant();
+            result = result.Where(a => 
+                a.Title.ToLowerInvariant().Contains(query) || 
+                a.Content.ToLowerInvariant().Contains(query) || 
+                a.Tags.Any(t => t.ToLowerInvariant().Contains(query)));
+        }
+
+        if (_selectedCampaignFilter != "Todos")
+        {
+            result = result.Where(a => a.Campaign == _selectedCampaignFilter);
+        }
+
+        if (_selectedCategoryFilter != "Todos")
+        {
+            result = result.Where(a => a.Category == _selectedCategoryFilter);
+        }
+
+        if (_selectedStatusFilter != "Todos")
+        {
+            result = result.Where(a => a.Status == _selectedStatusFilter);
+        }
+
+        return result.OrderByDescending(a => a.UpdatedAt);
+    }
+
+    private void ClearFilters()
+    {
+        _searchQuery = "";
+        _selectedCampaignFilter = "Todos";
+        _selectedCategoryFilter = "Todos";
+        _selectedStatusFilter = "Todos";
+    }
+
+    // CRUD/Editor Management
+    private void CreateNewArticle()
+    {
+        IsNewArticle = true;
+        _isEditing = true;
+        CurrentArticle = new LocalKbArticle
+        {
+            Id = _articles.Any() ? _articles.Max(a => a.Id) + 1 : 1,
+            UpdatedAt = DateTime.Now
+        };
+        CurrentArticleIsPublished = false;
+        _newTagInput = "";
+    }
+
+    private void EditArticle(LocalKbArticle article)
+    {
+        IsNewArticle = false;
+        _isEditing = true;
+        
+        // Clone to avoid editing directly until saved
+        CurrentArticle = new LocalKbArticle
+        {
+            Id = article.Id,
+            Title = article.Title,
+            Category = article.Category,
+            Campaign = article.Campaign,
+            Content = article.Content,
+            Version = article.Version,
+            Status = article.Status,
+            Tags = new List<string>(article.Tags),
+            LinkedIncidentIds = new List<long>(article.LinkedIncidentIds),
+            UpdatedAt = article.UpdatedAt
+        };
+        CurrentArticleIsPublished = CurrentArticle.Status == "Publicado";
+        _newTagInput = "";
+    }
+
+    private void SaveArticle()
+    {
+        // Form validations
+        if (string.IsNullOrWhiteSpace(CurrentArticle.Title))
+        {
+            _alertMessage = "El título del artículo es obligatorio.";
+            return;
+        }
+
+        CurrentArticle.Status = CurrentArticleIsPublished ? "Publicado" : "Borrador";
+
+        // Versioning logic check:
+        // If it was already a published article and we are editing it, we trigger the version selection modal
+        if (!IsNewArticle)
+        {
+            var originalArticle = _articles.FirstOrDefault(a => a.Id == CurrentArticle.Id);
+            if (originalArticle != null && originalArticle.Status == "Publicado")
+            {
+                _showVersionModal = true;
+                return;
+            }
+        }
+
+        // Standard save
+        CompleteSave();
+    }
+
+    private void SaveWithVersionUpdate(string type)
+    {
+        _showVersionModal = false;
+        CurrentArticle.Version = GetIncrementedVersion(type);
+        CompleteSave();
+    }
+
+    private string GetIncrementedVersion(string type)
+    {
+        if (double.TryParse(CurrentArticle.Version, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double verNum))
+        {
+            if (type == "minor")
+            {
+                verNum += 0.1;
+            }
+            else if (type == "major")
+            {
+                verNum = Math.Floor(verNum) + 1.0;
+            }
+            return verNum.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        return "1.0";
+    }
+
+    private void CompleteSave()
+    {
+        CurrentArticle.UpdatedAt = DateTime.Now;
+
+        if (IsNewArticle)
+        {
+            _articles.Add(CurrentArticle);
+            _alertMessage = $"Artículo #{CurrentArticle.Id} creado correctamente como {CurrentArticle.Status}.";
+        }
+        else
+        {
+            var idx = _articles.FindIndex(a => a.Id == CurrentArticle.Id);
+            if (idx != -1)
+            {
+                _articles[idx] = CurrentArticle;
+            }
+            _alertMessage = $"Artículo #{CurrentArticle.Id} actualizado correctamente (Versión v{CurrentArticle.Version}).";
+        }
+
+        _isEditing = false;
+    }
+
+    private void CancelEditing()
+    {
+        _isEditing = false;
+    }
+
+    private void ToggleStatus(LocalKbArticle article)
+    {
+        if (article.Status == "Publicado")
+        {
+            article.Status = "Borrador";
+            _alertMessage = $"Artículo #{article.Id} cambiado a Borrador.";
+        }
+        else
+        {
+            article.Status = "Publicado";
+            _alertMessage = $"Artículo #{article.Id} publicado correctamente.";
+        }
+        article.UpdatedAt = DateTime.Now;
+    }
+
+    // Interactive Tags handlers
+    private void HandleTagKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            AddTag();
+        }
+    }
+
+    private void AddTag()
+    {
+        if (!string.IsNullOrWhiteSpace(_newTagInput))
+        {
+            var cleaned = _newTagInput.Trim().ToLowerInvariant();
+            if (!CurrentArticle.Tags.Contains(cleaned))
+            {
+                CurrentArticle.Tags.Add(cleaned);
+            }
+            _newTagInput = "";
+        }
+    }
+
+    private void RemoveTag(string tag)
+    {
+        CurrentArticle.Tags.Remove(tag);
+    }
+
+    // Catalog Link handler
+    private void ToggleIncidentLink(long incidentId)
+    {
+        if (CurrentArticle.LinkedIncidentIds.Contains(incidentId))
+        {
+            CurrentArticle.LinkedIncidentIds.Remove(incidentId);
+        }
+        else
+        {
+            CurrentArticle.LinkedIncidentIds.Add(incidentId);
+        }
+    }
+
+    // Markdown simple parser logic
+    private string ConvertMarkdownToHtml(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown)) 
+            return "<p class='text-muted' style='font-size: 0.9rem;'>Escribe algo en el editor Markdown para ver la previsualización en tiempo real...</p>";
+
+        var html = HttpUtility.HtmlEncode(markdown);
+
+        // Convert headers
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^# (.*?)$", "<h1>$1</h1>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^## (.*?)$", "<h2>$1</h2>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^### (.*?)$", "<h3>$1</h3>", System.Text.RegularExpressions.RegexOptions.Multiline);
+
+        // Convert bold
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"\*\*(.*?)\*\*", "<strong>$1</strong>");
+
+        // Convert bullets
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^\* (.*?)$", "<li>$1</li>", System.Text.RegularExpressions.RegexOptions.Multiline);
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"^\- (.*?)$", "<li>$1</li>", System.Text.RegularExpressions.RegexOptions.Multiline);
+
+        // Group consecutive li into ul
+        html = html.Replace("<li>", "<ul><li>").Replace("</li>", "</li></ul>");
+        html = html.Replace("</ul><ul>", "");
+
+        // Convert line breaks to <br/>
+        html = html.Replace("\n", "<br/>");
+
+        return html;
+    }
+}

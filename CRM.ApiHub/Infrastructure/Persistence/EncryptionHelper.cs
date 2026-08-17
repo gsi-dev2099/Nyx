@@ -7,17 +7,47 @@ namespace CRM.ApiHub.Infrastructure.Persistence;
 
 public static class EncryptionHelper
 {
-    // Clave de 32 bytes y IV de 16 bytes para cifrado simétrico AES-256
-    private static readonly byte[] Key = Encoding.UTF8.GetBytes("NyxCRMDatabaseKeySecret2026Secur"); // 32 bytes
-    private static readonly byte[] Iv = Encoding.UTF8.GetBytes("NyxCRMInitVector"); // 16 bytes
+    private static readonly byte[] DefaultKey = Encoding.UTF8.GetBytes("NyxCRMDatabaseKeySecret2026Secur"); // 32 bytes
+    private static readonly byte[] DefaultIv = Encoding.UTF8.GetBytes("NyxCRMInitVector"); // 16 bytes
+
+    private static byte[] GetKey()
+    {
+        var keyStr = Environment.GetEnvironmentVariable("NYX_DB_ENCRYPTION_KEY");
+        if (string.IsNullOrEmpty(keyStr))
+        {
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            if (env == "Development")
+            {
+                Console.WriteLine("[WARNING] NYX_DB_ENCRYPTION_KEY is not set. Using insecure development fallback key.");
+                return DefaultKey;
+            }
+            throw new InvalidOperationException("La variable de entorno 'NYX_DB_ENCRYPTION_KEY' debe estar configurada en producción.");
+        }
+        return Encoding.UTF8.GetBytes(keyStr.PadRight(32).Substring(0, 32));
+    }
+
+    private static byte[] GetIv()
+    {
+        var ivStr = Environment.GetEnvironmentVariable("NYX_DB_ENCRYPTION_IV");
+        if (string.IsNullOrEmpty(ivStr))
+        {
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            if (env == "Development")
+            {
+                return DefaultIv;
+            }
+            throw new InvalidOperationException("La variable de entorno 'NYX_DB_ENCRYPTION_IV' debe estar configurada en producción.");
+        }
+        return Encoding.UTF8.GetBytes(ivStr.PadRight(16).Substring(0, 16));
+    }
 
     public static string Encrypt(string plainText)
     {
         if (string.IsNullOrEmpty(plainText)) return plainText;
 
         using var aes = Aes.Create();
-        aes.Key = Key;
-        aes.IV = Iv;
+        aes.Key = GetKey();
+        aes.IV = GetIv();
 
         using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
         using var ms = new MemoryStream();
@@ -41,8 +71,8 @@ public static class EncryptionHelper
         var cipherBytes = Convert.FromBase64String(cleanCipherText);
 
         using var aes = Aes.Create();
-        aes.Key = Key;
-        aes.IV = Iv;
+        aes.Key = GetKey();
+        aes.IV = GetIv();
 
         using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
         using var ms = new MemoryStream(cipherBytes);

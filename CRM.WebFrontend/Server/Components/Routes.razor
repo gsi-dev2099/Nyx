@@ -1,0 +1,21 @@
+@using Microsoft.AspNetCore.Components.Authorization
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly" AdditionalAssemblies="new[] { typeof(CRM.WebFrontend.Client._Imports).Assembly }" NotFoundPage="typeof(CRM.WebFrontend.Client.Pages.NotFound)">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(CRM.WebFrontend.Client.Layout.MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        <p>No estás autorizado para ver esta página. Por favor <a href="/login">inicia sesión</a>.</p>
+                    }
+                    else
+                    {
+                        <p>No tienes los permisos necesarios para acceder a este recurso.</p>
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+    </Router>
+</CascadingAuthenticationState>

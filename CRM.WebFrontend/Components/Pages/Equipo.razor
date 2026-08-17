@@ -1,0 +1,190 @@
+@page "/supervisor/equipo"
+@page "/backoffice/equipo"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using CRM.WebFrontend.Services
+@inject IReportService ReportService
+@attribute [Authorize(Roles = "SUPERVISOR,BACKOFFICE")]
+
+<PageTitle>Rendimiento de Equipo - NYX CRM</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4 align-items-center">
+        <div class="col-12">
+            <h2 class="fw-bold text-primary mb-1">Rendimiento de Equipo</h2>
+            <p class="text-muted mb-0">Visualiza las métricas y ventas globales de todos los asesores.</p>
+        </div>
+    </div>
+
+    <!-- Indicadores Globales -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4 text-center">
+                    <h5 class="text-muted mb-3">Ventas Totales del Mes</h5>
+                    <h2 class="display-5 fw-bold text-success mb-0">@filteredData.Sum(x => x.TotalOrders)</h2>
+                    <small class="text-success fw-bold">Calculado dinámicamente</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4 text-center">
+                    <h5 class="text-muted mb-3">Ventas Aprobadas</h5>
+                    <h2 class="display-5 fw-bold text-primary mb-0">@filteredData.Sum(x => x.ApprovedOrders)</h2>
+                    <small class="text-primary fw-bold">Órdenes consolidadas</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-primary text-white">
+                <div class="card-body p-4 text-center">
+                    <h5 class="text-white-50 mb-3">Asesores Activos</h5>
+                    <h2 class="display-5 fw-bold mb-0">@filteredData.Count / @allData.Count</h2>
+                    <small class="text-white">Filtrados / Totales</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold text-muted small">Buscar Asesor</label>
+                    <input type="text" class="form-control rounded-3" placeholder="Nombre del asesor..." @bind="searchTerm" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold text-muted small">Mes</label>
+                    <input type="month" class="form-control rounded-3" @bind="selectedMonth" />
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button class="btn btn-primary rounded-pill px-4 w-100" @onclick="LoadDataAsync">Actualizar Datos</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-muted">
+                        <tr>
+                            <th class="ps-4 py-3">Asesor</th>
+                            <th class="py-3">Monto PEN</th>
+                            <th class="py-3 text-center">Ventas Totales</th>
+                            <th class="py-3 text-center">Ventas Aprobadas</th>
+                            <th class="py-3 text-center">Tasa Éxito</th>
+                            <th class="pe-4 py-3 text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (isLoading)
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                    Cargando rendimiento...
+                                </td>
+                            </tr>
+                        }
+                        else if (!filteredData.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    No se encontraron asesores con los filtros aplicados.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var row in filteredData)
+                            {
+                                var initials = string.Join("", row.AdvisorName.Split(' ').Take(2).Select(s => s.FirstOrDefault())).ToUpper();
+                                var successRate = row.TotalOrders > 0 ? (row.ApprovedOrders * 100.0 / row.TotalOrders) : 0;
+                                var barColor = successRate >= 80 ? "bg-success" : (successRate >= 50 ? "bg-warning" : "bg-danger");
+
+                                <tr>
+                                    <td class="ps-4 py-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">@initials</div>
+                                            <div>
+                                                <span class="fw-bold d-block">@row.AdvisorName</span>
+                                                <small class="text-muted">@row.Username</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="fw-bold text-primary">S/ @row.TotalAmountPen.ToString("N2")</td>
+                                    <td class="text-center fw-bold">@row.TotalOrders</td>
+                                    <td class="text-center fw-bold text-success">@row.ApprovedOrders</td>
+                                    <td class="text-center">
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar @barColor" role="progressbar" style="width: @((int)successRate)%;" aria-valuenow="@((int)successRate)" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                        <small class="text-muted mt-1 d-block">@successRate.ToString("0.0")%</small>
+                                    </td>
+                                    <td class="pe-4 text-center">
+                                        <span class="badge bg-success rounded-pill px-3">Activo</span>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isLoading = false;
+    private List<SalesByAsesorViewModel> allData = new();
+    private List<SalesByAsesorViewModel> filteredData = new();
+    
+    private string searchTerm = string.Empty;
+    private DateTime? selectedMonth;
+
+    protected override async Task OnInitializedAsync()
+    {
+        selectedMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        
+        DateTime? dateFrom = null;
+        DateTime? dateTo = null;
+        
+        if (selectedMonth.HasValue)
+        {
+            dateFrom = new DateTime(selectedMonth.Value.Year, selectedMonth.Value.Month, 1);
+            dateTo = dateFrom.Value.AddMonths(1).AddDays(-1);
+        }
+
+        allData = await ReportService.GetSalesByAsesorAsync(dateFrom, dateTo);
+        ApplyFilters();
+        
+        isLoading = false;
+    }
+
+    private void ApplyFilters()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            filteredData = allData.ToList();
+        }
+        else
+        {
+            filteredData = allData.Where(x => 
+                x.AdvisorName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) || 
+                x.Username.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+    }
+}
+

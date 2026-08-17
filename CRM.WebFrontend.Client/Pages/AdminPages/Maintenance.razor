@@ -1,0 +1,894 @@
+@page "/admin/maintenance"
+@rendermode InteractiveServer
+@using CRM.WebFrontend.Client.Models
+@using CRM.WebFrontend.Client.Services
+@inject IMaintenanceService MaintenanceService
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "ADMIN_CRM")]
+
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-dark mb-0">
+            <i class="bi bi-gear-fill text-primary me-2"></i> Panel de Mantenimiento
+        </h2>
+    </div>
+
+    @* ===== TABS ===== *@
+    <ul class="nav nav-pills mb-4 gap-2" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == 0 ? "active" : "")" @onclick="() => SetTab(0)">
+                <i class="bi bi-list-check me-1"></i> Estados de Venta
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == 4 ? "active" : "")" @onclick="() => SetTab(4)">
+                <i class="bi bi-tags me-1"></i> Subestados de Venta
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == 1 ? "active" : "")" @onclick="() => SetTab(1)">
+                <i class="bi bi-box-seam me-1"></i> Productos / Tarifas
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == 2 ? "active" : "")" @onclick="() => SetTab(2)">
+                <i class="bi bi-exclamation-triangle me-1"></i> Catálogo Incidencias
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == 5 ? "active" : "")" @onclick="() => SetTab(5)">
+                <i class="bi bi-clock-history me-1"></i> Horarios Laborales (NxFortress SLA)
+            </button>
+        </li>
+    </ul>
+
+
+
+    @* ===== TAB CONTENT ===== *@
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
+            <p class="text-muted mt-3">Cargando datos...</p>
+        </div>
+    }
+    else
+    {
+        @* ===== TAB 0: ESTADOS DE VENTA ===== *@
+        @if (activeTab == 0)
+        {
+            <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-list-check text-primary me-2"></i>Estados de Venta</h5>
+                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">@statuses.Count registros</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4 text-muted fw-bold">ID</th>
+                                <th class="text-muted fw-bold">Código</th>
+                                <th class="text-muted fw-bold">Nombre</th>
+                                <th class="text-muted fw-bold">Categoría</th>
+                                <th class="text-muted fw-bold">Color</th>
+                                <th class="text-muted fw-bold text-center">Terminal</th>
+                                <th class="text-muted fw-bold text-center">Activo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in statuses)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-bold text-secondary">@s.Id</td>
+                                    <td><code>@s.Code</code></td>
+                                    <td class="fw-semibold">@s.Name</td>
+                                    <td><span class="badge bg-light text-dark border">@s.Category</span></td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(s.Color))
+                                        {
+                                            <span class="d-inline-flex align-items-center gap-2">
+                                                <span style="width:16px;height:16px;border-radius:50%;display:inline-block;background:@s.Color;border:1px solid #ccc;"></span>
+                                                <small class="text-muted">@s.Color</small>
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (s.IsTerminal)
+                                        {
+                                            <i class="bi bi-check-circle-fill text-success"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-dash-circle text-muted"></i>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-block">
+                                            <input class="form-check-input" type="checkbox" checked="@s.IsActive"
+                                                   @onchange="async () => await ToggleStatus(s)" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* ===== TAB 4: SUBESTADOS DE VENTA ===== *@
+        @if (activeTab == 4)
+        {
+            <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-tags text-primary me-2"></i>Subestados de Venta</h5>
+                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">@substatuses.Count registros</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4 text-muted fw-bold">ID</th>
+                                <th class="text-muted fw-bold">Estado Padre</th>
+                                <th class="text-muted fw-bold">Código</th>
+                                <th class="text-muted fw-bold">Nombre</th>
+                                <th class="text-muted fw-bold">Descripción</th>
+                                <th class="text-muted fw-bold text-center">Activo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var sub in substatuses)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-bold text-secondary">@sub.IdSubstatus</td>
+                                    <td><span class="badge bg-secondary-subtle text-dark border">@sub.StatusName</span></td>
+                                    <td><code>@sub.Code</code></td>
+                                    <td class="fw-semibold">@sub.Name</td>
+                                    <td class="text-muted">@(sub.Description ?? "—")</td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-block">
+                                            <input class="form-check-input" type="checkbox" checked="@sub.IsActive"
+                                                   @onchange="async () => await ToggleSubstatus(sub)" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* ===== TAB 5: HORARIOS LABORALES (NXFORTRESS SLA) ===== *@
+        @if (activeTab == 5)
+        {
+            <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history text-primary me-2"></i>Horarios Laborales por Colaborador</h5>
+                        <small class="text-muted">NxFortress SLA Engine — Control dinámico de reloj contractual por colaborador</small>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">@userShifts.Count registros</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4 text-muted fw-bold">Colaborador</th>
+                                <th class="text-muted fw-bold">Día de la Semana</th>
+                                <th class="text-muted fw-bold">Hora Inicio</th>
+                                <th class="text-muted fw-bold">Hora Fin / Corte</th>
+                                <th class="text-muted fw-bold text-center">Estado Shift</th>
+                                <th class="text-muted fw-bold text-end pe-4">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var shift in userShifts)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-bold text-dark">
+                                        <i class="bi bi-person-circle text-primary me-1"></i> @shift.Username
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="shift.DayOfWeek" style="max-width: 140px;">
+                                            <option value="1">Lunes</option>
+                                            <option value="2">Martes</option>
+                                            <option value="3">Miércoles</option>
+                                            <option value="4">Jueves</option>
+                                            <option value="5">Viernes</option>
+                                            <option value="6">Sábado</option>
+                                            <option value="0">Domingo</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" @bind="shift.StartTime" placeholder="08:00:00" style="max-width: 130px;" />
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" @bind="shift.EndTime" placeholder="17:00:00" style="max-width: 130px;" />
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="form-check form-switch d-inline-block">
+                                            <input class="form-check-input" type="checkbox" @bind="shift.IsActive" />
+                                        </div>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm" @onclick="async () => await SaveWorkShift(shift)">
+                                            <i class="bi bi-save me-1"></i> Guardar Shift
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+
+
+        @* ===== TAB 1: PRODUCTOS / TARIFAS ===== *@
+        @if (activeTab == 1)
+        {
+            <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-box-seam text-primary me-2"></i>Productos / Tarifas</h5>
+                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">@products.Count registros</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4 text-muted fw-bold">ID</th>
+                                <th class="text-muted fw-bold">SKU</th>
+                                <th class="text-muted fw-bold">Nombre</th>
+                                <th class="text-muted fw-bold">Descripción</th>
+                                <th class="text-muted fw-bold text-end">Precio Unit.</th>
+                                <th class="text-muted fw-bold text-center">Stock</th>
+                                <th class="text-muted fw-bold text-center">Activo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (products.Any())
+                            {
+                                @foreach (var p in products)
+                                {
+                                    <tr>
+                                        <td class="ps-4 fw-bold text-secondary">@p.Id</td>
+                                        <td><code>@p.Sku</code></td>
+                                        <td class="fw-semibold">@p.Name</td>
+                                        <td class="text-muted small">@(p.Description?.Length > 50 ? p.Description[..50] + "..." : p.Description ?? "—")</td>
+                                        <td class="text-end fw-bold">€ @p.UnitPrice.ToString("N2")</td>
+                                        <td class="text-center">
+                                            <span class="badge @(p.StockQuantity > 0 ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") rounded-pill">
+                                                @p.StockQuantity
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check form-switch d-inline-block">
+                                                <input class="form-check-input" type="checkbox" checked="@p.IsActive"
+                                                       @onchange="async () => await ToggleProduct(p)" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-inbox-fill display-4 d-block mb-3 opacity-50"></i>No hay productos registrados.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* ===== TAB 2: CATÁLOGO DE INCIDENCIAS ===== *@
+        @if (activeTab == 2)
+        {
+            <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-exclamation-triangle text-warning me-2"></i>Catálogo de Incidencias</h5>
+                    <button class="btn btn-primary btn-sm rounded-pill px-3" @onclick="OpenCreateIncidentModal">
+                        <i class="bi bi-plus-lg me-1"></i> Nueva Incidencia
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4 text-muted fw-bold">ID</th>
+                                <th class="text-muted fw-bold">Código</th>
+                                <th class="text-muted fw-bold">Nombre</th>
+                                <th class="text-muted fw-bold">Campaña</th>
+                                <th class="text-muted fw-bold text-center">Prioridad</th>
+                                <th class="text-muted fw-bold text-center">SLA (h)</th>
+                                <th class="text-muted fw-bold text-center">Activo</th>
+                                <th class="text-muted fw-bold text-center pe-4">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (incidentCatalog.Any())
+                            {
+                                @foreach (var ic in incidentCatalog)
+                                {
+                                    <tr>
+                                        <td class="ps-4 fw-bold text-secondary">@ic.IdIncident</td>
+                                        <td><code>@ic.Code</code></td>
+                                        <td class="fw-semibold">@ic.Name</td>
+                                        <td><span class="badge bg-light text-dark border">@(ic.CampaignName ?? "—")</span></td>
+                                        <td class="text-center">
+                                            @{
+                                                var prBadge = ic.Priority <= 1 ? "bg-danger" : ic.Priority == 2 ? "bg-warning" : "bg-info";
+                                                var prText = ic.Priority <= 1 ? "CRÍTICA" : ic.Priority == 2 ? "ALTA" : ic.Priority == 3 ? "MEDIA" : "BAJA";
+                                            }
+                                            <span class="badge @prBadge rounded-pill">@prText</span>
+                                        </td>
+                                        <td class="text-center fw-bold">@ic.SlaHours</td>
+                                        <td class="text-center">
+                                            @if (ic.IsActive)
+                                            {
+                                                <span class="badge bg-success-subtle text-success rounded-pill px-3 py-1">Sí</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger rounded-pill px-3 py-1">No</span>
+                                            }
+                                        </td>
+                                        <td class="text-center pe-4">
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary rounded-start-pill" @onclick="() => OpenEditIncidentModal(ic)" title="Editar">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-outline-danger rounded-end-pill" @onclick="async () => await DeleteIncident(ic.IdIncident)" title="Eliminar">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="8" class="text-center py-5 text-muted"><i class="bi bi-inbox-fill display-4 d-block mb-3 opacity-50"></i>No hay incidencias en el catálogo.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* ===== TAB 3: TIPOS DE CAMBIO ===== *@
+        @if (activeTab == 3)
+        {
+            <div class="row g-4">
+                @* Form to insert new rate *@
+                <div class="col-lg-5">
+                    <div class="card shadow-sm border-0 rounded-4">
+                        <div class="card-header bg-white border-bottom-0 py-3 px-4">
+                            <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-plus-circle text-success me-2"></i>Registrar Nuevo Tipo de Cambio</h5>
+                        </div>
+                        <div class="card-body px-4 pb-4">
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <label class="form-label fw-bold text-muted small">Moneda Origen</label>
+                                    <select class="form-select" @bind="newRate.FromCurrency">
+                                        <option value="EUR">EUR (Euro)</option>
+                                        <option value="PEN">PEN (Sol)</option>
+                                        <option value="USD">USD (Dólar)</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-bold text-muted small">Moneda Destino</label>
+                                    <select class="form-select" @bind="newRate.ToCurrency">
+                                        <option value="PEN">PEN (Sol)</option>
+                                        <option value="EUR">EUR (Euro)</option>
+                                        <option value="USD">USD (Dólar)</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-bold text-muted small">Tasa de Cambio</label>
+                                    <input type="number" class="form-control form-control-lg" step="0.0001" @bind="newRate.Rate" placeholder="Ej: 4.0500" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-bold text-muted small">Vigente Desde</label>
+                                    <input type="date" class="form-control" @bind="newRate.ValidFrom" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label fw-bold text-muted small">Vigente Hasta (opcional)</label>
+                                    <input type="date" class="form-control" @bind="newRate.ValidTo" />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-bold text-muted small">Fuente</label>
+                                    <input type="text" class="form-control" @bind="newRate.Source" placeholder="MANUAL, SUNAT, BCE..." />
+                                </div>
+                                <div class="col-12 mt-3">
+                                    <button class="btn btn-success w-100 rounded-pill" @onclick="CreateExchangeRate" disabled="@isSubmitting">
+                                        @if (isSubmitting)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                        }
+                                        <i class="bi bi-check-lg me-1"></i> Registrar Tipo de Cambio
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* Table of existing rates *@
+                <div class="col-lg-7">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history text-primary me-2"></i>Historial de Tasas</h5>
+                            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">@exchangeRates.Count registros</span>
+                        </div>
+                        <div class="table-responsive" style="max-height:500px; overflow-y:auto;">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th class="ps-4 text-muted fw-bold">Par</th>
+                                        <th class="text-muted fw-bold text-end">Tasa</th>
+                                        <th class="text-muted fw-bold">Desde</th>
+                                        <th class="text-muted fw-bold">Hasta</th>
+                                        <th class="text-muted fw-bold">Fuente</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (exchangeRates.Any())
+                                    {
+                                        @foreach (var er in exchangeRates)
+                                        {
+                                            bool isCurrent = !er.ValidTo.HasValue;
+                                            <tr class="@(isCurrent ? "table-success" : "")">
+                                                <td class="ps-4 fw-bold">@er.FromCurrency → @er.ToCurrency</td>
+                                                <td class="text-end fw-bold">@er.Rate.ToString("N4")</td>
+                                                <td>@er.ValidFrom.ToString("dd/MM/yyyy")</td>
+                                                <td>@(er.ValidTo.HasValue ? er.ValidTo.Value.ToString("dd/MM/yyyy") : "Vigente ✅")</td>
+                                                <td><span class="badge bg-light text-dark border">@er.Source</span></td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr><td colspan="5" class="text-center py-5 text-muted">No hay tipos de cambio registrados.</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@* ===== MODAL: Crear / Editar Incidencia ===== *@
+@if (showIncidentModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(5px);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                        @(isEditingIncident ? "Editar Incidencia" : "Nueva Incidencia del Catálogo")
+                    </h5>
+                    <button type="button" class="btn-close me-2 mt-2" @onclick="CloseIncidentModal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="row g-3">
+                        @if (!isEditingIncident)
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-muted small">Campaña</label>
+                                <select class="form-select" @bind="newIncident.IdCmpg">
+                                    <option value="0">— Seleccionar —</option>
+                                    @foreach (var c in campaigns)
+                                    {
+                                        <option value="@c.Id">@c.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-muted small">Estado Asociado (ID)</label>
+                                <select class="form-select" @bind="newIncident.IdStatus">
+                                    @foreach (var s in statuses)
+                                    {
+                                        <option value="@s.Id">@s.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-muted small">Código</label>
+                                <input type="text" class="form-control" @bind="newIncident.Code" placeholder="INC-001" />
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold text-muted small">Nombre</label>
+                                <input type="text" class="form-control" @bind="newIncident.Name" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-muted small">Descripción</label>
+                                <textarea class="form-control" rows="2" @bind="newIncident.Description"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-muted small">Plantilla de Solución</label>
+                                <textarea class="form-control" rows="2" @bind="newIncident.SolutionTemplate"></textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-muted small">Tipo Resolución</label>
+                                <select class="form-select" @bind="newIncident.ResolutionType">
+                                    <option value="SUPPORT">SUPPORT</option>
+                                    <option value="AUDIO">AUDIO</option>
+                                    <option value="OPERACIONES">OPERACIONES</option>
+                                    <option value="BACKOFFICE">BACKOFFICE</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-muted small">Prioridad</label>
+                                <select class="form-select" @bind="newIncident.Priority">
+                                    <option value="1">1 - Crítica</option>
+                                    <option value="2">2 - Alta</option>
+                                    <option value="3">3 - Media</option>
+                                    <option value="4">4 - Baja</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-muted small">SLA (horas)</label>
+                                <input type="number" class="form-control" @bind="newIncident.SlaHours" />
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input" type="checkbox" @bind="newIncident.RequiresResponse" />
+                                    <label class="form-check-label">Requiere respuesta</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input" type="checkbox" @bind="newIncident.IsRecurrent" />
+                                    <label class="form-check-label">Es recurrente</label>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-muted small">Nombre</label>
+                                <input type="text" class="form-control" @bind="editIncident.Name" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-muted small">Descripción</label>
+                                <textarea class="form-control" rows="2" @bind="editIncident.Description"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-muted small">Plantilla de Solución</label>
+                                <textarea class="form-control" rows="2" @bind="editIncident.SolutionTemplate"></textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-muted small">Tipo Resolución</label>
+                                <select class="form-select" @bind="editIncident.ResolutionType">
+                                    <option value="SUPPORT">SUPPORT</option>
+                                    <option value="AUDIO">AUDIO</option>
+                                    <option value="OPERACIONES">OPERACIONES</option>
+                                    <option value="BACKOFFICE">BACKOFFICE</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-muted small">Prioridad</label>
+                                <select class="form-select" @bind="editIncident.Priority">
+                                    <option value="1">1 - Crítica</option>
+                                    <option value="2">2 - Alta</option>
+                                    <option value="3">3 - Media</option>
+                                    <option value="4">4 - Baja</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-muted small">SLA (horas)</label>
+                                <input type="number" class="form-control" @bind="editIncident.SlaHours" />
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input" type="checkbox" @bind="editIncident.RequiresResponse" />
+                                    <label class="form-check-label">Requiere respuesta</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input" type="checkbox" @bind="editIncident.IsRecurrent" />
+                                    <label class="form-check-label">Es recurrente</label>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" @onclick="CloseIncidentModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary rounded-pill px-4" @onclick="SaveIncident" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        @(isEditingIncident ? "Guardar Cambios" : "Crear Incidencia")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ===== TOAST ===== *@
+@if (!string.IsNullOrEmpty(toastMessage))
+{
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
+        <div class="toast show align-items-center text-bg-@toastType border-0 shadow-lg rounded-4" role="alert">
+            <div class="d-flex">
+                <div class="toast-body fw-semibold">
+                    <i class="bi @(toastType == "success" ? "bi-check-circle-fill" : "bi-x-circle-fill") me-2"></i>
+                    @toastMessage
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => toastMessage = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private int activeTab = 0;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    // Data
+    private List<OrderStatusMaintenanceDto> statuses = new();
+    private List<OrderSubstatusMaintenanceDto> substatuses = new();
+    private List<UserWorkShiftMaintenanceDto> userShifts = new();
+    private List<ProductMaintenanceDto> products = new();
+
+
+    private List<IncidentCatalogMaintenanceDto> incidentCatalog = new();
+    private List<ExchangeRateMaintenanceDto> exchangeRates = new();
+    private List<CampaignSimpleDto> campaigns = new();
+
+    // Exchange Rate form
+    private CreateExchangeRateDto newRate = new();
+
+    // Incident modal
+    private bool showIncidentModal = false;
+    private bool isEditingIncident = false;
+    private long editingIncidentId = 0;
+    private CreateIncidentCatalogDto newIncident = new();
+    private UpdateIncidentCatalogDto editIncident = new();
+
+    // Toast
+    private string? toastMessage;
+    private string toastType = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTab(0);
+    }
+
+    private async Task SetTab(int tab)
+    {
+        activeTab = tab;
+        await LoadTab(tab);
+    }
+
+    private async Task LoadTab(int tab)
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        switch (tab)
+        {
+            case 0:
+                statuses = await MaintenanceService.GetAllStatusesAsync();
+                break;
+            case 1:
+                products = await MaintenanceService.GetAllProductsAsync();
+                break;
+            case 2:
+                incidentCatalog = await MaintenanceService.GetAllIncidentCatalogAsync();
+                if (!campaigns.Any())
+                {
+                    campaigns = await MaintenanceService.GetCampaignsAsync();
+                    if (!statuses.Any()) statuses = await MaintenanceService.GetAllStatusesAsync();
+                }
+                break;
+            case 3:
+                exchangeRates = await MaintenanceService.GetExchangeRatesAsync();
+                break;
+            case 4:
+                substatuses = await MaintenanceService.GetAllSubstatusesAsync();
+                break;
+            case 5:
+                userShifts = await MaintenanceService.GetUserWorkShiftsAsync();
+                break;
+        }
+
+
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveWorkShift(UserWorkShiftMaintenanceDto shift)
+    {
+        var dto = new SaveUserWorkShiftDto
+        {
+            IdUser = shift.IdUser,
+            DayOfWeek = shift.DayOfWeek,
+            StartTime = shift.StartTime,
+            EndTime = shift.EndTime,
+            IsActive = shift.IsActive
+        };
+
+        var success = await MaintenanceService.SaveUserWorkShiftAsync(dto);
+        if (success)
+        {
+            ShowToast($"Horario de {shift.Username} guardado correctamente (NxFortress SLA Engine).", "success");
+        }
+        else
+        {
+            ShowToast("Error al guardar horario de colaborador.", "danger");
+        }
+    }
+
+    // ===== STATUS TOGGLE =====
+
+    private async Task ToggleStatus(OrderStatusMaintenanceDto status)
+    {
+        var success = await MaintenanceService.ToggleStatusAsync(status.Id, !status.IsActive);
+        if (success)
+        {
+            status.IsActive = !status.IsActive;
+            ShowToast($"Estado {status.Name} actualizado.", "success");
+        }
+        else
+        {
+            ShowToast("Error al actualizar estado.", "danger");
+        }
+    }
+
+    private async Task ToggleSubstatus(OrderSubstatusMaintenanceDto substatus)
+    {
+        var success = await MaintenanceService.ToggleSubstatusAsync(substatus.IdSubstatus, !substatus.IsActive);
+        if (success)
+        {
+            substatus.IsActive = !substatus.IsActive;
+            ShowToast($"Subestado {substatus.Name} actualizado.", "success");
+        }
+        else
+        {
+            ShowToast("Error al actualizar subestado.", "danger");
+        }
+    }
+
+
+    // ===== PRODUCT TOGGLE =====
+    private async Task ToggleProduct(ProductMaintenanceDto p)
+    {
+        var newVal = !p.IsActive;
+        var success = await MaintenanceService.ToggleProductAsync(p.Id, newVal);
+        if (success)
+        {
+            p.IsActive = newVal;
+            ShowToast($"Producto '{p.Name}' {(newVal ? "visible" : "oculto")}.", "success");
+        }
+        else
+        {
+            ShowToast("Error al cambiar la visibilidad del producto.", "danger");
+        }
+    }
+
+    // ===== INCIDENT CRUD =====
+    private void OpenCreateIncidentModal()
+    {
+        isEditingIncident = false;
+        newIncident = new CreateIncidentCatalogDto { Priority = 3, SlaHours = 24, ResolutionType = "OPERACIONES" };
+        if (statuses.Any()) newIncident.IdStatus = statuses.First().Id;
+        showIncidentModal = true;
+    }
+
+    private void OpenEditIncidentModal(IncidentCatalogMaintenanceDto ic)
+    {
+        isEditingIncident = true;
+        editingIncidentId = ic.IdIncident;
+        editIncident = new UpdateIncidentCatalogDto
+        {
+            Name = ic.Name,
+            Description = ic.Description,
+            SolutionTemplate = ic.SolutionTemplate,
+            ResolutionType = ic.ResolutionType ?? "OPERACIONES",
+            RequiresResponse = ic.RequiresResponse,
+            IsRecurrent = ic.IsRecurrent,
+            Priority = ic.Priority,
+            SlaHours = ic.SlaHours,
+            IsActive = ic.IsActive
+        };
+        showIncidentModal = true;
+    }
+
+    private void CloseIncidentModal()
+    {
+        showIncidentModal = false;
+    }
+
+    private async Task SaveIncident()
+    {
+        isSubmitting = true;
+        bool success;
+
+        if (isEditingIncident)
+        {
+            success = await MaintenanceService.UpdateIncidentCatalogAsync(editingIncidentId, editIncident);
+        }
+        else
+        {
+            success = await MaintenanceService.CreateIncidentCatalogAsync(newIncident);
+        }
+
+        isSubmitting = false;
+
+        if (success)
+        {
+            ShowToast(isEditingIncident ? "Incidencia actualizada." : "Incidencia creada.", "success");
+            CloseIncidentModal();
+            await LoadTab(2);
+        }
+        else
+        {
+            ShowToast("Error al guardar la incidencia.", "danger");
+        }
+    }
+
+    private async Task DeleteIncident(long id)
+    {
+        var success = await MaintenanceService.DeleteIncidentCatalogAsync(id);
+        if (success)
+        {
+            ShowToast("Incidencia eliminada.", "success");
+            await LoadTab(2);
+        }
+        else
+        {
+            ShowToast("Error al eliminar la incidencia.", "danger");
+        }
+    }
+
+    // ===== EXCHANGE RATE =====
+    private async Task CreateExchangeRate()
+    {
+        if (newRate.Rate <= 0)
+        {
+            ShowToast("La tasa de cambio debe ser mayor a 0.", "danger");
+            return;
+        }
+
+        isSubmitting = true;
+        var result = await MaintenanceService.CreateExchangeRateAsync(newRate);
+        isSubmitting = false;
+
+        if (result.Success)
+        {
+            ShowToast("Tipo de cambio registrado correctamente", "success");
+            newRate = new CreateExchangeRateDto { Source = "MANUAL", ValidFrom = DateTime.Today };
+            await LoadTab(3);
+        }
+        else
+        {
+            ShowToast(result.Message, "danger");
+        }
+    }
+
+    // ===== TOAST =====
+    private void ShowToast(string message, string type)
+    {
+        toastMessage = message;
+        toastType = type;
+        StateHasChanged();
+        _ = Task.Delay(3000).ContinueWith(_ => { toastMessage = null; InvokeAsync(StateHasChanged); });
+    }
+}

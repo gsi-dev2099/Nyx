@@ -1,0 +1,87 @@
+@page "/engines/flow"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<PageTitle>Gestor de Flujos y Checkpoints — Nyx.FlowEngine</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">🔄 Catálogo de Checkpoints Gobernados (Capa 1)</h2>
+            <p class="text-muted mb-0">Diseña pipelines de etapas, define checkpoints obligatorios y activa reglas de bloqueo de avance.</p>
+        </div>
+        <div>
+            <a href="/engines/hub" class="btn btn-outline-secondary rounded-pill px-3">
+                ← Volver al Hub
+            </a>
+        </div>
+    </div>
+
+    <!-- Catálogo de Checkpoints -->
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-header bg-white border-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold">Checkpoints Registrados en Nyx.FlowEngine</h5>
+            <button class="btn btn-dark btn-sm rounded-pill px-3">
+                + Crear Nuevo Checkpoint
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Origen</th>
+                            <th>Ámbito</th>
+                            <th>Bloquea Avance de Estado</th>
+                            <th>Estado de Gobernanza (Capa 1)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cp in checkpoints)
+                        {
+                            <tr>
+                                <td class="fw-bold text-primary">@cp.Code</td>
+                                <td>@cp.Name</td>
+                                <td><span class="badge bg-light text-dark border">@cp.Origin</span></td>
+                                <td><span class="badge bg-secondary">@cp.Scope</span></td>
+                                <td>
+                                    @if (cp.BlocksAdvance)
+                                    {
+                                        <span class="badge bg-danger">🛑 BLOQUEANTE</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-info text-dark">ℹ️ INFORMATIVO</span>
+                                    }
+                                </td>
+                                <td><span class="badge bg-success">APROBADO (FIRMA TRIPLE)</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<CheckpointModel> checkpoints = new()
+    {
+        new CheckpointModel { Code = "CP_AUDIO_AUDIT", Name = "Auditoría de Audio de Venta", Origin = "INTERNAL", Scope = "ENTITY", BlocksAdvance = true },
+        new CheckpointModel { Code = "CP_SUPERVISOR_REV", Name = "Revisión de Supervisor de Turno", Origin = "INTERNAL", Scope = "ENTITY", BlocksAdvance = true },
+        new CheckpointModel { Code = "CP_CONTRACT_SIGN", Name = "Confirmación de Firma de Contrato", Origin = "CLIENT", Scope = "ENTITY", BlocksAdvance = true },
+        new CheckpointModel { Code = "CP_PROVIDER_INSTALL", Name = "Verificación Técnica de Instalación", Origin = "PROVIDER", Scope = "ENTITY", BlocksAdvance = false }
+    };
+
+    private class CheckpointModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Origin { get; set; } = string.Empty;
+        public string Scope { get; set; } = string.Empty;
+        public bool BlocksAdvance { get; set; }
+    }
+}

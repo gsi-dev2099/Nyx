@@ -8,7 +8,7 @@ public class Product
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    [Column("id")]
+    [Column("id_prod")]
     public int Id { get; set; }
 
     [Column("sku")]
@@ -20,10 +20,10 @@ public class Product
     [Column("description")]
     public string? Description { get; set; }
 
-    [Column("unit_price")]
+    [Column("price_base")]
     public decimal UnitPrice { get; set; }
 
-    [Column("stock_quantity")]
+    [NotMapped]
     public int StockQuantity { get; set; }
 
     [Column("is_active")]

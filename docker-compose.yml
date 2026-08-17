@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  crm_redis:
+    image: redis:7-alpine
+    container_name: crm_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  crm_postgres:
+    image: postgres:16-alpine
+    container_name: crm_postgres
+    environment:
+      - POSTGRES_USER=ronald
+      - POSTGRES_PASSWORD=Gs1$$2099Zx23rO24M4r25
+      - POSTGRES_MULTIPLE_DATABASES=nyx_crm,nx_ecosystem
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db_export:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ronald"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  crm_apihub:
+    build:
+      context: .
+      dockerfile: CRM.ApiHub/Dockerfile
+    container_name: crm_apihub
+    ports:
+      - "5068:5068"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RedisSettings__ConnectionString=crm_redis:6379
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_crm;Username=ronald;Password=Gs1$$2099Zx23rO24M4r25
+    volumes:
+      - ./storage:/app/Storage
+    depends_on:
+      crm_redis:
+        condition: service_healthy
+      crm_postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  crm_webfrontend:
+    build:
+      context: .
+      dockerfile: CRM.WebFrontend/Dockerfile
+    container_name: crm_webfrontend
+    ports:
+      - "5261:5261"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ApiSettings__BaseUrl=http://crm_apihub:5068
+      - ReverseProxy__Clusters__apiCluster__Destinations__destination1__Address=http://crm_apihub:5068
+    depends_on:
+      - crm_apihub
+    restart: unless-stopped
+
+  sla_engine_api:
+    build:
+      context: .
+      dockerfile: Nyx.SlaEngine/Dockerfile
+    container_name: sla_engine_api
+    ports:
+      - "5070:5070"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_sla;Username=usr_sla;Password=${SLA_DB_PASSWORD:-Sla$$Nyx2026!Engine#Key}
+      - RedisSettings__ConnectionString=crm_redis:6379
+    depends_on:
+      crm_redis:
+        condition: service_healthy
+      crm_postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  approval_engine_api:
+    build:
+      context: .
+      dockerfile: Nyx.ApprovalEngine/Dockerfile
+    container_name: approval_engine_api
+    ports:
+      - "5071:5071"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_approval;Username=usr_approval;Password=${APPROVAL_DB_PASSWORD:-Approval$$Nyx2026!Secured#Key}
+      - RedisSettings__ConnectionString=crm_redis:6379
+    depends_on:
+      crm_redis:
+        condition: service_healthy
+      crm_postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  flow_engine_api:
+    build:
+      context: .
+      dockerfile: Nyx.FlowEngine/Dockerfile
+    container_name: flow_engine_api
+    ports:
+      - "5072:5072"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_flow;Username=usr_flow;Password=${FLOW_DB_PASSWORD:-Flow$$Nyx2026!Engine#Key}
+      - RedisSettings__ConnectionString=crm_redis:6379
+    depends_on:
+      crm_redis:
+        condition: service_healthy
+      crm_postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+

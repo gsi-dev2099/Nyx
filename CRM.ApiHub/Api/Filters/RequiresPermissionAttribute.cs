@@ -64,7 +64,11 @@ public class RequiresPermissionAttribute : Attribute, IAsyncAuthorizationFilter
                     {
                         using var doc = System.Text.Json.JsonDocument.Parse(body);
                         var root = doc.RootElement;
-                        if (root.TryGetProperty("statusId", out var statusProp) && statusProp.TryGetInt32(out int parsedVal))
+                        if ((root.TryGetProperty("statusId", out var statusProp) || 
+                             root.TryGetProperty("idStatus", out statusProp) ||
+                             root.TryGetProperty("IdStatus", out statusProp) ||
+                             root.TryGetProperty("status_id", out statusProp)) && 
+                            statusProp.TryGetInt32(out int parsedVal))
                         {
                             statusId = parsedVal;
                         }

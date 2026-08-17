@@ -1,114 +1,23 @@
 @page "/login"
-@layout Layout.EmptyLayout
+@rendermode InteractiveServer
+@layout CRM.WebFrontend.Client.Layout.EmptyLayout
 @inject NavigationManager Navigation
 
-<PageTitle>Login — Nyx CRM</PageTitle>
-
-@if (isLoading)
-{
-    <div class="preloader">
-        <div class="preloader-content">
-            <div class="pulsating-logo">✦</div>
-            <div class="loading-bar-container">
-                <div class="loading-bar"></div>
-            </div>
-            <span class="loading-text">Iniciando entorno seguro...</span>
-        </div>
-    </div>
-}
-else
-{
-    <div class="login-page-wrapper fade-in">
-        <div class="login-card animate-slide-up">
-            <!-- Lado Izquierdo: Formulario de Login -->
-            <div class="left-form-panel">
-                <div class="login-box">
-                    <div class="mobile-logo-header">
-                        <span class="mobile-logo-icon">✦</span>
-                        <h2>Nyx CRM</h2>
-                    </div>
-                    
-                    <div class="login-header">
-                        <h2>¡Bienvenido!</h2>
-                        <p>Ingresa tus credenciales para acceder.</p>
-                    </div>
-
-                    @if (!string.IsNullOrEmpty(ErrorMessage))
-                    {
-                        <div class="alert alert-danger">
-                            <span class="alert-icon">⚠️</span>
-                            <span class="alert-text">@ErrorMessage</span>
-                        </div>
-                    }
-
-                    <form action="/login-endpoint" method="post" class="login-form">
-                        <div class="form-group">
-                            <label for="username">Nombre de usuario</label>
-                            <input type="text" id="username" name="username" placeholder="ej. mfarfan" required autocomplete="username" />
-                        </div>
-
-                        <div class="form-group">
-                            <label for="password">Contraseña</label>
-                            <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password" />
-                        </div>
-
-                        <button type="submit" class="btn btn-primary">
-                            <span>Iniciar sesión</span>
-                            <span class="btn-arrow">→</span>
-                        </button>
-                    </form>
-
-                    <div class="login-footer">
-                        <p>¿Problemas para acceder? Contacta a TI.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Lado Derecho: Branding Minimalista (Panel Redondeado Interno) -->
-            <div class="right-brand-panel">
-                <div class="brand-wrapper">
-                    <span class="brand-icon">✦</span>
-                    <h1 class="brand-name">Nyx CRM</h1>
-                    <p class="brand-tagline">Plataforma de Control CallCenter</p>
-                </div>
-                <div class="brand-footer-text">
-                    © 2026 Nyx Ecosystem
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-@code {
-    private bool isLoading = true;
-
-    [Parameter]
-    [SupplyParameterFromQuery]
-    public string? Error { get; set; }
-
-    private string? ErrorMessage => Error;
-
-    protected override async Task OnInitializedAsync()
-    {
-        // Simulamos un load page de 1 segundo
-        await Task.Delay(1000);
-        isLoading = false;
-    }
-}
+<PageTitle>Login - NYX CRM</PageTitle>
 
 <style>
     :root {
-        --color-bg-light: #f8fafc;
-        --color-card-light: #ffffff;
-        --color-text-primary: #0f172a;
-        --color-text-secondary: #475569;
-        --color-border: #e2e8f0;
-        --color-primary: #0f172a;
-        --color-primary-hover: #1e293b;
-        --color-accent-blue: #3b82f6;
-        --color-danger: #ef4444;
-        --color-danger-bg: #fef2f2;
-        --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        --bg-deep: #050814;
+        --bg-card: rgba(15, 23, 42, 0.45);
+        --bg-card-brand: rgba(12, 18, 34, 0.4);
+        --bg-input: rgba(255, 255, 255, 0.05);
+        --text-primary: #F8FAFC;
+        --text-secondary: #94A3B8;
+        --text-placeholder: #64748B;
+        --border-default: rgba(255, 255, 255, 0.12);
+        --border-focus: #3B82F6;
+        --accent: #2563EB;
+        --moon-silver: #BFDBFE;
     }
 
     * {
@@ -117,363 +26,733 @@ else
         padding: 0;
     }
 
+    html, body {
+        height: 100%;
+        max-height: 100vh;
+        overflow: hidden;
+    }
+
     body {
-        background-color: #f1f5f9;
-        font-family: var(--font-sans);
-        color: var(--color-text-primary);
-        overflow-x: hidden;
+        font-family: 'Inter', -apple-system, sans-serif;
+        background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #0f172a 45%, #050814 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
     }
 
-    /* === PRELOADER STYLE === */
-    .preloader {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        background-color: #0f172a;
-        color: #ffffff;
+    /* Cielo de Fondo */
+    .night-sky {
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 9999;
-    }
-
-    .preloader-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 20px;
-    }
-
-    .pulsating-logo {
-        font-size: 54px;
-        color: #3b82f6;
-        animation: pulse 1.5s infinite ease-in-out;
-        line-height: 1;
-    }
-
-    .loading-bar-container {
-        width: 200px;
-        height: 4px;
-        background-color: rgba(255, 255, 255, 0.1);
-        border-radius: 2px;
+        inset: 0;
         overflow: hidden;
+        pointer-events: none;
+        z-index: 0;
     }
 
-    .loading-bar {
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, #3b82f6, #60a5fa);
-        animation: loadingBar 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-        transform-origin: left;
+    .night-sky .star {
+        position: absolute;
+        background: #FFFFFF;
+        border-radius: 50%;
+        animation: twinkle var(--dur) ease-in-out infinite alternate;
+        box-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
     }
 
-    .loading-text {
-        font-size: 13px;
-        color: #94a3b8;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        font-weight: 500;
-    }
-
-    /* === FLOATING CENTER CARD LAYOUT === */
-    .login-page-wrapper {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        width: 100vw;
-        background-color: #f1f5f9;
-        padding: 40px 24px;
-    }
-
-    .login-card {
-        background-color: #ffffff;
-        border-radius: 24px;
-        width: 100%;
-        max-width: 880px;
-        min-height: 520px;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
-        display: flex;
-        padding: 12px;
-        align-items: stretch;
-    }
-
-    /* Left Form Panel */
-    .left-form-panel {
-        flex: 1.1;
-        padding: 40px 48px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .login-box {
-        width: 100%;
-        max-width: 340px;
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-    }
-
-    .mobile-logo-header {
-        display: none;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: -10px;
-    }
-
-    .mobile-logo-icon {
-        font-size: 28px;
-        color: var(--color-accent-blue);
-    }
-
-    .mobile-logo-header h2 {
-        font-size: 22px;
-        font-weight: 600;
-        letter-spacing: -0.03em;
-    }
-
-    .login-header {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .login-header h2 {
-        font-size: 26px;
-        font-weight: 600;
-        letter-spacing: -0.03em;
-        color: var(--color-text-primary);
-    }
-
-    .login-header p {
-        font-size: 14px;
-        color: var(--color-text-secondary);
-    }
-
-    .login-form {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-    }
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .form-group label {
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--color-text-secondary);
-    }
-
-    .form-group input {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
-        font-size: 14px;
-        font-family: inherit;
-        background-color: #f8fafc;
-        color: var(--color-text-primary);
-        transition: all 0.2s ease;
-    }
-
-    .form-group input:focus {
-        outline: none;
-        border-color: var(--color-accent-blue);
-        background-color: #ffffff;
-        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
-    }
-
-    .btn {
-        width: 100%;
-        padding: 14px 24px;
-        font-size: 14px;
-        font-weight: 500;
-        border-radius: 8px;
-        border: none;
-        cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        font-family: inherit;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .btn-primary {
-        background-color: var(--color-primary);
-        color: #ffffff;
-    }
-
-    .btn-primary:hover {
-        background-color: var(--color-primary-hover);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    }
-
-    .btn-arrow {
-        transition: transform 0.2s ease;
-    }
-
-    .btn-primary:hover .btn-arrow {
-        transform: translateX(4px);
-    }
-
-    .alert {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-size: 13px;
-        border: 1px solid var(--color-border);
-    }
-
-    .alert-danger {
-        background-color: var(--color-danger-bg);
-        color: var(--color-danger);
-        border-color: #fee2e2;
-    }
-
-    .login-footer {
-        text-align: center;
-        font-size: 12px;
-        color: #94a3b8;
-    }
-
-    /* Right Brand Panel (Inner Rounded Box) */
-    .right-brand-panel {
-        flex: 0.9;
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        color: #ffffff;
-        border-radius: 16px;
-        padding: 40px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        align-items: center;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .brand-wrapper {
-        margin-top: auto;
-        margin-bottom: auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: 16px;
-        position: relative;
-        z-index: 10;
-    }
-
-    .brand-icon {
-        font-size: 48px;
-        color: #3b82f6;
-        line-height: 1;
-    }
-
-    .brand-name {
-        font-size: 32px;
-        font-weight: 600;
-        letter-spacing: -0.04em;
-    }
-
-    .brand-tagline {
-        font-size: 14px;
-        color: #94a3b8;
-        font-weight: 400;
-    }
-
-    .brand-footer-text {
-        font-size: 12px;
-        color: #475569;
-        position: relative;
-        z-index: 10;
-        text-align: center;
-    }
-
-    /* === ANIMATIONS === */
-    .fade-in {
-        animation: fadeIn 0.6s ease-out forwards;
-    }
-
-    .animate-slide-up {
-        opacity: 0;
-        animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
-    }
-
-    @@keyframes pulse {
-        0%, 100% {
-            transform: scale(1);
-            opacity: 0.8;
-        }
-        50% {
-            transform: scale(1.15);
-            opacity: 1;
-        }
-    }
-
-    @@keyframes loadingBar {
+    @@keyframes twinkle {
         0% {
-            transform: scaleX(0);
+            opacity: 0.15;
+            transform: scale(0.75);
         }
         100% {
-            transform: scaleX(1);
+            opacity: 0.95;
+            transform: scale(1.2);
         }
     }
 
-    @@keyframes fadeIn {
-        from {
+    /* Estrellas Fugaces */
+    .shooting-star {
+        position: absolute;
+        width: 0;
+        height: 0;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .shooting-star::before {
+        content: '';
+        position: absolute;
+        width: 140px;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(191, 219, 254, 0.9) 30%, rgba(59, 130, 246, 0.6) 70%, transparent 100%);
+        border-radius: 100px;
+        transform: rotate(-40deg);
+        transform-origin: right center;
+        animation: shootStar var(--shoot-dur) cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        animation-delay: var(--shoot-delay);
+        opacity: 0;
+        will-change: transform, opacity;
+    }
+
+    @@keyframes shootStar {
+        0% {
             opacity: 0;
+            transform: rotate(-40deg) translateX(0);
         }
-        to {
+        3% {
             opacity: 1;
+        }
+        35% {
+            opacity: 0;
+            transform: rotate(-40deg) translateX(-480px);
+        }
+        100% {
+            opacity: 0;
+            transform: rotate(-40deg) translateX(-480px);
         }
     }
 
-    @@keyframes slideUp {
+    /* Orbes 3D */
+    .orb-3d {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 1;
+        filter: blur(50px);
+        opacity: 0.4;
+        animation: orbFloat 14s ease-in-out infinite alternate;
+    }
+
+    .orb-3d--1 {
+        width: 340px;
+        height: 340px;
+        background: radial-gradient(circle, #3b82f6 0%, #1d4ed8 60%, transparent 100%);
+        top: -80px;
+        left: -80px;
+    }
+
+    .orb-3d--2 {
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, #6366f1 0%, #4338ca 60%, transparent 100%);
+        bottom: -60px;
+        right: -60px;
+        animation-delay: -5s;
+    }
+
+    @@keyframes orbFloat {
+        0% { transform: translate(0, 0) scale(1); }
+        50% { transform: translate(25px, -20px) scale(1.05); }
+        100% { transform: translate(-15px, 15px) scale(0.95); }
+    }
+
+    /* Contenedor Principal */
+    .login-wrapper {
+        height: 100vh;
+        max-height: 100vh;
+        width: 100vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        position: relative;
+        z-index: 10;
+        box-sizing: border-box;
+    }
+
+    /* Tarjeta Glass Corporativa Ultra Integrada (Sin línea divisoria dura) */
+    .card {
+        width: 100%;
+        max-width: 980px;
+        max-height: calc(100vh - 40px);
+        background: var(--bg-card);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 24px;
+        box-shadow: 
+            0 25px 60px rgba(0, 0, 0, 0.6),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        display: flex;
+        flex-direction: row;
+        overflow: hidden;
+        animation: cardIn 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @@keyframes cardIn {
         from {
             opacity: 0;
-            transform: translateY(24px);
+            transform: translateY(16px) scale(0.98);
         }
         to {
             opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    /* Panel Izquierdo (Marca) - Transición Suave sin borde vertical visible */
+    .card-brand {
+        flex: 0 0 42%;
+        background: linear-gradient(90deg, rgba(12, 18, 34, 0.6) 0%, rgba(15, 23, 42, 0.25) 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        color: white;
+        text-align: center;
+        padding: 2.5rem 2rem;
+        overflow: hidden;
+        border-right: 1px solid rgba(255, 255, 255, 0.03); /* Difuminado casi invisible */
+    }
+
+    .card-brand .stars-inner {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .card-brand .stars-inner .star {
+        position: absolute;
+        background: white;
+        border-radius: 50%;
+        animation: twinkle var(--dur) ease-in-out infinite alternate;
+    }
+
+    @@keyframes floatLogo3D {
+        0%, 100% {
             transform: translateY(0);
+            filter: drop-shadow(0 10px 25px rgba(59, 130, 246, 0.5));
+        }
+        50% {
+            transform: translateY(-8px);
+            filter: drop-shadow(0 18px 35px rgba(59, 130, 246, 0.65));
         }
     }
 
-    /* === RESPONSIVE LAYOUT === */
-    @@media (max-width: 868px) {
-        .login-page-wrapper {
-            padding: 16px;
+    /* Logo Agrandado con Anillo Glass */
+    .logo-container-3d {
+        position: relative;
+        margin-bottom: 1.5rem;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .logo-container-3d::before {
+        content: '';
+        position: absolute;
+        width: 170px;
+        height: 170px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, transparent 70%);
+        animation: pulseRing 3s ease-in-out infinite alternate;
+    }
+
+    @@keyframes pulseRing {
+        0% { transform: scale(0.92); opacity: 0.5; }
+        100% { transform: scale(1.1); opacity: 0.85; }
+    }
+
+    .card-brand-logo {
+        width: 140px;
+        height: 140px;
+        position: relative;
+        z-index: 3;
+        animation: floatLogo3D 4s ease-in-out infinite;
+        border-radius: 50%;
+        object-fit: contain;
+        background: rgba(15, 23, 42, 0.65);
+        padding: 8px;
+        border: 1.5px solid rgba(255, 255, 255, 0.22);
+        box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.1);
+    }
+
+    .card-brand h2 {
+        font-size: 1.95rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        z-index: 2;
+        letter-spacing: 1px;
+        background: linear-gradient(135deg, #FFFFFF 0%, #E2E8F0 50%, #93C5FD 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .card-brand p {
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        z-index: 2;
+        line-height: 1.5;
+        max-width: 270px;
+    }
+
+    /* Panel Formulario */
+    .card-form {
+        flex: 1;
+        padding: 2.5rem 3rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+        overflow-y: auto;
+    }
+
+    .form-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-title {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+        letter-spacing: -0.3px;
+    }
+
+    .form-subtitle {
+        color: var(--text-secondary);
+        font-size: 0.88rem;
+    }
+
+    .field {
+        margin-bottom: 1.1rem;
+    }
+
+    .field-label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.7px;
+    }
+
+    .field-input-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .field-icon {
+        position: absolute;
+        left: 14px;
+        color: var(--text-placeholder);
+        font-size: 20px;
+        transition: all 0.25s ease;
+        pointer-events: none;
+    }
+
+    .field-input {
+        width: 100%;
+        padding: 12px 14px 12px 44px;
+        border: 1.5px solid var(--border-default);
+        border-radius: 12px;
+        font-size: 0.92rem;
+        font-family: inherit;
+        color: var(--text-primary);
+        background: var(--bg-input);
+        transition: all 0.25s ease;
+    }
+
+    .field-input::placeholder {
+        color: var(--text-placeholder);
+    }
+
+    .field-input:focus {
+        outline: none;
+        border-color: var(--border-focus);
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .field-input:focus ~ .field-icon {
+        color: #60A5FA;
+    }
+
+    .field-toggle {
+        position: absolute;
+        right: 14px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--text-placeholder);
+        font-size: 20px;
+        transition: color 0.25s ease;
+    }
+
+    .field-toggle:hover {
+        color: var(--text-primary);
+    }
+
+    .form-options {
+        display: flex;
+        align-items: center;
+        margin: 0.85rem 0 1.5rem;
+    }
+
+    .checkbox-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+        user-select: none;
+    }
+
+    .checkbox-wrap input {
+        display: none;
+    }
+
+    .custom-check {
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid rgba(255, 255, 255, 0.25);
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .checkbox-wrap input:checked + .custom-check {
+        background: var(--accent);
+        border-color: var(--accent);
+    }
+
+    .checkbox-wrap input:checked + .custom-check::after {
+        content: '\e5ca';
+        font-family: 'Material Icons Round';
+        color: white;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    /* 🎯 BOTÓN CIRCULAR 2D PLANO EN TONO OSCURO CON ANIMACIÓN */
+    .btn-action-wrapper {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        margin-top: 1.25rem;
+    }
+
+    .btn-submit-circle {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: #0F172A;
+        color: #FFFFFF;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+    }
+
+    .btn-submit-circle:hover {
+        background: #1E293B;
+        border-color: #3B82F6;
+        color: #60A5FA;
+    }
+
+    .btn-submit-circle:active {
+        background: #090D16;
+        transform: scale(0.96);
+    }
+
+    .btn-submit-circle .material-icons-round {
+        font-size: 24px;
+        transition: transform 0.25s ease;
+    }
+
+    .btn-submit-circle:hover .material-icons-round {
+        transform: translateX(3px);
+    }
+
+    /* Estado animado al enviar */
+    .btn-submit-circle.is-loading {
+        pointer-events: none;
+        background: #0F172A;
+        border-color: #3B82F6;
+        color: #3B82F6;
+    }
+
+
+    .btn-submit-circle.is-loading .material-icons-round {
+        animation: spinIcon 1s linear infinite;
+    }
+
+    @@keyframes spinIcon {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    .error-alert {
+        background: rgba(239, 68, 68, 0.18);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        color: #FCA5A5;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        margin-bottom: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* 📱 RESPONSIVE PERFECCIONADO */
+    @@media (max-width: 900px) {
+        html, body {
+            overflow-y: auto;
+            max-height: none;
         }
 
-        .login-card {
-            border-radius: 20px;
-            padding: 0px;
-            min-height: auto;
+        .login-wrapper {
+            height: auto;
+            min-height: 100vh;
+            max-height: none;
+            padding: 24px 16px;
         }
 
-        .left-form-panel {
-            border-radius: 20px;
-            padding: 40px 24px;
+        .card {
+            flex-direction: column;
+            max-width: 440px;
+            max-height: none;
+            border-radius: 24px;
         }
 
-        .right-brand-panel {
+        .card-brand {
+            flex: none;
+            padding: 2rem 1.5rem 1.5rem;
+            border-right: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(12, 18, 34, 0.5);
+        }
+
+        .logo-container-3d {
+            margin-bottom: 1rem;
+        }
+
+        .logo-container-3d::before {
+            width: 130px;
+            height: 130px;
+        }
+
+        .card-brand-logo {
+            width: 105px;
+            height: 105px;
+            padding: 6px;
+        }
+
+        .card-brand h2 {
+            font-size: 1.6rem;
+            margin-bottom: 2px;
+        }
+
+        .card-brand p {
+            font-size: 0.85rem;
+            max-width: 260px;
+        }
+
+        .card-form {
+            padding: 1.75rem 1.5rem;
+            overflow-y: visible;
+        }
+
+        .form-title {
+            font-size: 1.45rem;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .login-wrapper {
+            padding: 16px 12px;
+        }
+
+        .card-brand {
+            padding: 1.5rem 1.25rem 1rem;
+        }
+
+        .card-brand-logo {
+            width: 85px;
+            height: 85px;
+        }
+
+        .logo-container-3d::before {
+            width: 100px;
+            height: 100px;
+        }
+
+        .card-brand h2 {
+            font-size: 1.4rem;
+        }
+
+        .card-brand p {
             display: none;
         }
 
-        .mobile-logo-header {
-            display: flex;
+        .card-form {
+            padding: 1.5rem 1.25rem;
+        }
+
+        .form-title {
+            font-size: 1.3rem;
+        }
+
+        .btn-action-wrapper {
+            justify-content: center;
+        }
+
+        .btn-submit-circle {
+            width: 52px;
+            height: 52px;
         }
     }
 </style>
+
+<!-- Cielo y Orbes 3D -->
+<div class="night-sky" id="nightSky"></div>
+<div class="shooting-star" style="top:12%;left:10%;--shoot-dur:5.5s;--shoot-delay:1s;"></div>
+<div class="shooting-star" style="top:55%;left:60%;--shoot-dur:6s;--shoot-delay:5s;"></div>
+<div class="shooting-star" style="top:30%;left:42%;--shoot-dur:5s;--shoot-delay:9s;"></div>
+
+<div class="orb-3d orb-3d--1"></div>
+<div class="orb-3d orb-3d--2"></div>
+
+<div class="login-wrapper">
+    <div class="card">
+        <!-- Panel Izquierdo: Marca -->
+        <div class="card-brand">
+            <div class="stars-inner" id="starsInner"></div>
+            
+            <div class="logo-container-3d">
+                <img src="/images/logo_nyx.png" alt="Logo NYX CRM" class="card-brand-logo" />
+            </div>
+
+            <div>
+                <h2>NYX CRM</h2>
+                <p>Plataforma de alta precisión operativa y gestión inteligente de ventas.</p>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Formulario Estilizado con Botón Circular Animado -->
+        <div class="card-form">
+            <div class="form-header">
+                <h1 class="form-title">Iniciar sesión</h1>
+                <p class="form-subtitle">Ingresa tus credenciales para acceder al sistema.</p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="error-alert">
+                    <span class="material-icons-round">error_outline</span>
+                    <span>@ErrorMessage</span>
+                </div>
+            }
+
+            <form action="/login-endpoint" method="post" onsubmit="handleLoginSubmit(this)">
+                <div class="field">
+                    <label class="field-label">Usuario</label>
+                    <div class="field-input-wrap">
+                        <input type="text" name="username" class="field-input" placeholder="Ingresa tu usuario" required autocomplete="username" />
+                        <span class="material-icons-round field-icon">person_outline</span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="field-label">Contraseña</label>
+                    <div class="field-input-wrap">
+                        <input type="password" name="password" id="passInput" class="field-input" placeholder="Ingresa tu contraseña" required autocomplete="current-password" />
+                        <span class="material-icons-round field-icon">lock_outline</span>
+                        <button type="button" class="field-toggle material-icons-round" onclick="togglePasswordVisibility('passInput', this)">visibility_off</button>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="checkbox-wrap">
+                        <input type="checkbox" name="remember" />
+                        <div class="custom-check"></div>
+                        <span>Recordarme</span>
+                    </label>
+                </div>
+
+                <div class="btn-action-wrapper">
+                    <button type="submit" class="btn-submit-circle" id="btnLoginSubmit" title="Iniciar sesión">
+                        <span class="material-icons-round" id="btnIcon">arrow_forward</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const s = document.getElementById('nightSky');
+        if (s) {
+            for (let i = 0; i < 90; i++) {
+                const d = document.createElement('div');
+                d.classList.add('star');
+                d.style.left = Math.random() * 100 + '%';
+                d.style.top = Math.random() * 100 + '%';
+                d.style.setProperty('--dur', (2 + Math.random() * 3) + 's');
+                d.style.animationDelay = Math.random() * 4 + 's';
+                const z = Math.random() > 0.85 ? 2.5 : Math.random() > 0.5 ? 1.8 : 1;
+                d.style.width = z + 'px';
+                d.style.height = z + 'px';
+                s.appendChild(d);
+            }
+        }
+        const n = document.getElementById('starsInner');
+        if (n) {
+            for (let i = 0; i < 30; i++) {
+                const d = document.createElement('div');
+                d.classList.add('star');
+                d.style.left = Math.random() * 100 + '%';
+                d.style.top = Math.random() * 100 + '%';
+                d.style.setProperty('--dur', (2 + Math.random() * 3) + 's');
+                d.style.animationDelay = Math.random() * 4 + 's';
+                const z = Math.random() > 0.8 ? 2 : 1;
+                d.style.width = z + 'px';
+                d.style.height = z + 'px';
+                n.appendChild(d);
+            }
+        }
+    })();
+
+    function togglePasswordVisibility(id, btn) {
+        const input = document.getElementById(id);
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.textContent = 'visibility';
+        } else {
+            input.type = 'password';
+            btn.textContent = 'visibility_off';
+        }
+    }
+
+    function handleLoginSubmit(form) {
+        const btn = document.getElementById('btnLoginSubmit');
+        const icon = document.getElementById('btnIcon');
+        if (btn && icon) {
+            btn.classList.add('is-loading');
+            icon.textContent = 'sync';
+        }
+    }
+</script>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Error { get; set; }
+
+    private string? ErrorMessage => Error;
+}

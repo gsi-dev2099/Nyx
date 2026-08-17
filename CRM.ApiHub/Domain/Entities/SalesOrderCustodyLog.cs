@@ -1,28 +1,50 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CRM.ApiHub.Domain.Entities;
 
-[Table("sales_order_custody_log")]
+[Table("sales_order_custody_log", Schema = "sales_service")]
 public class SalesOrderCustodyLog
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    [Column("id")]
-    public int Id { get; set; }
+    [Column("id_log")]
+    public long IdLog { get; set; }
 
-    [Column("sales_order_id")]
-    public int SalesOrderId { get; set; }
+    [Column("id_order")]
+    public long IdOrder { get; set; }
 
-    [Column("previous_custodian_id")]
-    public int? PreviousCustodianId { get; set; }
+    [Column("log_date")]
+    public DateTime LogDate { get; set; }
 
-    [Column("current_custodian_id")]
-    public int CurrentCustodianId { get; set; }
+    [Column("from_user_id")]
+    public long? FromUserId { get; set; }
 
-    [Column("observations")]
-    public string? Observations { get; set; }
+    [Column("to_user_id")]
+    public long ToUserId { get; set; }
 
-    [Column("action_date")]
-    public DateTime ActionDate { get; set; } = DateTime.UtcNow;
+    [Column("from_role")]
+    public string? FromRole { get; set; }
+
+    [Column("to_role")]
+    public string? ToRole { get; set; }
+
+    [Column("transfer_type")]
+    public string TransferType { get; set; } = string.Empty;
+
+    [Column("id_status_at")]
+    public long? IdStatusAt { get; set; }
+
+    [Column("comment")]
+    public string? Comment { get; set; }
+
+    [Column("is_bulk")]
+    public bool IsBulk { get; set; }
+
+    [Column("batch_id")]
+    public Guid? BatchId { get; set; }
+
+    [Column("register")]
+    public DateTime Register { get; set; } = DateTime.UtcNow;
 }

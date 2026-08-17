@@ -1,0 +1,3141 @@
+@page "/engines/checkpoints"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using System.Net.Http.Json
+@using System.Text.Json
+@attribute [Authorize(Roles = "ADMIN_CRM")]
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavManager
+
+<PageTitle>Administrador de Capas & Checkpoints — Nyx Engines Hub</PageTitle>
+
+<style>
+    .hub-wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .hub-tabs { display: flex; gap: 6px; background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 5px; flex-wrap: wrap; }
+    .hub-tab { font-size: 13px; font-weight: 600; color: #64748B; background: none; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all .15s; }
+    .hub-tab.active { background: #0F172A; color: #fff; }
+    .hub-tab:not(.active):hover { background: #F1F5F9; }
+    .card-panel { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 14px rgba(15,23,42,0.03); }
+    .pill { display: inline-flex; align-items: center; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 14px; white-space: nowrap; }
+    .pill-green { background: #E6F4EA; color: #065F46; }
+    .pill-red { background: #FEE2E2; color: #991B1B; }
+    .pill-amber { background: #FEF3C7; color: #92400E; }
+    .pill-violet { background: #F1F5F9; color: #0F172A; }
+    .pill-navy { background: #0F172A; color: #fff; }
+    .pill-outline { background: transparent; border: 1px solid #CBD5E1; color: #475569; }
+    .modal-backdrop-blur {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        z-index: 9999;
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px;
+    }
+    .modal-card {
+        background: #ffffff;
+        border-radius: 20px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+        width: 100%; max-width: 620px;
+        max-height: 88vh;
+        overflow-y: auto;
+        padding: 24px; border: 1px solid #E2E8F0;
+        animation: modalFadeIn .2s ease-out;
+    }
+    .modal-card::-webkit-scrollbar { width: 6px; }
+    .modal-card::-webkit-scrollbar-track { background: #F1F5F9; border-radius: 10px; }
+    .modal-card::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
+    .modal-card::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+    .btn-close-circle {
+        background: #F1F5F9; border: none;
+        width: 32px; height: 32px; border-radius: 50%;
+        font-weight: 700; color: #64748B; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; transition: all .15s;
+    }
+    .btn-close-circle:hover { background: #E2E8F0; color: #0F172A; }
+    @@keyframes modalFadeIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+    }
+</style>
+
+<div class="hub-wrap">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-3">
+            <div style="width:42px;height:42px;border-radius:12px;background:#0F172A;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px;">G</div>
+            <div>
+                <div class="d-flex align-items-center gap-2">
+                    <h4 class="fw-bold mb-0 text-dark">Motor de Checkpoints & Aprobaciones</h4>
+                    <span class="badge bg-dark text-white px-2 py-1" style="font-size:10px;">MOTOR PRIMARIO NYX</span>
+                </div>
+                <span class="text-muted small">NYX.FLOWENGINE & APPROVALENGINE · ARQUITECTURA MULTI-CAPA N-TIER · GOBIERNO EN TIEMPO REAL</span>
+            </div>
+        </div>
+        <div class="hub-tabs">
+            <button class="hub-tab @(tab == "etapas" ? "active" : "")" @onclick='() => SetTab("etapas")'>🏗️ 1. Etapas & Asignación de Checkpoints</button>
+            <button class="hub-tab @(tab == "catalogo" ? "active" : "")" @onclick='() => SetTab("catalogo")'>📦 2. Catálogo & Crear Checkpoints</button>
+        </div>
+    </div>
+
+    <!-- ========== TAB 1: CATÁLOGO CAPA 1 ========== -->
+    @if (tab == "catalogo")
+    {
+        <div class="card-panel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold mb-1">Catálogo de Checkpoints — Capa 1 (Gobernado por Triple Firma)</h5>
+                    <p class="text-muted small mb-0">Datos en vivo desde <code>Nyx.FlowEngine → nyx_flow.checkpoint_catalog</code>. Cada fila activa requirió aprobación de Data, Negocio y Gerencia.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-primary rounded-pill px-3" @onclick="OpenCreateCpModal">
+                        ➕ Nuevo Checkpoint
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm rounded-pill" @onclick="LoadCatalog">↻ Actualizar</button>
+                </div>
+            </div>
+
+            <!-- BARRA DE FILTROS POR CATEGORÍA, CARTERA Y PROVEEDOR -->
+            <div class="p-3 bg-light rounded-3 border mb-3">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-bold m-0" style="font-size:11px;">Categoría / Agrupador</label>
+                        <select class="form-select form-select-sm" @bind="filterCategory">
+                            <option value="TODAS">📁 TODAS LAS CATEGORÍAS</option>
+                            @foreach (var cat in AvailableCategories)
+                            {
+                                <option value="@cat">📁 @cat</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-bold m-0" style="font-size:11px;">Cartera Comercial</label>
+                        <select class="form-select form-select-sm" @bind="filterPortfolio">
+                            <option value="TODAS">🌐 TODAS LAS CARTERAS</option>
+                            @foreach (var port in AvailablePortfolios)
+                            {
+                                <option value="@port">🌐 @port</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-bold m-0" style="font-size:11px;">Proveedor Destino</label>
+                        <select class="form-select form-select-sm" @bind="filterProvider">
+                            <option value="TODOS">🏢 TODOS LOS PROVEEDORES</option>
+                            @foreach (var prov in AvailableProviders)
+                            {
+                                <option value="@prov">🏢 @prov</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            @if (loadingCatalog)
+            {
+                <div class="spinner"></div>
+            }
+            else if (!FilteredCatalogItems.Any())
+            {
+                <div class="text-center text-muted py-4">No hay checkpoints que coincidan con los filtros seleccionados.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" style="font-size:.875rem;">
+                        <thead class="table-light">
+                            <tr class="small text-muted" style="user-select:none;">
+                                <th @onclick='() => SetSort("ExecutionOrder")' style="cursor:pointer;white-space:nowrap;">@GetSortIcon("ExecutionOrder") # Ord</th>
+                                <th @onclick='() => SetSort("Code")' style="cursor:pointer;white-space:nowrap;">@GetSortIcon("Code") Código & Categoría</th>
+                                <th @onclick='() => SetSort("Name")' style="cursor:pointer;white-space:nowrap;">@GetSortIcon("Name") Nombre / División & Cargo</th>
+                                <th>Satélites Involucrados</th>
+                                <th @onclick='() => SetSort("Portfolio")' style="cursor:pointer;white-space:nowrap;">@GetSortIcon("Portfolio") Carteras & Campañas</th>
+                                <th>Mecanismo & Retroceso</th>
+                                <th @onclick='() => SetSort("Category")' style="cursor:pointer;white-space:nowrap;">@GetSortIcon("Category") Estado / Cat.</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in FilteredCatalogItems)
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm text-center fw-bold px-1"
+                                               style="width:52px; font-size:12px;"
+                                               value="@c.ExecutionOrder"
+                                               min="1" max="999"
+                                               @onchange='async e => await SetCheckpointExecutionOrderDirect(c.IdCheckpoint, e.Value?.ToString())'
+                                               title="Editar orden de ejecución" />
+                                    </td>
+                                    <td>
+                                        <code class="text-primary fw-bold">@c.Code</code>
+                                        <div class="small text-muted" style="font-size:10px;">📁 @(string.IsNullOrEmpty(c.Category) ? "GENERAL" : c.Category)</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark">@c.Name</div>
+                                        <div class="small text-muted">🏢 @(string.IsNullOrEmpty(c.Division) ? "OPERACIONES" : c.Division) | 👤 @(string.IsNullOrEmpty(c.ApprovalJobTitle) ? "SUPERVISOR" : c.ApprovalJobTitle)</div>
+                                    </td>
+                                    <td>
+                                        @if (c.Satellites != null && c.Satellites.Any())
+                                        {
+                                            @foreach (var sat in c.Satellites)
+                                            {
+                                                <span class="badge bg-light text-dark border rounded-pill px-2 me-1 mb-1" style="font-size:10px;">⚡ @sat</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-muted border rounded-pill px-2" style="font-size:10px;">FLOW_ENGINE</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1 align-items-center mb-1">
+                                            <span class="badge bg-dark text-white rounded-pill px-2" style="font-size:10px;" title="Cartera Comercial">💼 @(string.IsNullOrEmpty(c.Portfolio) ? "GENERAL" : c.Portfolio)</span>
+                                            <span class="badge bg-info text-dark rounded-pill px-2" style="font-size:10px;" title="Campaña CRM">📣 @(string.IsNullOrEmpty(c.Campaign) ? "GENERAL" : c.Campaign)</span>
+                                        </div>
+                                        <div class="small text-muted" style="font-size:10px;">Prov: <strong>@(string.IsNullOrEmpty(c.Provider) ? "INTERNO" : c.Provider)</strong></div>
+                                    </td>
+                                    <td>
+                                        @if (c.FinalizesCycle)
+                                        {
+                                            <span class="pill pill-red">⛔ FINALIZA CICLO</span>
+                                        }
+                                        else if (c.BlocksAdvance)
+                                        {
+                                            <span class="pill pill-amber">🔒 BLOQUEA AVANCE</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="pill pill-outline">INFORMATIVO</span>
+                                        }
+
+                                        @if (!string.IsNullOrEmpty(c.RollbackToCheckpointCode))
+                                        {
+                                            <div class="small text-danger fw-semibold mt-1" style="font-size:10px;">
+                                                ↩ Retrocede a: <code>@c.RollbackToCheckpointCode</code> @(c.RollbackToStepOrder.HasValue ? $"(Paso {c.RollbackToStepOrder})" : "")
+                                            </div>
+                                        }
+                                        else if (c.RollbackToStage.HasValue && c.RollbackToStage > 0)
+                                        {
+                                            <div class="small text-danger fw-semibold mt-1" style="font-size:10px;">
+                                                ↩ Retrocede a: Etapa #@c.RollbackToStage
+                                            </div>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (c.ApprovalStatus == "ACTIVE" || c.ApprovalStatus == "APPROVED")
+                                        {
+                                            <span class="pill pill-green">✓ ACTIVO</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="pill pill-red">⏳ PROPUESTO</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1" style="font-size:11px;" @onclick="() => OpenEditCpModal(c)">
+                                            ✏️ Editar
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- ========== VISTA 1: GESTIÓN DE ETAPAS & ASIGNACIÓN DE CHECKPOINTS ========== -->
+    @if (tab == "etapas")
+    {
+        <!-- SECCIÓN SUPERIOR: LISTA DE ETAPAS (ANCHO COMPLETO 100%) -->
+        <div class="card-panel mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold mb-1">🏗️ VISTA 1: Gestión de Etapas & Secuencia del Ciclo de Vida</h5>
+                    <p class="text-muted small mb-0">Modifica el orden de ejecución directamente, visualiza sus campañas/carteras y haz clic en cualquier etapa para gestionar sus checkpoints.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-primary rounded-pill px-3" @onclick="OpenCreateStageModal">
+                        ➕ Nueva Etapa
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm rounded-pill" @onclick="LoadStagesFromDb">↻ Actualizar</button>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(stageMoveMsg))
+            {
+                <div class="mb-2 small fw-semibold @(stageMoveIsError ? "text-danger" : "text-success")">@stageMoveMsg</div>
+            }
+
+            <!-- FORMULARIO NUEVA ETAPA -->
+            @if (showCreateStageForm)
+            {
+                <div class="mb-3 p-3 bg-light rounded-3 border border-primary">
+                    <h6 class="fw-bold text-primary mb-2" style="font-size:12px;">➕ Nueva Etapa en <code>nyx_flow.stage</code></h6>
+                    @if (!string.IsNullOrEmpty(stageFeedback))
+                    {
+                        <div class="mb-2 small fw-bold @(stageFeedbackIsError ? "text-danger" : "text-success")">@stageFeedback</div>
+                    }
+                    <div class="row g-2">
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small m-0" style="font-size:11px;">Nombre de Etapa</label>
+                            <input type="text" class="form-control form-control-sm" placeholder="ej: Validación Técnica" @bind="newStageName" />
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small m-0" style="font-size:11px;">Código (UPPER_SNAKE)</label>
+                            <input type="text" class="form-control form-control-sm fw-bold text-primary" placeholder="VAL_TECNICA" @bind="newStageCode" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small m-0" style="font-size:11px;">Descripción (opcional)</label>
+                            <input type="text" class="form-control form-control-sm" placeholder="Descripción breve..." @bind="newStageDescription" />
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small m-0" style="font-size:11px;">Orden #</label>
+                            <input type="number" class="form-control form-control-sm text-center" min="1" @bind="newStageOrder" />
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small m-0" style="font-size:11px;">SLA (horas)</label>
+                            <input type="number" class="form-control form-control-sm text-center" min="1" @bind="newStageSlaHours" />
+                        </div>
+                        <div class="col-4 d-flex align-items-end pb-1">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="chkTerminalNew" @bind="newStageIsTerminal" />
+                                <label class="form-check-label small fw-bold" for="chkTerminalNew">Terminal</label>
+                            </div>
+                        </div>
+                        <div class="col-12 d-flex gap-2">
+                            <button class="btn btn-sm btn-primary fw-bold rounded-pill px-4" @onclick="CreateStageApi">✔ Guardar Etapa</button>
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" @onclick='() => showCreateStageForm = false'>Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (!dbStages.Any())
+            {
+                <div class="text-center text-muted py-5">
+                    <div style="font-size:2rem;">🏗️</div>
+                    <div>Cargando etapas desde <code>nyx_flow.stage</code>...</div>
+                </div>
+            }
+            else
+            {
+                <div class="d-flex flex-column gap-2">
+                    @for (int si = 0; si < dbStages.Count; si++)
+                    {
+                        var st = dbStages[si];
+                        var cpCount = catalogItems.Count(c => c.TriggerStageId == st.IdStage);
+                        var isSelected = selectedStage?.IdStage == st.IdStage;
+                        var isFirst = si == 0;
+                        var isLast = si == dbStages.Count - 1;
+                        var capturedId = st.IdStage;
+                        var capturedSt = st;
+                        var stageCamps = string.IsNullOrEmpty(st.Campaign) ? "TODAS / GENERAL" : st.Campaign;
+                        var stagePorts = string.IsNullOrEmpty(st.Portfolio) ? "TODAS / GENERAL" : st.Portfolio;
+
+                        <div class="d-flex align-items-center gap-3 p-3 rounded-3 border @(isSelected ? "border-primary bg-primary bg-opacity-10 shadow-sm" : "bg-white")"
+                             style="cursor:pointer; transition:all .15s;"
+                             @onclick="() => OpenStageCheckpointsModal(capturedSt)">
+
+                            <!-- Número de orden editable -->
+                            <div @onclick:stopPropagation="true" style="min-width:60px;">
+                                <label class="form-label text-muted small m-0 d-block text-center" style="font-size:9px;"># ORDEN</label>
+                                <input type="number" class="form-control form-control-sm text-center fw-bold px-1"
+                                       style="width:56px; font-size:14px;"
+                                       value="@st.OrderIndex"
+                                       min="1" max="999"
+                                       @onchange='async e => await SetStageOrderDirect(capturedId, e.Value?.ToString())'
+                                       title="Escribe el número de orden y presiona Enter para reordenar" />
+                            </div>
+
+                            <!-- Botones ▲▼ -->
+                            <div class="d-flex flex-column gap-1" @onclick:stopPropagation="true">
+                                <button class="btn btn-outline-secondary rounded px-1 py-0 lh-1"
+                                        style="font-size:10px; line-height:1.2;"
+                                        disabled="@isFirst"
+                                        @onclick='() => MoveStage(capturedId, "up")'>▲</button>
+                                <button class="btn btn-outline-secondary rounded px-1 py-0 lh-1"
+                                        style="font-size:10px; line-height:1.2;"
+                                        disabled="@isLast"
+                                        @onclick='() => MoveStage(capturedId, "down")'>▼</button>
+                            </div>
+
+                            <!-- Datos de la etapa -->
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="fw-bold text-dark" style="font-size:15px;">@st.Name</span>
+                                    <code class="text-primary fw-bold" style="font-size:11px;">@st.StageCode</code>
+                                    @if (st.IsTerminal)
+                                    {
+                                        <span class="pill pill-red" style="font-size:9px;">⛔ ETAPA TERMINAL</span>
+                                    }
+                                    @if (st.SlaHours.HasValue)
+                                    {
+                                        <span class="badge bg-light text-muted border" style="font-size:10px;">⏱ SLA: @(st.SlaHours)h</span>
+                                    }
+                                </div>
+                                <!-- Badges de Campañas y Carteras asociadas -->
+                                <div class="d-flex gap-3 align-items-center mt-1 flex-wrap" style="font-size:11px;">
+                                    <span class="text-muted">💼 Carteras: <strong class="text-dark">@stagePorts</strong></span>
+                                    <span class="text-muted">| 📣 Campañas: <strong class="text-dark">@stageCamps</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Acciones y contador Checkpoints -->
+                            <div class="d-flex align-items-center gap-2" @onclick:stopPropagation="true">
+                                <button class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fw-bold"
+                                        style="font-size:12px; white-space:nowrap;"
+                                        @onclick="() => OpenStageCheckpointsModal(capturedSt)">
+                                    🎯 Checkpoints (@cpCount)
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1"
+                                        style="font-size:11px; white-space:nowrap;"
+                                        @onclick="() => OpenEditStageModal(capturedSt)">
+                                    ✏️ Editar Etapa
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+
+
+    <!-- ========== TAB 2: FICHA DE VENTA CAPA 2 ========== -->
+    @if (tab == "venta")
+    {
+        <div class="card-panel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold mb-1">Ficha de Venta Capa 2 — Instancia Operativa en Vivo</h5>
+                    <p class="text-muted small mb-0">Introduce el ID de instancia de flujo de <code>Nyx.FlowEngine</code> para inspeccionar su estado y checkpoints activos.</p>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 align-items-end mb-4">
+                <div>
+                    <label class="form-label small fw-semibold mb-1">ID de Instancia de Flujo</label>
+                    <input type="number" class="form-control" style="width:180px;" @bind="flowInstanceId" placeholder="Ej: 1" />
+                </div>
+                <button class="btn btn-primary rounded-pill px-4" @onclick="LoadFlowInstance">Cargar Venta</button>
+                <div>
+                    <label class="form-label small fw-semibold mb-1">Simular acción como Usuario ID</label>
+                    <input type="number" class="form-control" style="width:160px;" @bind="actorId" placeholder="Ej: 101" />
+                </div>
+            </div>
+
+            @if (loadingFlow)
+            {
+                <div class="spinner"></div>
+            }
+            else if (flowInstance != null)
+            {
+                <!-- Estado actual de la instancia -->
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div>
+                        <span class="text-muted small">Entidad:</span> <strong>@flowInstance.EntityType.ToUpper() #@flowInstance.EntityId</strong>
+                        <span class="ms-3 text-muted small">Instancia:</span> <strong>#@flowInstance.IdInstance</strong>
+                    </div>
+                    <span class="pill pill-navy px-3 py-2 fs-6">@GetStageName(flowInstance.CurrentStageId)</span>
+                </div>
+
+                <!-- Pipeline visual dinámico cargado 100% desde BD nyx_flow.stage -->
+                <div class="stage-strip mb-4">
+                    @foreach (var st in dbStages)
+                    {
+                        <div class="stage-dot-wrap">
+                            <div class="stage-line"></div>
+                            <div class="stage-dot @(st.IdStage < flowInstance.CurrentStageId ? "done" : "") @(st.IdStage == flowInstance.CurrentStageId ? "current" : "")"></div>
+                            <div class="stage-label @(st.IdStage == flowInstance.CurrentStageId ? "current" : "")">@st.Name</div>
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-outline-dark btn-sm rounded-pill px-3" @onclick="AdvanceStage">
+                        → Avanzar Etapa (valida Nyx.FlowEngine)
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(flowError))
+                {
+                    <div class="alert-blocker mt-3">
+                        🛑 <strong>Bloqueado por Nyx.FlowEngine:</strong> @flowError
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(flowSuccess))
+                {
+                    <div class="alert-ok mt-3">✓ @flowSuccess</div>
+                }
+
+                <!-- Checkpoints activos de la instancia -->
+                @if (instanceCheckpoints.Any())
+                {
+                    <h6 class="fw-bold mt-4 mb-2">Checkpoints Activos (Capa 2 — Instancia)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" style="font-size:.875rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Estado</th>
+                                    <th>Bloquea Avance</th>
+                                    <th>Acción de Subsanación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var cp in instanceCheckpoints)
+                                {
+                                    <tr>
+                                        <td><code>#@cp.IdCpInstance</code></td>
+                                        <td><span class="pill @(cp.Status == "SUBSANADO" || cp.Status == "APPROVED" ? "pill-green" : (cp.Status == "KO" ? "pill-red" : "pill-amber"))">@cp.Status</span></td>
+                                        <td><span class="pill pill-amber">🔒 Ver catálogo</span></td>
+                                        <td>
+                                            @if (cp.Status == "PENDING")
+                                            {
+                                                <div class="d-flex gap-2">
+                                                    <button class="btn btn-sm btn-success rounded-pill px-2 py-0" style="font-size:11px;" @onclick='() => ResolveCheckpoint(cp.IdCpInstance, "SUBSANADO")'>Marcar Subsanado</button>
+                                                    <button class="btn btn-sm btn-danger rounded-pill px-2 py-0" style="font-size:11px;" @onclick='() => ResolveCheckpoint(cp.IdCpInstance, "KO")'>Marcar KO</button>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">Resuelto</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-muted small mt-3">Sin checkpoints activos para esta instancia — la venta puede avanzar libremente.</div>
+                }
+            }
+            else if (flowInstanceId > 0 && !loadingFlow)
+            {
+                <div class="text-muted text-center py-4">Instancia #@flowInstanceId no encontrada en Nyx.FlowEngine.</div>
+            }
+        </div>
+    }
+
+    <!-- ========== TAB 3: BANDEJA DE APROBACIONES ========== -->
+    @if (tab == "aprobaciones")
+    {
+        <div class="card-panel">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold mb-1">🛡️ Bandeja de Aprobaciones — Datos en Vivo</h5>
+                    <p class="text-muted small mb-0">Solicitudes pendientes desde <code>Nyx.ApprovalEngine → nyx_approval</code>. ISO 27001 SOX enforced.</p>
+                </div>
+                <div class="d-flex gap-2 align-items-end flex-wrap">
+                    <div>
+                        <label class="form-label small fw-semibold mb-1">ID Aprobador</label>
+                        <input type="number" class="form-control form-control-sm" style="width:110px;" @bind="approverIdFilter" />
+                    </div>
+                    <div>
+                        <label class="form-label small fw-semibold mb-1">Rol</label>
+                        <select class="form-select form-select-sm" style="width:160px;" @bind="approverRoleFilter">
+                            <option value="SUPERVISOR">SUPERVISOR</option>
+                            <option value="BACKOFFICE">BACKOFFICE</option>
+                            <option value="ADMIN_CRM">ADMIN_CRM</option>
+                            <option value="COORDINADOR">COORDINADOR</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-sm rounded-pill px-3" @onclick="LoadApprovals">Cargar Bandeja</button>
+                </div>
+            </div>
+
+            @if (loadingApprovals)
+            {
+                <div class="spinner"></div>
+            }
+            else if (!approvalRequests.Any())
+            {
+                <div class="text-center text-muted py-4">Sin solicitudes pendientes para el aprobador ID @approverIdFilter con rol @approverRoleFilter.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" style="font-size:.875rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th># Req</th>
+                                <th>Política</th>
+                                <th>Entidad</th>
+                                <th>Solicitante</th>
+                                <th>Paso Actual</th>
+                                <th>Estado</th>
+                                <th>Creada</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var req in approvalRequests)
+                            {
+                                <tr>
+                                    <td class="fw-bold">#@req.IdRequest</td>
+                                    <td><span class="pill pill-violet">@req.PolicyCode</span></td>
+                                    <td><code class="text-muted">@req.EntityType.ToUpper() #@req.EntityId</code></td>
+                                    <td><span class="pill pill-outline">User #@req.RequestedBy</span></td>
+                                    <td class="fw-semibold">Paso @req.CurrentStep</td>
+                                    <td><span class="pill @(req.Status == "APPROVED" ? "pill-green" : (req.Status == "REJECTED" ? "pill-red" : "pill-amber"))">@req.Status</span></td>
+                                    <td class="text-muted small">@req.CreatedAt.ToString("dd/MM/yy HH:mm")</td>
+                                    <td>
+                                        @if (req.Status == "PENDING" || req.Status == "IN_PROGRESS")
+                                        {
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-sm btn-success rounded-pill px-2 py-0" style="font-size:11px;"
+                                                        @onclick='() => DecideApproval(req.IdRequest, "APPROVED")'>
+                                                    ✓ Aprobar
+                                                </button>
+                                                <button class="btn btn-sm btn-danger rounded-pill px-2 py-0" style="font-size:11px;"
+                                                        @onclick='() => DecideApproval(req.IdRequest, "REJECTED")'>
+                                                    ✗ Rechazar
+                                                </button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">Decidido</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(approvalMsg))
+            {
+                <div class="mt-3 @(approvalMsgIsError ? "alert-blocker" : "alert-ok")">
+                    @approvalMsg
+                </div>
+            }
+        </div>
+    }
+
+    <!-- ========== TAB 3: AUDITORÍA & AUDIO (CAPA 3) ========== -->
+    @if (tab == "audio")
+    {
+        <div class="card-panel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold m-0 text-dark">🎧 Capa 3: Auditoría & Aseguramiento de Calidad de Audio</h5>
+                    <p class="text-muted small m-0">Validación previa de grabaciones de audio y declaraciones legales antes del envío a backend.</p>
+                </div>
+                <span class="pill pill-navy">CAPA 3 ACTIVA</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr class="text-muted small">
+                            <th>ID CHECKPOINT</th>
+                            <th>REGLA DE CALIDAD</th>
+                            <th>ENTIDAD CRM</th>
+                            <th>REGLA DE BLOQUEO</th>
+                            <th>ESTADO DE FIRMA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>CP_AUDIO_AUDIT</code></td>
+                            <td>Auditoría de Audio de Llamada Venta</td>
+                            <td>AUDIO_RECORDING</td>
+                            <td><span class="pill pill-green">NO BLOQUEANTE</span></td>
+                            <td><span class="pill pill-green">ACTIVE</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>CP_AUDIO_CONSENT</code></td>
+                            <td>Verificación de Consentimiento Expreso</td>
+                            <td>AUDIO_RECORDING</td>
+                            <td><span class="pill pill-red">BLOQUEA ACTIVACIÓN</span></td>
+                            <td><span class="pill pill-green">ACTIVE</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- ========== TAB 4: CORTES PROVEEDOR (CAPA 4) ========== -->
+    @if (tab == "cortes")
+    {
+        <div class="card-panel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold m-0 text-dark">💰 Capa 4: Cortes Contables & Habilitación Comercial</h5>
+                    <p class="text-muted small m-0">Supervisión de lotes de facturación, comisiones y reglas de habilitación de proveedores externos.</p>
+                </div>
+                <span class="pill pill-navy">CAPA 4 ACTIVA</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr class="text-muted small">
+                            <th>ID CHECKPOINT</th>
+                            <th>ÁMBITO COMERCIAL</th>
+                            <th>ENTIDAD CRM</th>
+                            <th>TIPO DE REGULACIÓN</th>
+                            <th>ESTADO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>CP_PROV_CUTOFF</code></td>
+                            <td>Corte Diario de Proveedor HFC/FTTH</td>
+                            <td>ACTIVATION_BATCH</td>
+                            <td><span class="pill pill-red">BLOQUEANTE OPERATIVO</span></td>
+                            <td><span class="pill pill-green">ACTIVE</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>CP_COMMISSION_SETTLE</code></td>
+                            <td>Liquidación de Bonos Comisionables</td>
+                            <td>COMMISSION_BATCH</td>
+                            <td><span class="pill pill-amber">REQUIERE SUPERVISIÓN</span></td>
+                            <td><span class="pill pill-green">ACTIVE</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- ========== TAB 5: GESTOR DINÁMICO N-CAPAS (+NUEVA CAPA) ========== -->
+    @if (tab == "gestor_capas")
+    {
+        <div class="card-panel mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold m-0 text-dark">⚙️ Gestor Dinámico de Capas del Motor Nyx</h5>
+                    <p class="text-muted small m-0">Arquitectura N-Capas escalable: Agrega y configura nuevas capas de gobierno dinámicamente.</p>
+                </div>
+                <span class="badge bg-dark text-white rounded-pill px-3 py-2">N-TIER SCALABLE</span>
+            </div>
+
+            <!-- Formulario para Agregar Nueva Capa -->
+            <div class="bg-light p-3 rounded-4 border mb-4">
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-plus-circle-fill text-primary me-2"></i>Registrar Nueva Capa en el Motor</h6>
+                <div class="row g-2">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-bold">Nombre de la Capa</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="Ej: Capa 5: Postventa & Garantías" @bind="newLayerName" />
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small fw-bold">Ámbito de Aplicación</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="Ej: POSTSALES_SERVICE" @bind="newLayerScope" />
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small fw-bold">Entidad Target CRM</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="Ej: CLAIM_TICKET" @bind="newLayerEntity" />
+                    </div>
+                    <div class="col-12 col-md-2 d-flex align-items-end">
+                        <button class="btn btn-sm btn-dark w-100 fw-bold rounded-pill" @onclick="AddCustomLayer">
+                            + Crear Capa
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Capas Registradas -->
+            <div class="table-responsive mb-4">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr class="text-muted small">
+                            <th>ID CAPA</th>
+                            <th>NOMBRE DE CAPA</th>
+                            <th>ÁMBITO</th>
+                            <th>ENTIDAD CRM DESTINO</th>
+                            <th>REGLAS ACTIVAS</th>
+                            <th>TIPO</th>
+                            <th class="text-end">ACCIONES DE GESTIÓN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var layer in customLayers)
+                        {
+                            <tr class="@(selectedLayerId == layer.IdLayer ? "table-active" : "")">
+                                <td><code>CAPA_@layer.IdLayer</code></td>
+                                <td class="fw-bold text-dark">@layer.Name</td>
+                                <td><span class="pill pill-violet">@layer.Scope</span></td>
+                                <td><code>@layer.TargetEntity</code></td>
+                                <td><span class="badge bg-secondary rounded-pill px-2">@layer.RuleCount Reglas</span></td>
+                                <td>
+                                    @if (layer.IsSystem)
+                                    {
+                                        <span class="pill pill-navy">SISTEMA BASE</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="pill pill-green">DINÁMICA N-CAPA</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-flex justify-content-end gap-2">
+                                        <button class="btn btn-sm @(selectedLayerId == layer.IdLayer ? "btn-dark" : "btn-outline-dark") rounded-pill px-3 py-1" style="font-size:11px;" @onclick="() => SelectLayer(layer.IdLayer)">
+                                            <i class="bi bi-sliders me-1"></i> @(selectedLayerId == layer.IdLayer ? "Seleccionada" : "Administrar Flujos")
+                                        </button>
+                                        @if (!layer.IsSystem)
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" style="font-size:11px;" @onclick="() => DeleteCustomLayer(layer.IdLayer)" title="Eliminar Capa Dinámica">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-light text-muted border rounded-pill px-2 py-1" style="font-size:11px;" disabled title="Las capas base de sistema están protegidas contra eliminación accidental.">
+                                                <i class="bi bi-lock-fill"></i> Protegida
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PANEL EDITOR DE CHECKPOINTS Y TASKS DE LA CAPA SELECCIONADA -->
+            @{
+                var selLayer = customLayers.FirstOrDefault(c => c.IdLayer == selectedLayerId) ?? customLayers.First();
+            }
+            <div class="bg-white border rounded-4 p-4 shadow-sm mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h6 class="fw-bold text-dark m-0"><i class="bi bi-diagram-3-fill text-primary me-2"></i>Gestor de Checkpoints & Tasks de: <strong>@selLayer.Name</strong></h6>
+                        <p class="text-muted small m-0">Registra y conecta reglas de negocio a la entidad <code>@selLayer.TargetEntity</code> consumiendo <code>POST /api/engines/flow/catalogs</code>.</p>
+                    </div>
+                    <span class="pill pill-navy">CAPA SELECCIONADA #@selLayer.IdLayer</span>
+                </div>
+
+                <!-- Formulario Avanzado de Configuración por API -->
+                <div class="p-3 bg-light rounded-3 border mb-3">
+                    <h6 class="fw-bold text-dark mb-3" style="font-size:13px;"><i class="bi bi-gear-fill me-1 text-primary"></i> + Configurar y Registrar Nuevo Checkpoint en la Capa (Vía API)</h6>
+
+                    <!-- Fila 1: Nombre, Código (Autogenerado), Orden de Ejecución, Categoría -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">Nombre del Checkpoint</label>
+                            <input type="text" class="form-control form-control-sm" placeholder="ej: Verificación de Ficha Técnica" value="@newCpName" @oninput='e => GenerateCodeFromName(e.Value?.ToString() ?? "")' />
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">Código (Autogenerado)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control fw-bold text-primary" placeholder="CP_CÓDIGO" @bind="newCpCode" @bind:after='() => isManualCode = true' />
+                                <button class="btn btn-outline-secondary" type="button" title="Regenerar desde nombre" @onclick='() => { isManualCode = false; GenerateCodeFromName(newCpName); }'>
+                                    <i class="bi bi-magic"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">Orden Ejecución</label>
+                            <input type="number" class="form-control form-control-sm text-center fw-bold" min="1" max="100" @bind="newCpExecutionOrder" />
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">Categoría / Agrupador</label>
+                            <select class="form-select form-select-sm" @bind="newCpCategory">
+                                @foreach (var cat in AvailableCategories)
+                                {
+                                    <option value="@cat">📁 @cat</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Fila 2: División / Área, Cargo para Aprobación, Origen, Proveedor Destino -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">División / Área</label>
+                            <select class="form-select form-select-sm" @bind="newCpDivision">
+                                @foreach (var div in AvailableDivisions)
+                                {
+                                    <option value="@div">🏢 @div</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">Cargo de Aprobación</label>
+                            <select class="form-select form-select-sm" @bind="newCpApprovalJobTitle">
+                                <option value="SUPERVISOR">👤 SUPERVISOR</option>
+                                <option value="JEFE_OPERACIONES">👤 JEFE DE OPERACIONES</option>
+                                <option value="BACKOFFICE">👤 BACKOFFICE ANALYST</option>
+                                <option value="COORDINADOR">👤 COORDINADOR GENERAL</option>
+                                <option value="GERENTE_DIVISION">👤 GERENTE DE DIVISIÓN</option>
+                                <option value="GERENCIA_GENERAL">👤 GERENCIA GENERAL</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">Proveedor Destino</label>
+                            <select class="form-select form-select-sm" @bind="newCpProvider">
+                                @foreach (var prov in AvailableProviders)
+                                {
+                                    <option value="@prov">🏢 @prov</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">Origen del Evento</label>
+                            <select class="form-select form-select-sm" @bind="newCpOrigin">
+                                <option value="INTERNAL">INTERNAL (CRM GSI)</option>
+                                <option value="EXTERNAL">EXTERNAL (Proveedor)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Fila 3: Seleccionadores Múltiples (Satélites, Carteras, Campañas) -->
+                    <div class="row g-2 mb-2 p-2 bg-white rounded-3 border">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold m-0 text-dark mb-1" style="font-size:11px;">Satélites Involucrados</label>
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach (var sat in new[] { "FLOW_ENGINE", "API_HUB", "APPROVAL_ENGINE", "SLA_ENGINE", "DIALER", "AGENDO", "WIKITY" })
+                                {
+                                    <span class="badge @(selectedSatellites.Contains(sat) ? "bg-dark text-white" : "bg-light text-muted border") rounded-pill cursor-pointer px-2" style="font-size:10px; cursor:pointer;" @onclick="() => ToggleSatellite(sat)">
+                                        @(selectedSatellites.Contains(sat) ? "✓ " : "+ ")@sat
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold m-0 text-dark mb-1" style="font-size:11px;">Carteras Afectadas (Múltiple)</label>
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach (var port in AvailablePortfolios)
+                                {
+                                    <span class="badge @(selectedPortfolios.Contains(port) ? "bg-primary text-white" : "bg-light text-muted border") rounded-pill cursor-pointer px-2" style="font-size:10px; cursor:pointer;" @onclick="() => TogglePortfolio(port)">
+                                        @(selectedPortfolios.Contains(port) ? "✓ " : "+ ")@port
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-bold m-0 text-dark mb-1" style="font-size:11px;">Campañas CRM (Múltiple)</label>
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach (var camp in AvailableCampaigns)
+                                {
+                                    <span class="badge @(selectedCampaigns.Contains(camp) ? "bg-info text-dark" : "bg-light text-muted border") rounded-pill cursor-pointer px-2" style="font-size:10px; cursor:pointer;" @onclick="() => ToggleCampaign(camp)">
+                                        @(selectedCampaigns.Contains(camp) ? "✓ " : "+ ")@camp
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fila 4: Retroceso Específico (Checkpoint y Paso) + Condición Previa Hecho de Venta + Switches -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">↩ Retrocede Especificamente a Checkpoint (Si está mal)</label>
+                            <select class="form-select form-select-sm" @bind="newCpRollbackCode">
+                                <option value="">(Sin retroceso a Checkpoint específico)</option>
+                                @foreach (var item in catalogItems)
+                                {
+                                    <option value="@item.Code">@item.Code — @item.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-4 col-md-2">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">Paso Específico</label>
+                            <input type="number" class="form-control form-control-sm text-center" min="1" max="10" @bind="newCpRollbackStep" disabled="@(string.IsNullOrEmpty(newCpRollbackCode))" />
+                        </div>
+                        <div class="col-8 col-md-3">
+                            <label class="form-label small fw-semibold m-0" style="font-size:11px;">❓ Condición Previa (Hecho Venta)</label>
+                            <input type="text" class="form-control form-control-sm" placeholder="ej: huboCorreccionDatos" @bind="newCpPreconditionFact" />
+                        </div>
+                        <div class="col-12 col-md-3 d-flex align-items-end gap-3 justify-content-end">
+                            <div class="form-check form-switch small">
+                                <input class="form-check-input" type="checkbox" id="checkBlock" @bind="newCpBlocks" />
+                                <label class="form-check-input-label small fw-bold" for="checkBlock">Bloqueante</label>
+                            </div>
+                            <div class="form-check form-switch small">
+                                <input class="form-check-input" type="checkbox" id="checkFinalize" @bind="newCpFinalizesCycle" />
+                                <label class="form-check-input-label small fw-bold text-danger" for="checkFinalize">Finaliza Ciclo</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                        <span class="text-muted small">Capa destination: <strong>@selLayer.Name</strong></span>
+                        <button class="btn btn-sm btn-primary fw-bold rounded-pill px-4" @onclick="CreateCheckpointApi">
+                            <i class="bi bi-save me-1"></i> Guardar Checkpoint Completo en API
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(cpCreateFeedback))
+                    {
+                        <div class="mt-2 small fw-bold @(cpCreateIsError ? "text-danger" : "text-success")">
+                            @cpCreateFeedback
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- MATRIZ DE CONEXIÓN CON ENTIDADES CRM -->
+        <div class="card-panel">
+            <h5 class="fw-bold m-0 mb-2 text-dark">🔗 Matriz de Conexión & Flexibilidad Total con el CRM</h5>
+            <p class="text-muted small mb-3">Demostración de gobierno independiente: El Motor Nyx se conecta a cualquier entidad comercial o de auditoría del CRM.</p>
+
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <div class="p-3 border rounded-3 bg-white">
+                        <div class="fw-bold text-dark mb-1"><i class="bi bi-cart-check me-2 text-primary"></i>Módulo de Ventas / Fichas</div>
+                        <div class="small text-muted mb-2">Entidades: <code>SALES_ORDER</code>, <code>PRE_SALE</code></div>
+                        <span class="pill pill-green">Gobernado por Capa 1 y 2</span>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <div class="p-3 border rounded-3 bg-white">
+                        <div class="fw-bold text-dark mb-1"><i class="bi bi-exclamation-octagon me-2 text-danger"></i>Módulo de Incidencias</div>
+                        <div class="small text-muted mb-2">Entidades: <code>INCIDENT_TICKET</code></div>
+                        <span class="pill pill-amber">Gobernado por Nyx.SlaEngine</span>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <div class="p-3 border rounded-3 bg-white">
+                        <div class="fw-bold text-dark mb-1"><i class="bi bi-cash-coin me-2 text-success"></i>Módulo de Comisiones</div>
+                        <div class="small text-muted mb-2">Entidades: <code>COMMISSION_BATCH</code></div>
+                        <span class="pill pill-navy">Gobernado por Capa 4</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- MODAL DE EDICIÓN DE ETAPA CON FONDO DIFUMINADO -->
+    @if (showEditStageModal && selectedStage != null)
+    {
+        <div class="modal-backdrop-blur" @onclick="CloseEditStageModal">
+            <div class="modal-card" @onclick:stopPropagation="true">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:36px;height:36px;border-radius:10px;background:#0F172A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">✏️</div>
+                        <div>
+                            <h5 class="fw-bold mb-0 text-dark">Editar Etapa: @selectedStage.Name</h5>
+                            <code class="text-primary small">@selectedStage.StageCode</code>
+                        </div>
+                    </div>
+                    <button class="btn-close-circle" @onclick="CloseEditStageModal">✕</button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(stageEditMsg))
+                {
+                    <div class="mb-3 p-2 rounded small fw-bold @(stageEditIsError ? "bg-danger bg-opacity-10 text-danger" : "bg-success bg-opacity-10 text-success")">
+                        @stageEditMsg
+                    </div>
+                }
+
+                <div class="row g-3">
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">Nombre de Etapa</label>
+                        <input type="text" class="form-control form-control-sm" @bind="editStageName" />
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">Código de Etapa</label>
+                        <input type="text" class="form-control form-control-sm text-primary fw-bold bg-light" value="@selectedStage.StageCode" readonly />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold text-dark mb-1">Descripción</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="Descripción breve..." @bind="editStageDescription" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-bold text-dark mb-1">SLA (Horas)</label>
+                        <input type="number" class="form-control form-control-sm text-center" min="1" @bind="editStageSlaHours" placeholder="ej: 24" />
+                    </div>
+                    <div class="col-6 d-flex align-items-end pb-1">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="chkModalTerminal" @bind="editStageIsTerminal" />
+                            <label class="form-check-label small fw-bold text-danger" for="chkModalTerminal">⛔ Etapa Terminal</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 my-2 p-2 bg-light rounded-3 border">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-bold m-0 text-dark mb-1" style="font-size:11px;">💼 Carteras Afectadas (Heredan todas sus campañas)</label>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var port in AvailablePortfolios)
+                            {
+                                <span class="badge @(editStageSelectedPortfolios.Contains(port) ? "bg-primary text-white" : "bg-white text-muted border") rounded-pill cursor-pointer px-2" style="font-size:10px; cursor:pointer;" @onclick="() => ToggleEditStagePortfolio(port)">
+                                    @(editStageSelectedPortfolios.Contains(port) ? "✓ " : "+ ")@port
+                                </span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-bold m-0 text-dark mb-1" style="font-size:11px;">📣 Campañas CRM Específicas</label>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var camp in AvailableCampaigns)
+                            {
+                                <span class="badge @(editStageSelectedCampaigns.Contains(camp) ? "bg-info text-dark" : "bg-white text-muted border") rounded-pill cursor-pointer px-2" style="font-size:10px; cursor:pointer;" @onclick="() => ToggleEditStageCampaign(camp)">
+                                    @(editStageSelectedCampaigns.Contains(camp) ? "✓ " : "+ ")@camp
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-4" @onclick="CloseEditStageModal">Cancelar</button>
+                    <button class="btn btn-sm btn-primary fw-bold rounded-pill px-4" @onclick="SaveStageEdits">💾 Guardar Etapa</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- MODAL DE CREAR ETAPA CON FONDO DIFUMINADO -->
+    @if (showCreateStageModal)
+    {
+        <div class="modal-backdrop-blur" @onclick="CloseCreateStageModal">
+            <div class="modal-card" @onclick:stopPropagation="true">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:36px;height:36px;border-radius:10px;background:#0F172A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">🏗️</div>
+                        <div>
+                            <h5 class="fw-bold mb-0 text-dark">➕ Crear Nueva Etapa</h5>
+                            <span class="text-muted small">Registrar etapa en nyx_flow.stage</span>
+                        </div>
+                    </div>
+                    <button class="btn-close-circle" @onclick="CloseCreateStageModal">✕</button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(stageFeedback))
+                {
+                    <div class="mb-3 p-2 rounded small fw-bold @(stageFeedbackIsError ? "bg-danger bg-opacity-10 text-danger" : "bg-success bg-opacity-10 text-success")">
+                        @stageFeedback
+                    </div>
+                }
+
+                <div class="row g-3">
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">Nombre de Etapa</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="ej: Validación Técnica" @bind="newStageName" />
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">Código (UPPER_SNAKE)</label>
+                        <input type="text" class="form-control form-control-sm fw-bold text-primary" placeholder="VAL_TECNICA" @bind="newStageCode" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold text-dark mb-1">Descripción</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="Descripción breve..." @bind="newStageDescription" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-bold text-dark mb-1">Orden #</label>
+                        <input type="number" class="form-control form-control-sm text-center" min="1" @bind="newStageOrder" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-bold text-dark mb-1">SLA (Horas)</label>
+                        <input type="number" class="form-control form-control-sm text-center" min="1" @bind="newStageSlaHours" placeholder="ej: 24" />
+                    </div>
+                    <div class="col-12 d-flex align-items-center pt-2">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="chkCreateTerminal" @bind="newStageIsTerminal" />
+                            <label class="form-check-label small fw-bold text-danger" for="chkCreateTerminal">⛔ Etapa Terminal</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 my-2 p-2 bg-light rounded-3 border">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-bold m-0 text-dark mb-1" style="font-size:11px;">💼 Carteras Afectadas (Heredan todas sus campañas)</label>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var port in AvailablePortfolios)
+                            {
+                                <span class="badge @(createStageSelectedPortfolios.Contains(port) ? "bg-primary text-white" : "bg-white text-muted border") rounded-pill cursor-pointer px-2" style="font-size:10px; cursor:pointer;" @onclick="() => ToggleCreateStagePortfolio(port)">
+                                    @(createStageSelectedPortfolios.Contains(port) ? "✓ " : "+ ")@port
+                                </span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-bold m-0 text-dark mb-1" style="font-size:11px;">📣 Campañas CRM Específicas</label>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var camp in AvailableCampaigns)
+                            {
+                                <span class="badge @(createStageSelectedCampaigns.Contains(camp) ? "bg-info text-dark" : "bg-white text-muted border") rounded-pill cursor-pointer px-2" style="font-size:10px; cursor:pointer;" @onclick="() => ToggleCreateStageCampaign(camp)">
+                                    @(createStageSelectedCampaigns.Contains(camp) ? "✓ " : "+ ")@camp
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-4" @onclick="CloseCreateStageModal">Cancelar</button>
+                    <button class="btn btn-sm btn-primary fw-bold rounded-pill px-4" @onclick="CreateStageApiModal">➕ Crear Etapa</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- MODAL DE EDICIÓN DE CHECKPOINT CON FONDO DIFUMINADO -->
+    @if (showEditCpModal && selectedCp != null)
+    {
+        <div class="modal-backdrop-blur" @onclick="CloseEditCpModal">
+            <div class="modal-card" @onclick:stopPropagation="true" style="max-width: 680px;">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:36px;height:36px;border-radius:10px;background:#0F172A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">📦</div>
+                        <div>
+                            <h5 class="fw-bold mb-0 text-dark">Editar Checkpoint: @selectedCp.Name</h5>
+                            <code class="text-primary small">@selectedCp.Code</code>
+                        </div>
+                    </div>
+                    <button class="btn-close-circle" @onclick="CloseEditCpModal">✕</button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(cpEditMsg))
+                {
+                    <div class="mb-3 p-2 rounded small fw-bold @(cpEditIsError ? "bg-danger bg-opacity-10 text-danger" : "bg-success bg-opacity-10 text-success")">
+                        @cpEditMsg
+                    </div>
+                }
+
+                <div class="row g-2 mb-2">
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">🎯 Etapa Nyx Perteneciente</label>
+                        <select class="form-select form-select-sm fw-bold border-primary text-primary" @bind="editCpTriggerStageId">
+                            <option value="0">🎯 (Sin etapa asignada)</option>
+                            @foreach (var stg in dbStages.OrderBy(s => s.OrderIndex))
+                            {
+                                <option value="@stg.IdStage">#@stg.OrderIndex — @stg.Name (@stg.StageCode)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">Nombre del Checkpoint</label>
+                        <input type="text" class="form-control form-control-sm" @bind="editCpName" />
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">Orden Ejecución</label>
+                        <input type="number" class="form-control form-control-sm text-center fw-bold" min="1" max="100" @bind="editCpExecutionOrder" />
+                    </div>
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">Categoría</label>
+                        <select class="form-select form-select-sm" @bind="editCpCategory">
+                            @foreach (var cat in AvailableCategories)
+                            {
+                                <option value="@cat">📁 @cat</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">División / Área</label>
+                        <select class="form-select form-select-sm" @bind="editCpDivision">
+                            <option value="GENERAL">🏢 GENERAL</option>
+                            @foreach (var div in DivisionsList)
+                            {
+                                <option value="@div">🏢 @div</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">Cargo Aprobación</label>
+                        <select class="form-select form-select-sm" @bind="editCpApprovalJobTitle">
+                            <option value="">👤 (Ninguno - Opcional)</option>
+                            @foreach (var jt in JobTitlesList)
+                            {
+                                <option value="@jt">👤 @jt</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">Proveedor Destino (Opcional)</label>
+                        <select class="form-select form-select-sm" @bind="editCpProvider">
+                            <option value="">🏢 (Ninguno - Opcional)</option>
+                            @foreach (var prov in ProvidersList)
+                            {
+                                <option value="@prov">🏢 @prov</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">Origen Evento</label>
+                        <select class="form-select form-select-sm" @bind="editCpOrigin">
+                            <option value="INTERNAL">INTERNAL (CRM GSI)</option>
+                            <option value="EXTERNAL">EXTERNAL (Proveedor)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- PASOS DEL CHECKPOINT -->
+                <div class="mb-3 p-3 bg-light rounded-3 border">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold small text-dark">📋 Pasos Secuenciales del Checkpoint</span>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-0.5" style="font-size:0.75rem;" @onclick="AddStepToEdit">
+                            + Agregar Paso
+                        </button>
+                    </div>
+                    @if (!editCpSteps.Any())
+                    {
+                        <span class="text-muted small d-block text-center py-2" style="font-size:0.78rem;">No hay pasos definidos para este checkpoint.</span>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-2">
+                            @for (int sIdx = 0; sIdx < editCpSteps.Count; sIdx++)
+                            {
+                                var stepItem = editCpSteps[sIdx];
+                                var stepNum = sIdx + 1;
+                                <div class="d-flex align-items-center gap-2 bg-white p-2 rounded border shadow-sm">
+                                    <span class="badge bg-dark text-white rounded-circle" style="width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">@stepNum</span>
+                                    <input type="text" class="form-control form-control-sm" placeholder="Instrucción / Nombre del paso..." @bind="stepItem.Instruction" />
+                                    <div class="form-check form-switch mb-0 ms-1" title="Paso Obligatorio">
+                                        <input class="form-check-input" type="checkbox" @bind="stepItem.IsRequired" />
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1" @onclick="() => RemoveStepFromEdit(stepItem)" title="Eliminar paso">
+                                        🗑️
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="row g-2 mb-2 p-2 bg-light rounded-3 border">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-bold m-0 text-dark mb-1" style="font-size:11px;">Satélites Involucrados</label>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var sat in SatellitesList)
+                            {
+                                <span class="badge @(editSelectedSatellites.Contains(sat) ? "bg-dark text-white" : "bg-white text-muted border") rounded-pill cursor-pointer px-2" style="font-size:10px; cursor:pointer;" @onclick="() => ToggleEditSatellite(sat)">
+                                    @(editSelectedSatellites.Contains(sat) ? "✓ " : "+ ")@sat
+                                </span>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="p-2 bg-white rounded border text-muted small" style="font-size:0.75rem;">
+                            ℹ️ <strong>Cartera y Campaña</strong> son gobernadas directamente a nivel de la <strong>Etapa Nyx</strong> asignada.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">↩ Retrocede Específicamente a Checkpoint</label>
+                        <select class="form-select form-select-sm" @bind="editCpRollbackCode">
+                            <option value="">(Sin retroceso específico)</option>
+                            @foreach (var item in catalogItems.OrderBy(c => c.ExecutionOrder))
+                            {
+                                <option value="@item.Code">#@item.ExecutionOrder — @item.Code (@item.Name)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">Paso Específico</label>
+                        <input type="number" class="form-control form-control-sm text-center" min="1" max="10" @bind="editCpRollbackStep" disabled="@(string.IsNullOrEmpty(editCpRollbackCode))" />
+                    </div>
+                    <div class="col-6 col-sm-3 d-flex align-items-end gap-3 justify-content-end pb-1">
+                        <div class="form-check form-switch small">
+                            <input class="form-check-input" type="checkbox" id="checkBlockEdit" @bind="editCpBlocks" />
+                            <label class="form-check-label small fw-bold" for="checkBlockEdit">Bloqueante</label>
+                        </div>
+                        <div class="form-check form-switch small">
+                            <input class="form-check-input" type="checkbox" id="checkFinalizeEdit" @bind="editCpFinalizesCycle" />
+                            <label class="form-check-label small fw-bold text-danger" for="checkFinalizeEdit">Finaliza</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-4" @onclick="CloseEditCpModal">Cancelar</button>
+                    <button class="btn btn-sm btn-primary fw-bold rounded-pill px-4" @onclick="SaveCpEdits">💾 Guardar Checkpoint</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- MODAL DE CREAR CHECKPOINT CON FONDO DIFUMINADO -->
+    @if (showCreateCpModal)
+    {
+        <div class="modal-backdrop-blur" @onclick="CloseCreateCpModal">
+            <div class="modal-card" @onclick:stopPropagation="true" style="max-width: 680px;">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:36px;height:36px;border-radius:10px;background:#0F172A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">➕</div>
+                        <div>
+                            <h5 class="fw-bold mb-0 text-dark">Crear Nuevo Checkpoint</h5>
+                            <span class="text-muted small">Registrar regla en el catálogo Nyx</span>
+                        </div>
+                    </div>
+                    <button class="btn-close-circle" @onclick="CloseCreateCpModal">✕</button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(cpCreateFeedback))
+                {
+                    <div class="mb-3 p-2 rounded small fw-bold @(cpCreateIsError ? "bg-danger bg-opacity-10 text-danger" : "bg-success bg-opacity-10 text-success")">
+                        @cpCreateFeedback
+                    </div>
+                }
+
+                <div class="row g-2 mb-2">
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">🎯 Etapa Nyx Perteneciente</label>
+                        <select class="form-select form-select-sm fw-bold border-primary text-primary" @bind="newCpTriggerStageId">
+                            <option value="0">🎯 (Sin etapa asignada)</option>
+                            @foreach (var stg in dbStages.OrderBy(s => s.OrderIndex))
+                            {
+                                <option value="@stg.IdStage">#@stg.OrderIndex — @stg.Name (@stg.StageCode)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">Nombre del Checkpoint</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="ej: Verificación de Datos" value="@newCpName" @oninput='e => GenerateCodeFromName(e.Value?.ToString() ?? "")' />
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">Código (Autogenerado)</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control fw-bold text-primary" placeholder="CP_CÓDIGO" @bind="newCpCode" @bind:after='() => isManualCode = true' />
+                            <button class="btn btn-outline-secondary" type="button" @onclick='() => { isManualCode = false; GenerateCodeFromName(newCpName); }'>
+                                🪄
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">Orden Ejecución</label>
+                        <input type="number" class="form-control form-control-sm text-center fw-bold" min="1" max="100" @bind="newCpExecutionOrder" />
+                    </div>
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">Categoría</label>
+                        <select class="form-select form-select-sm" @bind="newCpCategory">
+                            @foreach (var cat in AvailableCategories)
+                            {
+                                <option value="@cat">📁 @cat</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">División / Área</label>
+                        <select class="form-select form-select-sm" @bind="newCpDivision">
+                            <option value="GENERAL">🏢 GENERAL</option>
+                            @foreach (var div in DivisionsList)
+                            {
+                                <option value="@div">🏢 @div</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">Cargo Aprobación</label>
+                        <select class="form-select form-select-sm" @bind="newCpApprovalJobTitle">
+                            <option value="">👤 (Ninguno - Opcional)</option>
+                            @foreach (var jt in JobTitlesList)
+                            {
+                                <option value="@jt">👤 @jt</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">Proveedor Destino</label>
+                        <select class="form-select form-select-sm" @bind="newCpProvider">
+                            <option value="">🏢 (Ninguno - Opcional)</option>
+                            @foreach (var prov in ProvidersList)
+                            {
+                                <option value="@prov">🏢 @prov</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">Origen Evento</label>
+                        <select class="form-select form-select-sm" @bind="newCpOrigin">
+                            <option value="INTERNAL">INTERNAL (CRM GSI)</option>
+                            <option value="EXTERNAL">EXTERNAL (Proveedor)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- PASOS DEL CHECKPOINT -->
+                <div class="mb-3 p-3 bg-light rounded-3 border">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold small text-dark">📋 Pasos Secuenciales del Checkpoint</span>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-0.5" style="font-size:0.75rem;" @onclick="AddStepToNew">
+                            + Agregar Paso
+                        </button>
+                    </div>
+                    @if (!newCpSteps.Any())
+                    {
+                        <span class="text-muted small d-block text-center py-2" style="font-size:0.78rem;">No hay pasos definidos aún. Haz clic en '+ Agregar Paso'.</span>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-2">
+                            @for (int sIdx = 0; sIdx < newCpSteps.Count; sIdx++)
+                            {
+                                var stepItem = newCpSteps[sIdx];
+                                var stepNum = sIdx + 1;
+                                <div class="d-flex align-items-center gap-2 bg-white p-2 rounded border shadow-sm">
+                                    <span class="badge bg-dark text-white rounded-circle" style="width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">@stepNum</span>
+                                    <input type="text" class="form-control form-control-sm" placeholder="Instrucción / Nombre del paso..." @bind="stepItem.Instruction" />
+                                    <div class="form-check form-switch mb-0 ms-1" title="Paso Obligatorio">
+                                        <input class="form-check-input" type="checkbox" @bind="stepItem.IsRequired" />
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1" @onclick="() => RemoveStepFromNew(stepItem)" title="Eliminar paso">
+                                        🗑️
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="row g-2 mb-2 p-2 bg-light rounded-3 border">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-bold m-0 text-dark mb-1" style="font-size:11px;">Satélites Involucrados</label>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var sat in SatellitesList)
+                            {
+                                <span class="badge @(selectedSatellites.Contains(sat) ? "bg-dark text-white" : "bg-white text-muted border") rounded-pill cursor-pointer px-2" style="font-size:10px; cursor:pointer;" @onclick="() => ToggleSatellite(sat)">
+                                    @(selectedSatellites.Contains(sat) ? "✓ " : "+ ")@sat
+                                </span>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="p-2 bg-white rounded border text-muted small" style="font-size:0.75rem;">
+                            ℹ️ <strong>Cartera y Campaña</strong> son gobernadas directamente a nivel de la <strong>Etapa Nyx</strong> asignada.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label small fw-bold text-dark mb-1">↩ Retrocede Específicamente a Checkpoint</label>
+                        <select class="form-select form-select-sm" @bind="newCpRollbackCode">
+                            <option value="">(Sin retroceso específico)</option>
+                            @foreach (var item in catalogItems.OrderBy(c => c.ExecutionOrder))
+                            {
+                                <option value="@item.Code">#@item.ExecutionOrder — @item.Code (@item.Name)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-3">
+                        <label class="form-label small fw-bold text-dark mb-1">Paso Específico</label>
+                        <input type="number" class="form-control form-control-sm text-center" min="1" max="10" @bind="newCpRollbackStep" disabled="@(string.IsNullOrEmpty(newCpRollbackCode))" />
+                    </div>
+                    <div class="col-6 col-sm-3 d-flex align-items-end gap-3 justify-content-end pb-1">
+                        <div class="form-check form-switch small">
+                            <input class="form-check-input" type="checkbox" id="checkBlockCreate" @bind="newCpBlocks" />
+                            <label class="form-check-label small fw-bold" for="checkBlockCreate">Bloqueante</label>
+                        </div>
+                        <div class="form-check form-switch small">
+                            <input class="form-check-input" type="checkbox" id="checkFinalizeCreate" @bind="newCpFinalizesCycle" />
+                            <label class="form-check-label small fw-bold text-danger" for="checkFinalizeCreate">Finaliza</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-4" @onclick="CloseCreateCpModal">Cancelar</button>
+                    <button class="btn btn-sm btn-primary fw-bold rounded-pill px-4" @onclick="CreateCheckpointApiModal">💾 Crear Checkpoint</button>
+                </div>
+            </div>
+        </div>
+    }
+    <!-- MODAL MATRIZ DE CHECKPOINTS DE ETAPA CON FONDO DIFUMINADO -->
+    @if (showStageCheckpointsModal && selectedStage != null)
+    {
+        <div class="modal-backdrop-blur" @onclick="CloseStageCheckpointsModal">
+            <div class="modal-card" @onclick:stopPropagation="true" style="max-width: 960px; width: 92vw;">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:36px;height:36px;border-radius:10px;background:#0F172A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">🎯</div>
+                        <div>
+                            <h5 class="fw-bold mb-0 text-dark">Matriz de Checkpoints para Etapa: <span class="text-primary">@selectedStage.Name</span></h5>
+                            <code class="text-primary small">@selectedStage.StageCode</code>
+                            <span class="badge bg-dark rounded-pill ms-2"># Orden @selectedStage.OrderIndex</span>
+                            @if (selectedStage.IsTerminal)
+                            {
+                                <span class="pill pill-red ms-1" style="font-size:9px;">⛔ TERMINAL</span>
+                            }
+                        </div>
+                    </div>
+                    <button class="btn-close-circle" @onclick="CloseStageCheckpointsModal">✕</button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(stageCpAssignMsg))
+                {
+                    <div class="mb-3 p-2 rounded small fw-bold @(stageCpAssignIsError ? "bg-danger bg-opacity-10 text-danger" : "bg-success bg-opacity-10 text-success")">
+                        @stageCpAssignMsg
+                    </div>
+                }
+
+                <!-- MATRIZ DUAL DE ASIGNACIÓN (TRANSFER BOARD 50% - 50%) -->
+                <div class="row g-3">
+                    <!-- COLUMNA IZQUIERDA (50%): Checkpoints Disponibles -->
+                    <div class="col-12 col-md-6">
+                        <div class="border rounded-3 p-3 bg-light h-100 shadow-sm">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold text-dark" style="font-size:13px;">📦 Checkpoints Disponibles (Sin Asignar)</span>
+                                @{
+                                    var availCps = catalogItems.Where(c => c.TriggerStageId != selectedStage.IdStage)
+                                                               .Where(c => string.IsNullOrWhiteSpace(availableCpSearch) || 
+                                                                           c.Name.Contains(availableCpSearch, StringComparison.OrdinalIgnoreCase) || 
+                                                                           c.Code.Contains(availableCpSearch, StringComparison.OrdinalIgnoreCase))
+                                                               .OrderBy(c => c.ExecutionOrder).ToList();
+                                }
+                                <span class="badge bg-secondary rounded-pill px-2">@availCps.Count</span>
+                            </div>
+
+                            <input type="text" class="form-control form-control-sm mb-3" placeholder="🔍 Buscar por nombre o código..." @bind="availableCpSearch" @bind:event="oninput" style="font-size:12px;" />
+
+                            @if (!availCps.Any())
+                            {
+                                <div class="text-center text-muted small py-5">No hay checkpoints disponibles sin asignar.</div>
+                            }
+                            else
+                            {
+                                <div class="d-flex flex-column gap-2 overflow-auto pe-1" style="max-height:420px;">
+                                    @foreach (var cp in availCps)
+                                    {
+                                        var cpId = cp.IdCheckpoint;
+                                        <div class="d-flex align-items-center justify-content-between p-2.5 rounded border bg-white shadow-sm" style="font-size:12px;">
+                                            <div class="min-w-0 flex-grow-1 pe-2">
+                                                <div class="fw-bold text-dark text-truncate">@cp.Name</div>
+                                                <div class="d-flex gap-2 align-items-center mt-1">
+                                                    <code class="text-primary fw-semibold" style="font-size:10px;">@cp.Code</code>
+                                                    <span class="badge bg-light text-dark border" style="font-size:9px;">🏢 @cp.Division</span>
+                                                    @if (!string.IsNullOrEmpty(cp.Campaign) && cp.Campaign != "GENERAL")
+                                                    {
+                                                        <span class="badge bg-info text-dark" style="font-size:9px;">📣 @cp.Campaign</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-primary rounded-pill py-1 px-3 fw-bold" style="font-size:11px; white-space:nowrap;"
+                                                    @onclick="() => AssignCheckpointToStage(cpId, selectedStage.IdStage)" title="Asignar a esta etapa">
+                                                + Asignar ➡
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- COLUMNA DERECHA (50%): Checkpoints Asignados a esta Etapa -->
+                    <div class="col-12 col-md-6">
+                        <div class="border rounded-3 p-3 bg-white border-primary h-100 shadow-sm">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold text-primary" style="font-size:13px;">🎯 Checkpoints Asignados a @selectedStage.Name</span>
+                                @{
+                                    var assignedCps = catalogItems.Where(c => c.TriggerStageId == selectedStage.IdStage)
+                                                                   .OrderBy(c => c.ExecutionOrder).ToList();
+                                }
+                                <span class="badge bg-primary rounded-pill px-2">@assignedCps.Count</span>
+                            </div>
+
+                            <p class="text-muted small mb-3" style="font-size:11px;">Checkpoints asignados que aplican durante esta etapa.</p>
+
+                            @if (!assignedCps.Any())
+                            {
+                                <div class="text-center text-muted small py-5">
+                                    <div style="font-size:2rem;">🎯</div>
+                                    <div class="fw-bold">Sin checkpoints asignados aún.</div>
+                                    <div class="mt-1">Haz clic en <strong>+ Asignar ➡</strong> desde el panel de la izquierda.</div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="d-flex flex-column gap-2 overflow-auto pe-1" style="max-height:420px;">
+                                    @for (int cpi = 0; cpi < assignedCps.Count; cpi++)
+                                    {
+                                        var cp = assignedCps[cpi];
+                                        var cpId = cp.IdCheckpoint;
+                                        var isCpFirst = cpi == 0;
+                                        var isCpLast = cpi == assignedCps.Count - 1;
+                                        <div class="d-flex align-items-center justify-content-between p-2.5 rounded border bg-primary bg-opacity-10 border-primary" style="font-size:12px;">
+                                            <div class="min-w-0 flex-grow-1 pe-2">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <!-- # Ord Input inside Stage -->
+                                                    <input type="number" class="form-control form-control-sm text-center fw-bold px-1"
+                                                           style="width:48px; font-size:11px;"
+                                                           value="@cp.ExecutionOrder"
+                                                           min="1" max="999"
+                                                           @onchange='async e => await SetCheckpointExecutionOrderDirect(cpId, e.Value?.ToString())'
+                                                           title="Editar orden de ejecución en la etapa" />
+                                                    
+                                                    <!-- ▲▼ Move Buttons -->
+                                                    <div class="d-flex flex-column gap-1">
+                                                        <button class="btn btn-outline-secondary rounded px-1 py-0 lh-1" style="font-size:8px; padding: 1px 3px;" disabled="@isCpFirst" @onclick='() => MoveAssignedCheckpoint(cpId, "up", assignedCps)'>▲</button>
+                                                        <button class="btn btn-outline-secondary rounded px-1 py-0 lh-1" style="font-size:8px; padding: 1px 3px;" disabled="@isCpLast" @onclick='() => MoveAssignedCheckpoint(cpId, "down", assignedCps)'>▼</button>
+                                                    </div>
+
+                                                    <div class="fw-bold text-dark text-truncate ms-1">@cp.Name</div>
+                                                </div>
+                                                <div class="d-flex gap-2 align-items-center mt-1 ms-1">
+                                                    <code class="text-primary fw-semibold" style="font-size:10px;">@cp.Code</code>
+                                                    @if (cp.FinalizesCycle) { <span class="pill pill-red" style="font-size:8px;">⛔ FINALIZA</span> }
+                                                    else if (cp.BlocksAdvance) { <span class="pill pill-amber" style="font-size:8px;">🔒 BLOQUEA</span> }
+                                                    else { <span class="pill pill-outline" style="font-size:8px;">INFO</span> }
+                                                    <span class="badge bg-light text-dark border" style="font-size:9px;">🏢 @(string.IsNullOrEmpty(cp.Division) ? "OPERACIONES" : cp.Division)</span>
+                                                    @if (!string.IsNullOrEmpty(cp.ApprovalJobTitle))
+                                                    {
+                                                        <span class="badge bg-light text-dark border" style="font-size:9px;">👤 @cp.ApprovalJobTitle</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-danger rounded-pill py-1 px-3 fw-bold" style="font-size:11px; white-space:nowrap;"
+                                                    @onclick="() => UnassignCheckpointFromStage(cpId)" title="Quitar de esta etapa">
+                                                ⬅ Quitar
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-4" @onclick="CloseStageCheckpointsModal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string tab = "etapas";
+
+    // — Catalog —
+    private bool loadingCatalog = false;
+    private List<CatalogItemVm> catalogItems = new();
+
+    // — Flow instance —
+    private bool loadingFlow = false;
+    private long flowInstanceId = 0;
+    private long actorId = 9;
+    private FlowInstanceVm? flowInstance;
+    private List<CheckpointInstanceVm> instanceCheckpoints = new();
+    private string flowError = string.Empty;
+    private string flowSuccess = string.Empty;
+
+    // — Approvals —
+    private bool loadingApprovals = false;
+    private long approverIdFilter = 9;
+    private string approverRoleFilter = "SUPERVISOR";
+    private List<ApprovalRequestVm> approvalRequests = new();
+    private string approvalMsg = string.Empty;
+    private bool approvalMsgIsError = false;
+
+    private class StageVm
+    {
+        public long IdStage { get; set; }
+        public long IdFlow { get; set; }
+        public string StageCode { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public short OrderIndex { get; set; }
+        public bool IsTerminal { get; set; }
+        public short? SlaHours { get; set; }
+        public string Portfolio { get; set; } = "GENERAL";
+        public string Campaign { get; set; } = "GENERAL";
+    }
+
+    private List<StageVm> dbStages = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStagesFromDb();
+        await LoadCatalog();
+    }
+
+    private async Task LoadStagesFromDb()
+    {
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var result = await Http.GetFromJsonAsync<List<StageVm>>($"{apiBase}/api/engines/flow/stages");
+            if (result != null && result.Any())
+            {
+                dbStages = result.OrderBy(s => s.OrderIndex).ToList();
+                if (selectedStage == null)
+                {
+                    selectedStage = dbStages.FirstOrDefault();
+                    if (selectedStage != null) SelectStage(selectedStage);
+                }
+                else
+                {
+                    var updated = dbStages.FirstOrDefault(s => s.IdStage == selectedStage.IdStage);
+                    if (updated != null) selectedStage = updated;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[CheckpointsHub] Error loading stages from DB: {ex.Message}");
+        }
+    }
+
+    private void SetTab(string t) { tab = t; flowError = string.Empty; flowSuccess = string.Empty; approvalMsg = string.Empty; }
+
+    private string GetStageName(long stageId)
+    {
+        var match = dbStages.FirstOrDefault(s => s.IdStage == stageId);
+        return match != null ? match.Name : $"Etapa #{stageId}";
+    }
+
+    // ——— Catalog ———
+    private async Task LoadCatalog()
+    {
+        loadingCatalog = true;
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var result = await Http.GetFromJsonAsync<List<CatalogItemVm>>($"{apiBase}/api/engines/flow/catalogs");
+            catalogItems = result ?? new();
+            PopulateLayersFromCatalog();
+        }
+        catch (Exception ex)
+        {
+            catalogItems = new();
+            PopulateLayersFromCatalog();
+            Console.WriteLine($"[CheckpointsHub] Error loading catalog: {ex.Message}");
+        }
+        finally { loadingCatalog = false; }
+    }
+
+    // ——— Flow Instance ———
+    private async Task LoadFlowInstance()
+    {
+        if (flowInstanceId <= 0) return;
+        loadingFlow = true; flowError = string.Empty; flowSuccess = string.Empty;
+        try
+        {
+            var apiBase = GetApiBase();
+            flowInstance = await Http.GetFromJsonAsync<FlowInstanceVm>($"{apiBase}/api/flow/instances/{flowInstanceId}");
+            // Load active checkpoints for this instance
+            var cps = await Http.GetFromJsonAsync<List<CheckpointInstanceVm>>($"{apiBase}/api/flow/instances/{flowInstanceId}/checkpoints");
+            instanceCheckpoints = cps ?? new();
+        }
+        catch (Exception ex)
+        {
+            flowInstance = null;
+            instanceCheckpoints = new();
+            Console.WriteLine($"[CheckpointsHub] Error loading flow instance: {ex.Message}");
+        }
+        finally { loadingFlow = false; }
+    }
+
+    private async Task AdvanceStage()
+    {
+        if (flowInstance == null) return;
+        flowError = string.Empty; flowSuccess = string.Empty;
+        try
+        {
+            var apiBase = GetApiBase();
+            var payload = new { actorId };
+            var response = await Http.PostAsJsonAsync($"{apiBase}/api/flow/instances/{flowInstance.IdInstance}/advance", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                var updated = await response.Content.ReadFromJsonAsync<FlowInstanceVm>();
+                if (updated != null)
+                {
+                    flowInstance = updated;
+                    flowSuccess = $"Etapa avanzada correctamente → ahora en '{GetStageName(flowInstance.CurrentStageId)}'.";
+                    await LoadFlowInstance(); // Reload checkpoints
+                }
+            }
+            else
+            {
+                var errJson = await response.Content.ReadFromJsonAsync<JsonElement>();
+                flowError = errJson.TryGetProperty("error", out var e) ? e.GetString() ?? "Error desconocido." : "Nyx.FlowEngine bloqueó el avance.";
+            }
+        }
+        catch (Exception ex)
+        {
+            flowError = $"Error de comunicación con Nyx.FlowEngine: {ex.Message}";
+        }
+    }
+
+    private async Task ResolveCheckpoint(long cpInstanceId, string status)
+    {
+        try
+        {
+            var apiBase = GetApiBase();
+            var payload = new { status, actorId };
+            var response = await Http.PostAsJsonAsync($"{apiBase}/api/flow/checkpoints/instances/{cpInstanceId}/resolve", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                flowSuccess = $"Checkpoint #{cpInstanceId} marcado como {status}.";
+                await LoadFlowInstance();
+            }
+            else
+            {
+                flowError = $"No se pudo resolver el checkpoint #{cpInstanceId}.";
+            }
+        }
+        catch (Exception ex)
+        {
+            flowError = ex.Message;
+        }
+    }
+
+    // ——— Approvals ———
+    private async Task LoadApprovals()
+    {
+        loadingApprovals = true; approvalMsg = string.Empty;
+        try
+        {
+            var apiBase = GetApiBase();
+            var url = $"{apiBase}/api/engines/approval/pending?approverId={approverIdFilter}&approverRole={Uri.EscapeDataString(approverRoleFilter)}";
+            var result = await Http.GetFromJsonAsync<List<ApprovalRequestVm>>(url);
+            approvalRequests = result ?? new();
+        }
+        catch (Exception ex)
+        {
+            approvalRequests = new();
+            Console.WriteLine($"[CheckpointsHub] Error loading approvals: {ex.Message}");
+        }
+        finally { loadingApprovals = false; }
+    }
+
+    private async Task DecideApproval(long requestId, string decision)
+    {
+        approvalMsg = string.Empty;
+        try
+        {
+            var apiBase = GetApiBase();
+            var payload = new { decidedBy = approverIdFilter, decision, reason = $"Decisión vía Nyx Engines Hub ({approverRoleFilter})" };
+            var response = await Http.PostAsJsonAsync($"{apiBase}/api/approval/requests/{requestId}/decide", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                approvalMsgIsError = false;
+                approvalMsg = $"✓ Solicitud #{requestId} — decisión '{decision}' registrada exitosamente.";
+                await LoadApprovals();
+            }
+            else
+            {
+                var errJson = await response.Content.ReadFromJsonAsync<JsonElement>();
+                approvalMsgIsError = true;
+                approvalMsg = errJson.TryGetProperty("error", out var e) ? $"🛑 SOX/ISO 27001: {e.GetString()}" : "Error al procesar la decisión.";
+            }
+        }
+        catch (Exception ex)
+        {
+            approvalMsgIsError = true;
+            approvalMsg = $"Error de comunicación: {ex.Message}";
+        }
+    }
+
+    private string GetApiBase()
+    {
+        // YARP reverse proxy on the WebFrontend routes /api/** → CRM.ApiHub:5068
+        // Using NavManager.BaseUri ensures we form a valid absolute URI (e.g. http://localhost:5261)
+        return NavManager.BaseUri.TrimEnd('/');
+    }
+
+    private async Task EnsureAuthHeader()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var tokenClaim = authState.User.FindFirst("access_token")?.Value;
+            if (!string.IsNullOrEmpty(tokenClaim))
+            {
+                Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenClaim);
+            }
+        }
+        catch { /* Safe fallback */ }
+    }
+
+    // — View models —
+    private class CatalogItemVm
+    {
+        public long IdCheckpoint { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string Origin { get; set; } = "INTERNAL";
+        public string Scope { get; set; } = "ENTITY";
+        public bool BlocksAdvance { get; set; }
+        public long? RollbackToStage { get; set; }
+        public bool IsRecurrent { get; set; }
+        public short? RecurrenceDays { get; set; }
+        public short? MaxOccurrences { get; set; }
+        public string OwnerDept { get; set; } = "OPERACIONES";
+        public string Category { get; set; } = "GENERAL";
+        public string Division { get; set; } = "OPERACIONES";
+        public string ApprovalJobTitle { get; set; } = "SUPERVISOR";
+        public string[] Satellites { get; set; } = Array.Empty<string>();
+        public int ExecutionOrder { get; set; } = 1;
+        public string? RollbackToCheckpointCode { get; set; }
+        public int? RollbackToStepOrder { get; set; }
+        public string? PreconditionFact { get; set; }
+        public string Portfolio { get; set; } = "GENERAL";
+        public string Campaign { get; set; } = "GENERAL";
+        public string Provider { get; set; } = "INTERNO";
+        public bool FinalizesCycle { get; set; }
+        public string TargetRoles { get; set; } = "SUPERVISOR,BACKOFFICE";
+        public string ApprovalStatus { get; set; } = "PROPOSED";
+        public long? TriggerStageId { get; set; }
+    }
+
+    private class FlowInstanceVm
+    {
+        public long IdInstance { get; set; }
+        public long IdFlow { get; set; }
+        public string EntityType { get; set; } = string.Empty;
+        public long EntityId { get; set; }
+        public long CurrentStageId { get; set; }
+        public string Status { get; set; } = "ACTIVE";
+    }
+
+    private class CheckpointInstanceVm
+    {
+        public long IdCpInstance { get; set; }
+        public long IdInstance { get; set; }
+        public long IdCheckpoint { get; set; }
+        public string Status { get; set; } = "PENDING";
+    }
+
+    // — Stage Manager state —
+    private long? expandedStageId = null;
+    private string stageMoveMsg = string.Empty;
+    private bool stageMoveIsError = false;
+    private string stageFeedback = string.Empty;
+    private bool stageFeedbackIsError = false;
+    private string newStageName = string.Empty;
+    private string newStageCode = string.Empty;
+    private string newStageDescription = string.Empty;
+    private int newStageOrder = 1;
+    private short? newStageSlaHours = null;
+    private bool newStageIsTerminal = false;
+
+    // — New UX & Modals state —
+    private string stageSubTab = "list";
+    private bool showCreateStageForm = false;
+    private bool showEditStageModal = false;
+    private bool showCreateStageModal = false;
+    private bool showEditCpModal = false;
+    private bool showCreateCpModal = false;
+
+    private StageVm? selectedStage = null;
+    private string editStageName = string.Empty;
+    private string? editStageDescription = null;
+    private short? editStageSlaHours = null;
+    private bool editStageIsTerminal = false;
+    private string stageEditMsg = string.Empty;
+    private bool stageEditIsError = false;
+
+    private void OpenEditStageModal(StageVm st)
+    {
+        selectedStage = st;
+        editStageName = st.Name;
+        editStageDescription = st.Description;
+        editStageSlaHours = st.SlaHours;
+        editStageIsTerminal = st.IsTerminal;
+        editStageSelectedPortfolios = new HashSet<string>((st.Portfolio ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()));
+        editStageSelectedCampaigns = new HashSet<string>((st.Campaign ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()));
+        stageEditMsg = string.Empty;
+        showEditStageModal = true;
+    }
+
+    private void CloseEditStageModal()
+    {
+        showEditStageModal = false;
+        stageEditMsg = string.Empty;
+    }
+
+    private bool showStageCheckpointsModal = false;
+    private HashSet<string> editStageSelectedPortfolios = new();
+    private HashSet<string> editStageSelectedCampaigns = new();
+    private HashSet<string> createStageSelectedPortfolios = new();
+    private HashSet<string> createStageSelectedCampaigns = new();
+
+    private void OpenStageCheckpointsModal(StageVm st)
+    {
+        selectedStage = st;
+        stageCpAssignMsg = string.Empty;
+        showStageCheckpointsModal = true;
+    }
+
+    private void CloseStageCheckpointsModal()
+    {
+        showStageCheckpointsModal = false;
+        stageCpAssignMsg = string.Empty;
+    }
+
+    private void ToggleEditStagePortfolio(string port)
+    {
+        if (editStageSelectedPortfolios.Contains(port)) editStageSelectedPortfolios.Remove(port);
+        else editStageSelectedPortfolios.Add(port);
+    }
+
+    private void ToggleEditStageCampaign(string camp)
+    {
+        if (editStageSelectedCampaigns.Contains(camp)) editStageSelectedCampaigns.Remove(camp);
+        else editStageSelectedCampaigns.Add(camp);
+    }
+
+    private void ToggleCreateStagePortfolio(string port)
+    {
+        if (createStageSelectedPortfolios.Contains(port)) createStageSelectedPortfolios.Remove(port);
+        else createStageSelectedPortfolios.Add(port);
+    }
+
+    private void ToggleCreateStageCampaign(string camp)
+    {
+        if (createStageSelectedCampaigns.Contains(camp)) createStageSelectedCampaigns.Remove(camp);
+        else createStageSelectedCampaigns.Add(camp);
+    }
+
+    private void OpenCreateStageModal()
+    {
+        stageFeedback = string.Empty;
+        stageFeedbackIsError = false;
+        showCreateStageModal = true;
+    }
+
+    private void CloseCreateStageModal()
+    {
+        showCreateStageModal = false;
+        stageFeedback = string.Empty;
+    }
+
+    public class CheckpointStepItemVm
+    {
+        public long IdStep { get; set; }
+        public long IdCheckpoint { get; set; }
+        public short StepOrder { get; set; } = 1;
+        private string _instruction = "";
+        public string Instruction 
+        { 
+            get => !string.IsNullOrWhiteSpace(_instruction) ? _instruction : Name; 
+            set { _instruction = value; Name = value; } 
+        }
+        public string Name { get; set; } = "";
+        public bool IsRequired { get; set; } = true;
+    }
+
+    private long editCpTriggerStageId = 0;
+    private long newCpTriggerStageId = 0;
+    private List<CheckpointStepItemVm> editCpSteps = new();
+    private List<CheckpointStepItemVm> newCpSteps = new();
+
+    private async Task<List<CheckpointStepItemVm>> LoadCheckpointSteps(long checkpointId)
+    {
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var steps = await Http.GetFromJsonAsync<List<CheckpointStepItemVm>>($"{apiBase}/api/engines/flow/catalogs/{checkpointId}/steps");
+            if (steps != null)
+            {
+                foreach (var s in steps)
+                {
+                    if (string.IsNullOrWhiteSpace(s.Instruction)) s.Instruction = s.Name;
+                }
+            }
+            return steps ?? new List<CheckpointStepItemVm>();
+        }
+        catch
+        {
+            return new List<CheckpointStepItemVm>();
+        }
+    }
+
+    private async Task SaveCheckpointStepsApi(long checkpointId, List<CheckpointStepItemVm> steps)
+    {
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            short order = 1;
+            foreach (var s in steps)
+            {
+                s.IdCheckpoint = checkpointId;
+                s.StepOrder = order++;
+                if (string.IsNullOrWhiteSpace(s.Name)) s.Name = s.Instruction;
+                if (string.IsNullOrWhiteSpace(s.Instruction)) s.Instruction = s.Name;
+            }
+            await Http.PostAsJsonAsync($"{apiBase}/api/engines/flow/catalogs/{checkpointId}/steps", steps);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving checkpoint steps: {ex.Message}");
+        }
+    }
+
+    private void AddStepToEdit()
+    {
+        editCpSteps.Add(new CheckpointStepItemVm { StepOrder = (short)(editCpSteps.Count + 1), Instruction = "", IsRequired = true });
+    }
+
+    private void RemoveStepFromEdit(CheckpointStepItemVm step)
+    {
+        editCpSteps.Remove(step);
+    }
+
+    private void AddStepToNew()
+    {
+        newCpSteps.Add(new CheckpointStepItemVm { StepOrder = (short)(newCpSteps.Count + 1), Instruction = "", IsRequired = true });
+    }
+
+    private void RemoveStepFromNew(CheckpointStepItemVm step)
+    {
+        newCpSteps.Remove(step);
+    }
+
+    // — Checkpoint Edit / Create State —
+    private CatalogItemVm? selectedCp = null;
+    private string editCpName = string.Empty;
+    private int editCpExecutionOrder = 1;
+    private string editCpCategory = "GENERAL";
+    private string editCpDivision = "OPERACIONES";
+    private string editCpApprovalJobTitle = "SUPERVISOR";
+    private string editCpProvider = "INTERNO";
+    private string editCpOrigin = "INTERNAL";
+    private string? editCpRollbackCode = null;
+    private int? editCpRollbackStep = null;
+    private string? editCpPreconditionFact = null;
+    private bool editCpBlocks = false;
+    private bool editCpFinalizesCycle = false;
+    private HashSet<string> editSelectedSatellites = new();
+    private HashSet<string> editSelectedPortfolios = new();
+    private HashSet<string> editSelectedCampaigns = new();
+    private string cpEditMsg = string.Empty;
+    private bool cpEditIsError = false;
+
+    private async Task OpenEditCpModal(CatalogItemVm c)
+    {
+        selectedCp = c;
+        editCpName = c.Name;
+        editCpExecutionOrder = c.ExecutionOrder;
+        editCpCategory = string.IsNullOrEmpty(c.Category) ? "GENERAL" : c.Category;
+        editCpDivision = string.IsNullOrEmpty(c.Division) ? "OPERACIONES" : c.Division;
+        editCpApprovalJobTitle = string.IsNullOrEmpty(c.ApprovalJobTitle) ? "SUPERVISOR" : c.ApprovalJobTitle;
+        editCpProvider = string.IsNullOrEmpty(c.Provider) ? "INTERNO" : c.Provider;
+        editCpOrigin = string.IsNullOrEmpty(c.Origin) ? "INTERNAL" : c.Origin;
+        editCpRollbackCode = c.RollbackToCheckpointCode;
+        editCpRollbackStep = c.RollbackToStepOrder;
+        editCpPreconditionFact = c.PreconditionFact;
+        editCpBlocks = c.BlocksAdvance;
+        editCpFinalizesCycle = c.FinalizesCycle;
+        editCpTriggerStageId = c.TriggerStageId ?? 0;
+
+        editSelectedSatellites = new HashSet<string>(c.Satellites ?? Array.Empty<string>());
+        editSelectedPortfolios = new HashSet<string>((c.Portfolio ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()));
+        editSelectedCampaigns = new HashSet<string>((c.Campaign ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()));
+
+        cpEditMsg = string.Empty;
+        showEditCpModal = true;
+        editCpSteps = await LoadCheckpointSteps(c.IdCheckpoint);
+        StateHasChanged();
+    }
+
+    private void CloseEditCpModal()
+    {
+        showEditCpModal = false;
+        cpEditMsg = string.Empty;
+    }
+
+    private void OpenCreateCpModal()
+    {
+        newCpExecutionOrder = catalogItems.Count + 1;
+        newCpTriggerStageId = 0;
+        newCpSteps.Clear();
+        cpCreateFeedback = string.Empty;
+        cpCreateIsError = false;
+        showCreateCpModal = true;
+    }
+
+    private void CloseCreateCpModal()
+    {
+        showCreateCpModal = false;
+        cpCreateFeedback = string.Empty;
+    }
+
+    private void ToggleEditSatellite(string sat)
+    {
+        if (editSelectedSatellites.Contains(sat)) editSelectedSatellites.Remove(sat);
+        else editSelectedSatellites.Add(sat);
+    }
+
+    private void ToggleEditPortfolio(string port)
+    {
+        if (editSelectedPortfolios.Contains(port)) editSelectedPortfolios.Remove(port);
+        else editSelectedPortfolios.Add(port);
+    }
+
+    private void ToggleEditCampaign(string camp)
+    {
+        if (editSelectedCampaigns.Contains(camp)) editSelectedCampaigns.Remove(camp);
+        else editSelectedCampaigns.Add(camp);
+    }
+
+    private async Task SaveCpEdits()
+    {
+        if (selectedCp == null) return;
+        cpEditMsg = string.Empty;
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var payload = new
+            {
+                name = editCpName.Trim(),
+                description = selectedCp.Description,
+                origin = editCpOrigin,
+                scope = selectedCp.Scope ?? "ENTITY",
+                triggerStageId = editCpTriggerStageId > 0 ? (long?)editCpTriggerStageId : null,
+                blocksAdvance = editCpBlocks,
+                executionOrder = editCpExecutionOrder,
+                category = editCpCategory,
+                division = editCpDivision,
+                approvalJobTitle = editCpApprovalJobTitle,
+                satellites = editSelectedSatellites.ToArray(),
+                rollbackToCheckpointCode = string.IsNullOrWhiteSpace(editCpRollbackCode) ? null : editCpRollbackCode,
+                rollbackToStepOrder = string.IsNullOrWhiteSpace(editCpRollbackCode) ? null : editCpRollbackStep,
+                preconditionFact = string.IsNullOrWhiteSpace(editCpPreconditionFact) ? null : editCpPreconditionFact,
+                portfolio = editSelectedPortfolios.Any() ? string.Join(",", editSelectedPortfolios) : "GENERAL",
+                campaign = editSelectedCampaigns.Any() ? string.Join(",", editSelectedCampaigns) : "GENERAL",
+                provider = editCpProvider,
+                finalizesCycle = editCpFinalizesCycle,
+                targetRoles = selectedCp.TargetRoles ?? "SUPERVISOR,BACKOFFICE"
+            };
+
+            var response = await Http.PutAsJsonAsync($"{apiBase}/api/engines/flow/catalogs/{selectedCp.IdCheckpoint}", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                if (editCpTriggerStageId > 0)
+                {
+                    await Http.PatchAsJsonAsync($"{apiBase}/api/engines/flow/catalogs/{selectedCp.IdCheckpoint}/stage", new { stageId = (long?)editCpTriggerStageId });
+                }
+
+                await SaveCheckpointStepsApi(selectedCp.IdCheckpoint, editCpSteps);
+
+                cpEditMsg = "✅ Checkpoint actualizado correctamente con etapa y pasos.";
+                cpEditIsError = false;
+                await LoadCatalog();
+                await Task.Delay(400);
+                showEditCpModal = false;
+            }
+            else
+            {
+                var errStr = await response.Content.ReadAsStringAsync();
+                cpEditMsg = $"🛑 Error: {errStr}";
+                cpEditIsError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            cpEditMsg = $"Error: {ex.Message}";
+            cpEditIsError = true;
+        }
+    }
+
+    private async Task CreateStageApiModal()
+    {
+        await CreateStageApi();
+        if (!stageFeedbackIsError)
+        {
+            await Task.Delay(400);
+            showCreateStageModal = false;
+        }
+    }
+
+    private async Task CreateCheckpointApiModal()
+    {
+        await CreateCheckpointApi();
+        if (!cpCreateIsError)
+        {
+            await Task.Delay(400);
+            showCreateCpModal = false;
+        }
+    }
+
+    // — Stage Checkpoints Allocation Board state —
+    private string availableCpSearch = string.Empty;
+    private string stageCpAssignMsg = string.Empty;
+    private bool stageCpAssignIsError = false;
+
+    private async Task AssignCheckpointToStage(long checkpointId, long stageId)
+    {
+        stageCpAssignMsg = string.Empty;
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var payload = new { StageId = (long?)stageId };
+            var response = await Http.PatchAsJsonAsync($"{apiBase}/api/engines/flow/catalogs/{checkpointId}/stage", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadCatalog();
+                stageCpAssignMsg = "✅ Checkpoint asignado a la etapa.";
+                stageCpAssignIsError = false;
+            }
+            else { stageCpAssignMsg = "Error al asignar checkpoint."; stageCpAssignIsError = true; }
+        }
+        catch (Exception ex) { stageCpAssignMsg = $"Error: {ex.Message}"; stageCpAssignIsError = true; }
+    }
+
+    private async Task UnassignCheckpointFromStage(long checkpointId)
+    {
+        stageCpAssignMsg = string.Empty;
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var payload = new { StageId = (long?)null };
+            var response = await Http.PatchAsJsonAsync($"{apiBase}/api/engines/flow/catalogs/{checkpointId}/stage", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadCatalog();
+                stageCpAssignMsg = "Checkpoint desasignado de la etapa.";
+                stageCpAssignIsError = false;
+            }
+            else { stageCpAssignMsg = "Error al desasignar checkpoint."; stageCpAssignIsError = true; }
+        }
+        catch (Exception ex) { stageCpAssignMsg = $"Error: {ex.Message}"; stageCpAssignIsError = true; }
+    }
+
+    private string GetStageCampaigns(StageVm st)
+    {
+        var cps = catalogItems.Where(c => c.TriggerStageId == st.IdStage && !string.IsNullOrEmpty(c.Campaign) && c.Campaign != "GENERAL")
+                              .Select(c => c.Campaign).Distinct().ToList();
+        return cps.Any() ? string.Join(", ", cps) : "TODAS / GENERAL";
+    }
+
+    private string GetStagePortfolios(StageVm st)
+    {
+        var cps = catalogItems.Where(c => c.TriggerStageId == st.IdStage && !string.IsNullOrEmpty(c.Portfolio) && c.Portfolio != "GENERAL")
+                              .Select(c => c.Portfolio).Distinct().ToList();
+        return cps.Any() ? string.Join(", ", cps) : "TODAS / GENERAL";
+    }
+
+    // — Campaign and Portfolio assignment state —
+    private string assignMode = "campaign"; // "campaign" | "portfolio"
+    private List<CampaignSimpleVm> assignCampaigns = new();
+    private List<PortfolioSimpleVm> assignPortfolios = new();
+    private string selectedCampaignName = string.Empty;
+    private string selectedPortfolioName = string.Empty;
+    private string campaignAssignMsg = string.Empty;
+    private bool campaignAssignIsError = false;
+
+    private class CampaignSimpleVm { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
+    private class PortfolioSimpleVm { public long Id { get; set; } public string Name { get; set; } = string.Empty; }
+
+    private async Task LoadPortfoliosAndCampaignsForAssignment()
+    {
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var cTask = Http.GetFromJsonAsync<List<CampaignSimpleVm>>($"{apiBase}/api/campaigns");
+            var pTask = Http.GetFromJsonAsync<List<PortfolioSimpleVm>>($"{apiBase}/api/portfolios");
+            await Task.WhenAll(cTask, pTask);
+            assignCampaigns = await cTask ?? new();
+            assignPortfolios = await pTask ?? new();
+        }
+        catch 
+        { 
+            if (!assignCampaigns.Any()) assignCampaigns = new();
+            if (!assignPortfolios.Any()) assignPortfolios = new()
+            {
+                new PortfolioSimpleVm { Id = 1, Name = "ALARMAS" },
+                new PortfolioSimpleVm { Id = 2, Name = "MONITOREO" },
+                new PortfolioSimpleVm { Id = 3, Name = "TECNOLOGÍA" },
+                new PortfolioSimpleVm { Id = 4, Name = "POSTVENTA" }
+            };
+        }
+    }
+
+    private void OnCampaignSelected(ChangeEventArgs e)
+    {
+        selectedCampaignName = e.Value?.ToString() ?? string.Empty;
+        campaignAssignMsg = string.Empty;
+    }
+
+    private void OnPortfolioSelected(ChangeEventArgs e)
+    {
+        selectedPortfolioName = e.Value?.ToString() ?? string.Empty;
+        campaignAssignMsg = string.Empty;
+    }
+
+    private async Task ToggleCampaignCheckpoint(long checkpointId, bool currentlyAssigned)
+    {
+        campaignAssignMsg = string.Empty;
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var newCampaign = currentlyAssigned ? "GENERAL" : selectedCampaignName;
+            var payload = new { Campaign = newCampaign };
+            var response = await Http.PatchAsJsonAsync($"{apiBase}/api/engines/flow/catalogs/{checkpointId}/campaign", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadCatalog();
+                campaignAssignMsg = currentlyAssigned
+                    ? $"Checkpoint desasignado de la campaña '{selectedCampaignName}'."
+                    : $"✅ Checkpoint asignado a la campaña '{selectedCampaignName}'.";
+                campaignAssignIsError = false;
+            }
+            else { campaignAssignMsg = "Error al actualizar asignación de campaña."; campaignAssignIsError = true; }
+        }
+        catch (Exception ex) { campaignAssignMsg = $"Error: {ex.Message}"; campaignAssignIsError = true; }
+    }
+
+    private async Task TogglePortfolioCheckpoint(long checkpointId, bool currentlyAssigned)
+    {
+        campaignAssignMsg = string.Empty;
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var newPortfolio = currentlyAssigned ? "GENERAL" : selectedPortfolioName;
+            var payload = new { Portfolio = newPortfolio };
+            var response = await Http.PatchAsJsonAsync($"{apiBase}/api/engines/flow/catalogs/{checkpointId}/portfolio", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadCatalog();
+                campaignAssignMsg = currentlyAssigned
+                    ? $"Checkpoint desasignado de la cartera '{selectedPortfolioName}'."
+                    : $"✅ Checkpoint asignado a la cartera '{selectedPortfolioName}'.";
+                campaignAssignIsError = false;
+            }
+            else { campaignAssignMsg = "Error al actualizar asignación de cartera."; campaignAssignIsError = true; }
+        }
+        catch (Exception ex) { campaignAssignMsg = $"Error: {ex.Message}"; campaignAssignIsError = true; }
+    }
+
+
+    private void ShowCreateStageForm() { showCreateStageForm = !showCreateStageForm; stageFeedback = string.Empty; }
+
+    private void SelectStage(StageVm st)
+    {
+        if (selectedStage?.IdStage == st.IdStage)
+        {
+            selectedStage = null;
+            return;
+        }
+        selectedStage = st;
+        editStageName = st.Name;
+        editStageDescription = st.Description;
+        editStageSlaHours = st.SlaHours;
+        editStageIsTerminal = st.IsTerminal;
+        stageEditMsg = string.Empty;
+    }
+
+    private async Task SetStageOrderDirect(long stageId, string? rawValue)
+    {
+        if (!short.TryParse(rawValue, out var newOrder) || newOrder < 1) return;
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var response = await Http.PatchAsJsonAsync($"{apiBase}/api/engines/flow/stages/{stageId}/order", new { OrderIndex = newOrder });
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadStagesFromDb();
+                stageMoveMsg = $"Orden actualizado a #{newOrder}.";
+                stageMoveIsError = false;
+            }
+            else { stageMoveMsg = "No se pudo actualizar el orden."; stageMoveIsError = true; }
+        }
+        catch (Exception ex) { stageMoveMsg = $"Error: {ex.Message}"; stageMoveIsError = true; }
+    }
+
+    private async Task SaveStageEdits()
+    {
+        if (selectedStage == null) return;
+        stageEditMsg = string.Empty;
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var payload = new
+            {
+                Name = editStageName.Trim(),
+                Description = editStageDescription,
+                SlaHours = editStageSlaHours,
+                IsTerminal = editStageIsTerminal,
+                Portfolio = editStageSelectedPortfolios.Any() ? string.Join(",", editStageSelectedPortfolios) : "GENERAL",
+                Campaign = editStageSelectedCampaigns.Any() ? string.Join(",", editStageSelectedCampaigns) : "GENERAL"
+            };
+            var response = await Http.PatchAsJsonAsync($"{apiBase}/api/engines/flow/stages/{selectedStage.IdStage}", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                stageEditMsg = "✅ Etapa actualizada correctamente.";
+                stageEditIsError = false;
+                await LoadStagesFromDb();
+                selectedStage = dbStages.FirstOrDefault(s => s.IdStage == selectedStage.IdStage);
+                await Task.Delay(400);
+                showEditStageModal = false;
+            }
+            else { stageEditMsg = "🛑 Error al guardar cambios."; stageEditIsError = true; }
+        }
+        catch (Exception ex) { stageEditMsg = $"Error: {ex.Message}"; stageEditIsError = true; }
+    }
+
+
+
+    private void ToggleStageExpand(long stageId)
+    {
+        expandedStageId = (expandedStageId == stageId) ? null : stageId;
+    }
+
+    private async Task MoveStage(long stageId, string direction)
+    {
+        stageMoveMsg = string.Empty;
+        var idx = dbStages.FindIndex(s => s.IdStage == stageId);
+        if (idx < 0) return;
+
+        int targetIdx = direction == "up" ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= dbStages.Count)
+        {
+            stageMoveMsg = "No se puede mover en esa dirección (ya está en el límite).";
+            stageMoveIsError = true;
+            return;
+        }
+
+        var currentStage = dbStages[idx];
+        var targetStage = dbStages[targetIdx];
+
+        short newOrderForCurrent = targetStage.OrderIndex;
+        short newOrderForTarget = currentStage.OrderIndex;
+
+        if (newOrderForCurrent == newOrderForTarget)
+        {
+            newOrderForCurrent = direction == "up" ? (short)(targetStage.OrderIndex - 1) : (short)(targetStage.OrderIndex + 1);
+            if (newOrderForCurrent < 1) newOrderForCurrent = 1;
+        }
+
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var res1 = await Http.PatchAsJsonAsync($"{apiBase}/api/engines/flow/stages/{currentStage.IdStage}/order", new { OrderIndex = newOrderForCurrent });
+            var res2 = await Http.PatchAsJsonAsync($"{apiBase}/api/engines/flow/stages/{targetStage.IdStage}/order", new { OrderIndex = newOrderForTarget });
+
+            if (res1.IsSuccessStatusCode && res2.IsSuccessStatusCode)
+            {
+                await LoadStagesFromDb();
+                stageMoveMsg = $"✅ Etapa '{currentStage.Name}' reordenada correctamente.";
+                stageMoveIsError = false;
+            }
+            else
+            {
+                stageMoveMsg = "Error al guardar el nuevo orden de la etapa.";
+                stageMoveIsError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            stageMoveMsg = $"Error: {ex.Message}";
+            stageMoveIsError = true;
+        }
+    }
+
+    private async Task CreateStageApi()
+    {
+        stageFeedback = string.Empty;
+        if (string.IsNullOrWhiteSpace(newStageName) || string.IsNullOrWhiteSpace(newStageCode))
+        {
+            stageFeedback = "Nombre y Código son obligatorios.";
+            stageFeedbackIsError = true;
+            return;
+        }
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var payload = new
+            {
+                IdFlow = dbStages.FirstOrDefault()?.IdFlow ?? 1L,
+                StageCode = newStageCode.Trim().ToUpperInvariant(),
+                Name = newStageName.Trim(),
+                Description = string.IsNullOrWhiteSpace(newStageDescription) ? (string?)null : newStageDescription.Trim(),
+                OrderIndex = (short)newStageOrder,
+                IsTerminal = newStageIsTerminal,
+                SlaHours = newStageSlaHours,
+                Portfolio = createStageSelectedPortfolios.Any() ? string.Join(",", createStageSelectedPortfolios) : "GENERAL",
+                Campaign = createStageSelectedCampaigns.Any() ? string.Join(",", createStageSelectedCampaigns) : "GENERAL",
+                Metadata = "{}"
+            };
+            var response = await Http.PostAsJsonAsync($"{apiBase}/api/engines/flow/stages", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                stageFeedback = $"✅ Etapa '{newStageName}' creada exitosamente en nyx_flow.stage.";
+                stageFeedbackIsError = false;
+                newStageName = newStageCode = newStageDescription = string.Empty;
+                newStageOrder = 1; newStageSlaHours = null; newStageIsTerminal = false;
+                createStageSelectedPortfolios.Clear();
+                createStageSelectedCampaigns.Clear();
+                await LoadStagesFromDb();
+            }
+            else
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                stageFeedback = $"🛑 Error al crear etapa: {err}";
+                stageFeedbackIsError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            stageFeedback = $"Error de comunicación: {ex.Message}";
+            stageFeedbackIsError = true;
+        }
+    }
+
+    // — Dynamic N-Layers Model —
+    private List<DynamicLayerVm> customLayers = new();
+
+    private void PopulateLayersFromCatalog()
+    {
+        var layers = new List<DynamicLayerVm>
+        {
+            new() { IdLayer = 1, Name = "Capa 1: Catálogo Institucional", Scope = "GLOBAL", TargetEntity = "ORDER_POLICY", RuleCount = catalogItems.Count(c => c.Scope == "GLOBAL" || c.Scope == "ENTITY"), IsSystem = true },
+            new() { IdLayer = 2, Name = "Capa 2: Instancia Ficha Venta", Scope = "SALES_ORDER", TargetEntity = "ORDER", RuleCount = catalogItems.Count(c => c.Scope == "ORDER" || c.Scope == "SALES_ORDER"), IsSystem = true }
+        };
+
+        var customScopes = catalogItems
+            .Select(c => c.Scope)
+            .Where(s => s != "GLOBAL" && s != "ENTITY" && s != "ORDER" && s != "SALES_ORDER" && !string.IsNullOrEmpty(s))
+            .Distinct();
+
+        int layerIdx = 3;
+        foreach (var scope in customScopes)
+        {
+            layers.Add(new DynamicLayerVm
+            {
+                IdLayer = layerIdx++,
+                Name = $"Capa {layerIdx - 1}: {scope}",
+                Scope = scope,
+                TargetEntity = scope,
+                RuleCount = catalogItems.Count(c => c.Scope == scope),
+                IsSystem = false
+            });
+        }
+
+        customLayers = layers;
+    }
+
+    private string filterCategory = "TODAS";
+    private string filterPortfolio = "TODAS";
+    private string filterProvider = "TODOS";
+
+    private string newLayerName = "";
+    private string newLayerScope = "";
+    private string newLayerEntity = "";
+
+    private int selectedLayerId = 1;
+    private string newCpCode = "";
+    private string newCpName = "";
+    private bool isManualCode = false;
+    private string newCpCategory = "PREVENTA_Y_CALIFICACION";
+    private string newCpDivision = "OPERACIONES";
+    private string newCpApprovalJobTitle = "SUPERVISOR";
+    private List<string> selectedSatellites = new() { "FLOW_ENGINE", "API_HUB" };
+    private List<string> selectedPortfolios = new() { "ALARMAS" };
+    private List<string> selectedCampaigns = new() { "SECURITAS" };
+    private string newCpProvider = "SECURITAS_DIRECT";
+    private string newCpTargetRoles = "SUPERVISOR,BACKOFFICE";
+    private string newCpOrigin = "INTERNAL";
+    private string newCpScope = "ENTITY";
+    private bool newCpBlocks = true;
+    private bool newCpFinalizesCycle = false;
+    private int newCpExecutionOrder = 1;
+    private string newCpRollbackCode = "";
+    private int newCpRollbackStep = 1;
+    private string newCpPreconditionFact = "";
+    private string cpCreateFeedback = "";
+    private bool cpCreateIsError = false;
+
+    // ——— Sort state ———
+    private string sortColumn = "ExecutionOrder";
+    private bool sortAscending = true;
+
+    private void SetSort(string column)
+    {
+        if (sortColumn == column)
+            sortAscending = !sortAscending;
+        else
+        {
+            sortColumn = column;
+            sortAscending = true;
+        }
+    }
+
+    private MarkupString GetSortIcon(string column)
+    {
+        if (sortColumn != column) return new MarkupString("<span style='opacity:.35;font-size:10px;'>⇅</span>");
+        return sortAscending
+            ? new MarkupString("<span style='color:#0F172A;font-size:11px;'>▲</span>")
+            : new MarkupString("<span style='color:#0F172A;font-size:11px;'>▼</span>");
+    }
+
+    private IEnumerable<CatalogItemVm> FilteredCatalogItems
+    {
+        get
+        {
+            var q = catalogItems
+                .Where(c => filterCategory == "TODAS" || c.Category == filterCategory)
+                .Where(c => filterPortfolio == "TODAS" || c.Portfolio.Contains(filterPortfolio))
+                .Where(c => filterProvider == "TODOS" || c.Provider == filterProvider);
+
+            return (sortColumn, sortAscending) switch
+            {
+                ("ExecutionOrder", true)  => q.OrderBy(c => c.ExecutionOrder).ThenBy(c => c.IdCheckpoint),
+                ("ExecutionOrder", false) => q.OrderByDescending(c => c.ExecutionOrder).ThenByDescending(c => c.IdCheckpoint),
+                ("Code",           true)  => q.OrderBy(c => c.Code),
+                ("Code",           false) => q.OrderByDescending(c => c.Code),
+                ("Name",           true)  => q.OrderBy(c => c.Name),
+                ("Name",           false) => q.OrderByDescending(c => c.Name),
+                ("Portfolio",      true)  => q.OrderBy(c => c.Portfolio),
+                ("Portfolio",      false) => q.OrderByDescending(c => c.Portfolio),
+                ("Category",       true)  => q.OrderBy(c => c.Category),
+                ("Category",       false) => q.OrderByDescending(c => c.Category),
+                _                         => q.OrderBy(c => c.ExecutionOrder).ThenBy(c => c.IdCheckpoint)
+            };
+        }
+    }
+
+    private IEnumerable<string> AvailableCategories => catalogItems
+        .Select(c => c.Category)
+        .Where(c => !string.IsNullOrEmpty(c))
+        .Distinct()
+        .OrderBy(c => c);
+
+    private IEnumerable<string> AvailablePortfolios => catalogItems
+        .SelectMany(c => (c.Portfolio ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries))
+        .Select(p => p.Trim())
+        .Where(p => !string.IsNullOrEmpty(p))
+        .Distinct()
+        .OrderBy(p => p);
+
+    private IEnumerable<string> AvailableCampaigns => catalogItems
+        .SelectMany(c => (c.Campaign ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries))
+        .Select(p => p.Trim())
+        .Where(p => !string.IsNullOrEmpty(p))
+        .Distinct()
+        .OrderBy(c => c);
+
+    private readonly List<string> SatellitesList = new()
+    {
+        "G.OPERATIVO", "PERFORMANCE", "ADMINISTRACION", "RECURSOS HUMANOS", "MARKETING DIGITAL", "TI", "BACK OFFICE", "FLOW_ENGINE", "API_HUB", "APPROVAL_ENGINE", "SLA_ENGINE", "DIALER", "AGENDO", "WIKITY"
+    };
+
+    private readonly List<string> DivisionsList = new()
+    {
+        "TELECOM PRODUCCION",
+        "TELECOM CONTROL Y SEGUIMIENTO",
+        "MULTICARTERA PRODUCCION",
+        "MULTICARTERA CONTROL Y SEGUIMIENTO",
+        "FORMACION",
+        "GESTION DE PERSONAL",
+        "ORDEN Y LIMPIEZA",
+        "ORDEN Y SEGURIDAD",
+        "RECLUTAMIENTO",
+        "CONTENT & SOCIAL MEDIA",
+        "GROWTH & PERFORMANCE",
+        "BRAND & CREATIVE",
+        "DEVELOPMENT",
+        "SERVICE DESK",
+        "BI",
+        "VALIDACION Y CONTROL",
+        "REGULARIZACION Y RECUPERO",
+        "LIQUIDACION Y CONCILIACION",
+        "OPERACIONES",
+        "COMERCIAL"
+    };
+
+    private readonly List<string> JobTitlesList = new()
+    {
+        "ASESOR FULL TIME",
+        "TEAM LEADER FULL TIME",
+        "SUPERVISOR TRAINING FULL TIME",
+        "SUPERVISOR FULL TIME",
+        "AUXILIAR TRAINING PART TIME",
+        "COORDINADOR FULL TIME",
+        "AUXILIAR FULL TIME",
+        "ASISTENTE ADM PRO FULL TIME",
+        "ASISTENTE ADM PRE FULL TIME",
+        "AUXILIAR DE LIMPIEZA FULL TIME",
+        "AUXILIAR DE LIMPIEZA PART TIME",
+        "AUXILIAR DE SEGURIDAD FULL TIME",
+        "ANALISTA DE RECLUTAMIENTO Y SELECCION FULL TIME",
+        "RECLUTADOR - FREELANCE FULL TIME",
+        "RECLUTADOR PART TIME",
+        "RECLUTADOR FULL TIME",
+        "CREADOR DE CONTENIDO FULL TIME",
+        "ANALISTA DE PERFORMANCE FULL TIME",
+        "PRACTICANTE PRE FULL TIME",
+        "PRACTICANTE DEVELOPMENT PART TIME",
+        "PRACTICANTE DEVELOPMENT SEMIFULL",
+        "ASISTENTE DEVELOPMENT FULL TIME",
+        "SUPERVISOR DEVELOPMENT FULL TIME",
+        "AUXILIAR SERVICE DESK FULL TIME",
+        "ASISTENTE SERVICE DESK FULL TIME",
+        "SUPERVISOR SERVICE DESK FULL TIME",
+        "SUPERVISOR BII FULL TIME",
+        "AGENTE BO FULL TIME",
+        "AGENTE BO TEAM LEADER FULL TIME",
+        "SUPERVISOR",
+        "JEFE_OPERACIONES",
+        "BACKOFFICE",
+        "COORDINADOR",
+        "GERENTE_DIVISION",
+        "GERENCIA_GENERAL"
+    };
+
+    private readonly List<string> ProvidersList = new()
+    {
+        "INTERNAL (CRM GSI)",
+        "CLARO PERÚ",
+        "ENTEL PERÚ",
+        "MOVISTAR",
+        "BITEL",
+        "PROVEEDOR EXTERNO"
+    };
+
+    private async Task SetCheckpointExecutionOrderDirect(long checkpointId, string? rawValue)
+    {
+        if (!int.TryParse(rawValue, out var newOrder) || newOrder < 1) return;
+        var cp = catalogItems.FirstOrDefault(c => c.IdCheckpoint == checkpointId);
+        if (cp == null) return;
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+            var payload = new
+            {
+                name = cp.Name,
+                description = cp.Description,
+                origin = cp.Origin,
+                scope = cp.Scope ?? "ENTITY",
+                blocksAdvance = cp.BlocksAdvance,
+                executionOrder = newOrder,
+                category = cp.Category,
+                division = cp.Division,
+                approvalJobTitle = string.IsNullOrWhiteSpace(cp.ApprovalJobTitle) ? null : cp.ApprovalJobTitle,
+                satellites = cp.Satellites ?? Array.Empty<string>(),
+                rollbackToCheckpointCode = cp.RollbackToCheckpointCode,
+                rollbackToStepOrder = cp.RollbackToStepOrder,
+                preconditionFact = cp.PreconditionFact,
+                portfolio = cp.Portfolio,
+                campaign = cp.Campaign,
+                provider = string.IsNullOrWhiteSpace(cp.Provider) ? null : cp.Provider,
+                finalizesCycle = cp.FinalizesCycle,
+                targetRoles = "SUPERVISOR,BACKOFFICE"
+            };
+            var response = await Http.PutAsJsonAsync($"{apiBase}/api/engines/flow/catalogs/{checkpointId}", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadCatalog();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating CP execution order: {ex.Message}");
+        }
+    }
+
+    private async Task MoveAssignedCheckpoint(long checkpointId, string direction, List<CatalogItemVm> assignedList)
+    {
+        var idx = assignedList.FindIndex(c => c.IdCheckpoint == checkpointId);
+        if (idx < 0) return;
+        int targetIdx = direction == "up" ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= assignedList.Count) return;
+
+        var currentCp = assignedList[idx];
+        var targetCp = assignedList[targetIdx];
+
+        int newOrderForCurrent = targetCp.ExecutionOrder;
+        int newOrderForTarget = currentCp.ExecutionOrder;
+
+        if (newOrderForCurrent == newOrderForTarget)
+        {
+            newOrderForCurrent = direction == "up" ? Math.Max(1, targetCp.ExecutionOrder - 1) : targetCp.ExecutionOrder + 1;
+        }
+
+        await SetCheckpointExecutionOrderDirect(currentCp.IdCheckpoint, newOrderForCurrent.ToString());
+        await SetCheckpointExecutionOrderDirect(targetCp.IdCheckpoint, newOrderForTarget.ToString());
+    }
+
+    private IEnumerable<string> AvailableProviders => catalogItems
+        .Select(c => c.Provider)
+        .Where(p => !string.IsNullOrEmpty(p))
+        .Distinct()
+        .Union(ProvidersList)
+        .OrderBy(p => p);
+
+    private IEnumerable<string> AvailableDivisions => catalogItems
+        .Select(c => c.Division)
+        .Where(d => !string.IsNullOrEmpty(d))
+        .Distinct()
+        .Union(DivisionsList)
+        .OrderBy(d => d);
+
+    private void GenerateCodeFromName(string nameValue)
+    {
+        newCpName = nameValue;
+        if (!isManualCode && !string.IsNullOrWhiteSpace(nameValue))
+        {
+            var cleanName = System.Text.RegularExpressions.Regex.Replace(nameValue.ToUpper().Trim(), @"[^A-Z0-9]+", "_").Trim('_');
+            newCpCode = $"CP_{cleanName}";
+        }
+    }
+
+    private void ToggleSatellite(string sat)
+    {
+        if (selectedSatellites.Contains(sat)) selectedSatellites.Remove(sat);
+        else selectedSatellites.Add(sat);
+    }
+
+    private void TogglePortfolio(string port)
+    {
+        if (selectedPortfolios.Contains(port)) selectedPortfolios.Remove(port);
+        else selectedPortfolios.Add(port);
+    }
+
+    private void ToggleCampaign(string camp)
+    {
+        if (selectedCampaigns.Contains(camp)) selectedCampaigns.Remove(camp);
+        else selectedCampaigns.Add(camp);
+    }
+
+    private void SelectLayer(int layerId)
+    {
+        selectedLayerId = layerId;
+    }
+
+    private void DeleteCustomLayer(int layerId)
+    {
+        var item = customLayers.FirstOrDefault(c => c.IdLayer == layerId);
+        if (item != null && !item.IsSystem)
+        {
+            customLayers.Remove(item);
+            if (selectedLayerId == layerId) selectedLayerId = 1;
+        }
+    }
+
+    private async Task CreateCheckpointApi()
+    {
+        if (string.IsNullOrWhiteSpace(newCpCode) || string.IsNullOrWhiteSpace(newCpName))
+        {
+            cpCreateIsError = true;
+            cpCreateFeedback = "El código y el nombre del checkpoint son requeridos.";
+            return;
+        }
+
+        try
+        {
+            await EnsureAuthHeader();
+            var payload = new
+            {
+                code = newCpCode.Trim().ToUpper(),
+                name = newCpName.Trim(),
+                origin = newCpOrigin,
+                scope = newCpScope,
+                triggerStageId = newCpTriggerStageId > 0 ? (long?)newCpTriggerStageId : null,
+                blocksAdvance = newCpBlocks,
+                category = newCpCategory,
+                division = newCpDivision,
+                approvalJobTitle = newCpApprovalJobTitle,
+                satellites = selectedSatellites.ToArray(),
+                executionOrder = newCpExecutionOrder,
+                rollbackToCheckpointCode = string.IsNullOrWhiteSpace(newCpRollbackCode) ? null : newCpRollbackCode,
+                rollbackToStepOrder = string.IsNullOrWhiteSpace(newCpRollbackCode) ? null : (int?)newCpRollbackStep,
+                preconditionFact = string.IsNullOrWhiteSpace(newCpPreconditionFact) ? null : newCpPreconditionFact.Trim(),
+                portfolio = string.Join(",", selectedPortfolios),
+                campaign = string.Join(",", selectedCampaigns),
+                provider = newCpProvider,
+                targetRoles = newCpTargetRoles.Trim(),
+                finalizesCycle = newCpFinalizesCycle,
+                approvalStatus = "ACTIVE"
+            };
+
+            var response = await Http.PostAsJsonAsync($"{GetApiBase()}/api/engines/flow/catalogs", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                var createdCp = await response.Content.ReadFromJsonAsync<CatalogItemVm>();
+                if (createdCp != null && createdCp.IdCheckpoint > 0)
+                {
+                    if (newCpTriggerStageId > 0)
+                    {
+                        await Http.PatchAsJsonAsync($"{GetApiBase()}/api/engines/flow/catalogs/{createdCp.IdCheckpoint}/stage", new { stageId = (long?)newCpTriggerStageId });
+                    }
+                    await SaveCheckpointStepsApi(createdCp.IdCheckpoint, newCpSteps);
+                }
+
+                cpCreateIsError = false;
+                cpCreateFeedback = $"✓ Checkpoint '{newCpCode}' creado exitosamente en la API.";
+                newCpCode = ""; newCpName = ""; newCpSteps.Clear(); newCpTriggerStageId = 0;
+                await LoadCatalog();
+            }
+            else
+            {
+                var errContent = await response.Content.ReadAsStringAsync();
+                cpCreateIsError = true;
+                cpCreateFeedback = $"🛑 Error {(int)response.StatusCode}: {(string.IsNullOrWhiteSpace(errContent) ? "No se pudo registrar el checkpoint mediante la API." : errContent)}";
+            }
+        }
+        catch (Exception ex)
+        {
+            cpCreateIsError = true;
+            cpCreateFeedback = $"Error consumiendo API: {ex.Message}";
+        }
+    }
+
+    private void AddCustomLayer()
+    {
+        if (string.IsNullOrWhiteSpace(newLayerName)) return;
+        var nextId = customLayers.Any() ? customLayers.Max(c => c.IdLayer) + 1 : 1;
+        customLayers.Add(new DynamicLayerVm {
+            IdLayer = nextId,
+            Name = newLayerName.Trim(),
+            Scope = string.IsNullOrWhiteSpace(newLayerScope) ? "CUSTOM_TIER" : newLayerScope.Trim().ToUpper(),
+            TargetEntity = string.IsNullOrWhiteSpace(newLayerEntity) ? "CRM_ENTITY" : newLayerEntity.Trim().ToUpper(),
+            RuleCount = 1,
+            IsSystem = false
+        });
+        newLayerName = ""; newLayerScope = ""; newLayerEntity = "";
+    }
+
+    private class DynamicLayerVm
+    {
+        public int IdLayer { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Scope { get; set; } = string.Empty;
+        public string TargetEntity { get; set; } = string.Empty;
+        public int RuleCount { get; set; }
+        public bool IsSystem { get; set; }
+    }
+
+    private class ApprovalRequestVm
+    {
+        public long IdRequest { get; set; }
+        public long IdPolicy { get; set; }
+        public string PolicyCode { get; set; } = string.Empty;
+        public string EntityType { get; set; } = string.Empty;
+        public long EntityId { get; set; }
+        public string Status { get; set; } = "PENDING";
+        public short CurrentStep { get; set; }
+        public long RequestedBy { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+}

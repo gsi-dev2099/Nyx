@@ -25,5 +25,9 @@ design_ideas/
 # Agent configuration and data
 .agent/
 .agents/
+scratch/
 
+# Storage
+storage/*
+!storage/.gitkeep
 

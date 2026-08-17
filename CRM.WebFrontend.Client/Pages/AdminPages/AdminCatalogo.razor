@@ -1,0 +1,384 @@
+@page "/admin/catalogo"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "ADMIN_CRM")]
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
+@using MudBlazor
+
+<PageTitle>Campañas y Catálogo - NYX CRM</PageTitle>
+
+<style>
+    .admin-header { background: #ffffff; border-radius: 20px; padding: 22px 28px; box-shadow: 0 4px 24px rgba(29,38,57,0.06); margin-bottom: 1.5rem; }
+    .btn-admin { background: #1D2639; color: #fff; border-radius: 12px; font-weight: 600; border: none; }
+    .btn-admin:hover { background: #2563EB; color: #fff; }
+    .catalog-tab { background: none; border: none; font-weight: 700; font-size: 0.85rem; color: #94A3B8; padding: 10px 22px; border-radius: 12px; transition: all 0.18s; position: relative; }
+    .catalog-tab.active { background: #EFF6FF; color: #2563EB; }
+    .catalog-tab:hover:not(.active) { background: #F8FAFC; color: #475569; }
+    .catalog-card { background: #fff; border-radius: 20px; box-shadow: 0 4px 24px rgba(29,38,57,0.06); overflow: hidden; }
+    .table-modern thead th { background: #F8FAFC; color: #64748B; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 14px 16px; border-bottom: 1px solid #E2E8F0; }
+    .table-modern tbody td { padding: 13px 16px; font-size: 0.87rem; color: #1E293B; vertical-align: middle; border-bottom: 1px solid #F1F5F9; }
+    .table-modern tbody tr:hover { background: #F8FAFC; }
+    .portfolio-header { background: linear-gradient(135deg, #1D2639 0%, #2563EB 100%); color: #fff; border-radius: 14px; padding: 16px 20px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+    .product-chip { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 8px 14px; font-size: 0.82rem; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .product-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: #10B981; flex-shrink: 0; }
+    .product-chip .dot.inactive { background: #CBD5E1; }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="admin-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+            <h1 class="h4 fw-bold text-dark mb-1"><i class="bi bi-shop-window text-primary me-2"></i> Campañas y Catálogo Comercial</h1>
+            <p class="text-muted small mb-0">Gestiona campañas, portafolios de productos y el catálogo comercial del CRM.</p>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="d-flex gap-1 mb-4 p-1" style="background:#F1F5F9;border-radius:16px;width:fit-content;">
+        <button class="catalog-tab @(_tab == 0 ? "active" : "")" @onclick="() => SetTab(0)"><i class="bi bi-megaphone-fill me-2"></i>Campañas</button>
+        <button class="catalog-tab @(_tab == 1 ? "active" : "")" @onclick="() => SetTab(1)"><i class="bi bi-grid-1x2-fill me-2"></i>Portafolio</button>
+        <button class="catalog-tab @(_tab == 2 ? "active" : "")" @onclick="() => SetTab(2)"><i class="bi bi-box-seam-fill me-2"></i>Productos</button>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="text-muted mt-3">Cargando...</p></div>
+    }
+
+    <!-- TAB: CAMPAÑAS -->
+    @if (!_isLoading && _tab == 0)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted small"><strong>@_campaigns.Count</strong> campaña(s)</span>
+            <button class="btn btn-admin px-4 py-2" @onclick="() => OpenCampaignModal(null)">
+                <i class="bi bi-megaphone me-2"></i> Nueva Campaña
+            </button>
+        </div>
+        <div class="catalog-card">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Campaña</th>
+                            <th>Operador</th>
+                            <th>Periodo</th>
+                            <th>Plantilla Ficha</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _campaigns)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="fw-bold text-dark">@c.Name</div>
+                                    <div class="text-muted small">@c.Description</div>
+                                </td>
+                                <td class="text-secondary small">@(c.Operator ?? "—")</td>
+                                <td class="text-secondary small">@(c.StartDate?.ToString("dd/MM/yy") ?? "—") → @(c.EndDate?.ToString("dd/MM/yy") ?? "Sin fin")</td>
+                                <td><span class="badge bg-light text-dark border small">@(c.TemplateName ?? "—")</span></td>
+                                <td class="text-center">
+                                    <span class="badge @(c.IsActive ? "bg-success-subtle text-success" : "bg-secondary-subtle text-secondary") rounded-pill px-3">@(c.IsActive ? "Activa" : "Inactiva")</span>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill me-1" @onclick="() => OpenCampaignModal(c)"><i class="bi bi-pencil-fill"></i></button>
+                                    <button class="btn btn-sm @(c.IsActive ? "btn-outline-warning" : "btn-outline-success") rounded-pill" @onclick="() => c.IsActive = !c.IsActive">
+                                        <i class="bi bi-@(c.IsActive ? "pause-circle" : "play-circle")"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                        @if (!_campaigns.Any()) { <tr><td colspan="6" class="text-center py-5 text-muted">No hay campañas configuradas.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- TAB: PORTAFOLIO -->
+    @if (!_isLoading && _tab == 1)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted small"><strong>@_portfolios.Count</strong> portafolio(s)</span>
+            <button class="btn btn-admin px-4 py-2" @onclick="() => OpenPortfolioModal(null)">
+                <i class="bi bi-grid-3x3-gap me-2"></i> Nuevo Portafolio
+            </button>
+        </div>
+        <div class="row g-3">
+            @foreach (var p in _portfolios)
+            {
+                <div class="col-md-4">
+                    <div class="portfolio-header">
+                        <div>
+                            <div class="fw-bold">@p.Name</div>
+                            <small style="opacity:.75;">@p.Description</small>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-light rounded-pill px-3" @onclick="() => OpenPortfolioModal(p)"><i class="bi bi-pencil-fill"></i></button>
+                        </div>
+                    </div>
+                    @foreach (var prod in _products.Where(x => x.PortfolioId == p.Id && x.IsActive))
+                    {
+                        <div class="product-chip">
+                            <div class="dot"></div>
+                            <span class="fw-semibold">@prod.Name</span>
+                        </div>
+                    }
+                    @foreach (var prod in _products.Where(x => x.PortfolioId == p.Id && !x.IsActive))
+                    {
+                        <div class="product-chip" style="opacity:.55;">
+                            <div class="dot inactive"></div>
+                            <span>@prod.Name</span>
+                            <span class="text-muted ms-auto" style="font-size:0.7rem;">Inactivo</span>
+                        </div>
+                    }
+                    @if (!_products.Any(x => x.PortfolioId == p.Id)) { <div class="text-muted small px-2 pb-2">Sin productos asignados.</div> }
+                </div>
+            }
+            @if (!_portfolios.Any()) { <div class="col-12 text-center text-muted py-5">No hay portafolios configurados.</div> }
+        </div>
+    }
+
+    <!-- TAB: PRODUCTOS -->
+    @if (!_isLoading && _tab == 2)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted small"><strong>@_products.Count</strong> producto(s)</span>
+            <button class="btn btn-admin px-4 py-2" @onclick="() => OpenProductModal(null)">
+                <i class="bi bi-box-seam me-2"></i> Nuevo Producto
+            </button>
+        </div>
+        <div class="catalog-card">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Producto</th>
+                            <th>Portafolio</th>
+                            <th>Descripción</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in _products)
+                        {
+                            <tr>
+                                <td class="ps-4 fw-bold text-dark">@p.Name</td>
+                                <td><span class="badge bg-primary-subtle text-primary small">@(_portfolios.FirstOrDefault(x => x.Id == p.PortfolioId)?.Name ?? "—")</span></td>
+                                <td class="text-muted small">@(p.Description ?? "—")</td>
+                                <td class="text-center">
+                                    <div class="form-check form-switch d-inline-block mb-0">
+                                        <input class="form-check-input" type="checkbox" @bind="p.IsActive" />
+                                    </div>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill me-1" @onclick="() => OpenProductModal(p)"><i class="bi bi-pencil-fill"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill" @onclick="() => DeleteProduct(p)"><i class="bi bi-trash3-fill"></i></button>
+                                </td>
+                            </tr>
+                        }
+                        @if (!_products.Any()) { <tr><td colspan="5" class="text-center py-5 text-muted">No hay productos registrados.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal Campaña -->
+@if (_showCampaignModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pt-4 px-4 pb-2">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-megaphone text-primary me-2"></i>@(_editCampaign.Id > 0 ? "Editar Campaña" : "Nueva Campaña")</h5>
+                    <button class="btn-close" @onclick="() => _showCampaignModal = false"></button>
+                </div>
+                <div class="modal-body px-4 pb-2">
+                    <div class="row g-3">
+                        <div class="col-6"><label class="form-label fw-bold small text-muted">Nombre *</label><input class="form-control rounded-3" @bind="_editCampaign.Name" placeholder="Ej. Fibra Hogar 2025" /></div>
+                        <div class="col-6"><label class="form-label fw-bold small text-muted">Operador</label><input class="form-control rounded-3" @bind="_editCampaign.Operator" placeholder="Ej. Telefónica" /></div>
+                        <div class="col-12"><label class="form-label fw-bold small text-muted">Descripción</label><textarea class="form-control rounded-3" @bind="_editCampaign.Description" rows="2" placeholder="Descripción breve de la campaña..."></textarea></div>
+                        <div class="col-6"><label class="form-label fw-bold small text-muted">Fecha Inicio</label><input type="date" class="form-control rounded-3" @bind="_editCampaign.StartDate" /></div>
+                        <div class="col-6"><label class="form-label fw-bold small text-muted">Fecha Fin</label><input type="date" class="form-control rounded-3" @bind="_editCampaign.EndDate" /></div>
+                        <div class="col-6"><label class="form-label fw-bold small text-muted">Plantilla de Ficha</label>
+                            <input class="form-control rounded-3" @bind="_editCampaign.TemplateName" placeholder="Ej. Ficha Fibra Hogar" />
+                        </div>
+                        <div class="col-6 d-flex align-items-end pb-1">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" @bind="_editCampaign.IsActive" id="chkCActive" />
+                                <label class="form-check-label fw-bold small" for="chkCActive">Campaña Activa</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-2 pb-4 px-4">
+                    <button class="btn btn-light rounded-pill px-4" @onclick="() => _showCampaignModal = false">Cancelar</button>
+                    <button class="btn btn-admin px-5 rounded-pill" @onclick="SaveCampaign" disabled="@_isSaving">
+                        @if (_isSaving) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        Guardar Campaña
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Portafolio -->
+@if (_showPortfolioModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pt-4 px-4 pb-2">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-grid-1x2 text-primary me-2"></i>@(_editPortfolio.Id > 0 ? "Editar Portafolio" : "Nuevo Portafolio")</h5>
+                    <button class="btn-close" @onclick="() => _showPortfolioModal = false"></button>
+                </div>
+                <div class="modal-body px-4 pb-2">
+                    <div class="row g-3">
+                        <div class="col-12"><label class="form-label fw-bold small text-muted">Nombre *</label><input class="form-control rounded-3" @bind="_editPortfolio.Name" placeholder="Ej. Internet Residencial" /></div>
+                        <div class="col-12"><label class="form-label fw-bold small text-muted">Descripción</label><textarea class="form-control rounded-3" @bind="_editPortfolio.Description" rows="2" placeholder="Descripción del portafolio..."></textarea></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-2 pb-4 px-4">
+                    <button class="btn btn-light rounded-pill px-4" @onclick="() => _showPortfolioModal = false">Cancelar</button>
+                    <button class="btn btn-admin px-5 rounded-pill" @onclick="SavePortfolio" disabled="@_isSaving">Guardar Portafolio</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Producto -->
+@if (_showProductModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+                <div class="modal-header border-bottom-0 pt-4 px-4 pb-2">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-box-seam text-primary me-2"></i>@(_editProduct.Id > 0 ? "Editar Producto" : "Nuevo Producto")</h5>
+                    <button class="btn-close" @onclick="() => _showProductModal = false"></button>
+                </div>
+                <div class="modal-body px-4 pb-2">
+                    <div class="row g-3">
+                        <div class="col-12"><label class="form-label fw-bold small text-muted">Nombre del Producto *</label><input class="form-control rounded-3" @bind="_editProduct.Name" placeholder="Ej. Fibra 600Mb + TV" /></div>
+                        <div class="col-12"><label class="form-label fw-bold small text-muted">Portafolio *</label>
+                            <select class="form-select rounded-3" @bind="_editProduct.PortfolioId">
+                                <option value="0">— Seleccionar portafolio —</option>
+                                @foreach (var p in _portfolios) { <option value="@p.Id">@p.Name</option> }
+                            </select>
+                        </div>
+                        <div class="col-12"><label class="form-label fw-bold small text-muted">Descripción</label><textarea class="form-control rounded-3" @bind="_editProduct.Description" rows="2" placeholder="Descripción corta del producto..."></textarea></div>
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" @bind="_editProduct.IsActive" id="chkPActive" />
+                                <label class="form-check-label fw-bold small" for="chkPActive">Producto Activo</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-2 pb-4 px-4">
+                    <button class="btn btn-light rounded-pill px-4" @onclick="() => _showProductModal = false">Cancelar</button>
+                    <button class="btn btn-admin px-5 rounded-pill" @onclick="SaveProduct" disabled="@_isSaving">Guardar Producto</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private int _tab = 0;
+    private bool _isLoading = true, _isSaving = false;
+    private bool _showCampaignModal, _showPortfolioModal, _showProductModal;
+
+    private List<CampaignDto> _campaigns = new();
+    private List<PortfolioDto> _portfolios = new();
+    private List<ProductDto> _products = new();
+
+    private CampaignDto _editCampaign = new();
+    private PortfolioDto _editPortfolio = new();
+    private ProductDto _editProduct = new();
+
+    public class CampaignDto { public int Id{get;set;} public string Name{get;set;}=""; public string? Description{get;set;} public string? Operator{get;set;} public DateTime? StartDate{get;set;} public DateTime? EndDate{get;set;} public string? TemplateName{get;set;} public bool IsActive{get;set;}=true; }
+    public class PortfolioDto { public int Id{get;set;} public string Name{get;set;}=""; public string? Description{get;set;} }
+    public class ProductDto { public int Id{get;set;} public string Name{get;set;}=""; public int PortfolioId{get;set;} public string? Description{get;set;} public bool IsActive{get;set;}=true; }
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var camps = await client.GetFromJsonAsync<List<CampaignDto>>("/api/campaigns"); if (camps != null) _campaigns = camps;
+            var ports = await client.GetFromJsonAsync<List<PortfolioDto>>("/api/portfolios"); if (ports != null) _portfolios = ports;
+            var prods = await client.GetFromJsonAsync<List<ProductDto>>("/api/products"); if (prods != null) _products = prods;
+        }
+        catch
+        {
+            _portfolios = new List<PortfolioDto>
+            {
+                new(){Id=1,Name="Internet Residencial",Description="Paquetes de fibra óptica para hogar"},
+                new(){Id=2,Name="Soluciones Empresariales",Description="Conectividad y servicios para empresas"},
+                new(){Id=3,Name="Móvil y Convergente",Description="Tarifas móviles y paquetes convergentes"},
+            };
+            _products = new List<ProductDto>
+            {
+                new(){Id=1,Name="Fibra 300Mb",PortfolioId=1,IsActive=true},
+                new(){Id=2,Name="Fibra 600Mb + TV",PortfolioId=1,IsActive=true},
+                new(){Id=3,Name="Fibra 1Gb Premium",PortfolioId=1,IsActive=true},
+                new(){Id=4,Name="Empresas Básico (100Mb)",PortfolioId=2,IsActive=true},
+                new(){Id=5,Name="Empresas Pro (1Gb + Backup)",PortfolioId=2,IsActive=true},
+                new(){Id=6,Name="Empresas VIP (Multi-sede)",PortfolioId=2,IsActive=false,Description="Próximamente"},
+                new(){Id=7,Name="Móvil Solo 20GB",PortfolioId=3,IsActive=true},
+                new(){Id=8,Name="Convergente Familia",PortfolioId=3,IsActive=true},
+            };
+            _campaigns = new List<CampaignDto>
+            {
+                new(){Id=1,Name="Fibra Hogar",Operator="Telefónica",Description="Captación residencial fibra óptica",StartDate=new DateTime(2025,1,1),TemplateName="Ficha Fibra Hogar",IsActive=true},
+                new(){Id=2,Name="Empresas Pro",Operator="Vodafone",Description="Captación segmento PYME",StartDate=new DateTime(2025,3,1),TemplateName="Ficha Empresas Pro",IsActive=true},
+                new(){Id=3,Name="Campaña Verano",Operator="MásMóvil",Description="Captación móvil julio-agosto",StartDate=new DateTime(2025,7,1),EndDate=new DateTime(2025,8,31),IsActive=false},
+            };
+        }
+        finally { _isLoading = false; }
+    }
+
+    private void SetTab(int t) => _tab = t;
+
+    private void OpenCampaignModal(CampaignDto? c) { _editCampaign = c != null ? new CampaignDto{Id=c.Id,Name=c.Name,Description=c.Description,Operator=c.Operator,StartDate=c.StartDate,EndDate=c.EndDate,TemplateName=c.TemplateName,IsActive=c.IsActive} : new CampaignDto(); _showCampaignModal = true; }
+    private void OpenPortfolioModal(PortfolioDto? p) { _editPortfolio = p != null ? new PortfolioDto{Id=p.Id,Name=p.Name,Description=p.Description} : new PortfolioDto(); _showPortfolioModal = true; }
+    private void OpenProductModal(ProductDto? p) { _editProduct = p != null ? new ProductDto{Id=p.Id,Name=p.Name,PortfolioId=p.PortfolioId,Description=p.Description,IsActive=p.IsActive} : new ProductDto{IsActive=true}; _showProductModal = true; }
+
+    private async Task SaveCampaign()
+    {
+        if (string.IsNullOrWhiteSpace(_editCampaign.Name)) { Snackbar.Add("Nombre requerido.", Severity.Warning); return; }
+        _isSaving = true;
+        try { var client = HttpClientFactory.CreateClient("BackendApi"); if (_editCampaign.Id > 0) await client.PutAsJsonAsync($"/api/campaigns/{_editCampaign.Id}", _editCampaign); else await client.PostAsJsonAsync("/api/campaigns", _editCampaign); Snackbar.Add("Campaña guardada.", Severity.Success); _showCampaignModal = false; await LoadData(); }
+        catch { if (_editCampaign.Id > 0) { var ex = _campaigns.FirstOrDefault(x=>x.Id==_editCampaign.Id); if(ex!=null){ex.Name=_editCampaign.Name;ex.Description=_editCampaign.Description;ex.Operator=_editCampaign.Operator;ex.StartDate=_editCampaign.StartDate;ex.EndDate=_editCampaign.EndDate;ex.TemplateName=_editCampaign.TemplateName;ex.IsActive=_editCampaign.IsActive;} } else { _campaigns.Add(new CampaignDto{Id=_campaigns.Count+1,Name=_editCampaign.Name,Description=_editCampaign.Description,Operator=_editCampaign.Operator,StartDate=_editCampaign.StartDate,EndDate=_editCampaign.EndDate,TemplateName=_editCampaign.TemplateName,IsActive=true}); } Snackbar.Add("Campaña guardada localmente.", Severity.Info); _showCampaignModal = false; }
+        finally { _isSaving = false; }
+    }
+
+    private async Task SavePortfolio()
+    {
+        if (string.IsNullOrWhiteSpace(_editPortfolio.Name)) { Snackbar.Add("Nombre requerido.", Severity.Warning); return; }
+        _isSaving = true;
+        try { var client = HttpClientFactory.CreateClient("BackendApi"); if (_editPortfolio.Id>0) await client.PutAsJsonAsync($"/api/portfolios/{_editPortfolio.Id}", _editPortfolio); else await client.PostAsJsonAsync("/api/portfolios", _editPortfolio); Snackbar.Add("Portafolio guardado.", Severity.Success); _showPortfolioModal = false; await LoadData(); }
+        catch { if (_editPortfolio.Id>0) { var ex=_portfolios.FirstOrDefault(x=>x.Id==_editPortfolio.Id); if(ex!=null){ex.Name=_editPortfolio.Name;ex.Description=_editPortfolio.Description;} } else { _portfolios.Add(new PortfolioDto{Id=_portfolios.Count+1,Name=_editPortfolio.Name,Description=_editPortfolio.Description}); } Snackbar.Add("Portafolio guardado localmente.", Severity.Info); _showPortfolioModal = false; }
+        finally { _isSaving = false; }
+    }
+
+    private async Task SaveProduct()
+    {
+        if (string.IsNullOrWhiteSpace(_editProduct.Name)) { Snackbar.Add("Nombre requerido.", Severity.Warning); return; }
+        _isSaving = true;
+        try { var client = HttpClientFactory.CreateClient("BackendApi"); if (_editProduct.Id>0) await client.PutAsJsonAsync($"/api/products/{_editProduct.Id}", _editProduct); else await client.PostAsJsonAsync("/api/products", _editProduct); Snackbar.Add("Producto guardado.", Severity.Success); _showProductModal = false; await LoadData(); }
+        catch { if (_editProduct.Id>0) { var ex=_products.FirstOrDefault(x=>x.Id==_editProduct.Id); if(ex!=null){ex.Name=_editProduct.Name;ex.PortfolioId=_editProduct.PortfolioId;ex.Description=_editProduct.Description;ex.IsActive=_editProduct.IsActive;} } else { _products.Add(new ProductDto{Id=_products.Count+1,Name=_editProduct.Name,PortfolioId=_editProduct.PortfolioId,Description=_editProduct.Description,IsActive=_editProduct.IsActive}); } Snackbar.Add("Producto guardado localmente.", Severity.Info); _showProductModal = false; }
+        finally { _isSaving = false; }
+    }
+
+    private void DeleteProduct(ProductDto p) { _products.Remove(p); Snackbar.Add($"Producto «{p.Name}» eliminado.", Severity.Warning); }
+}

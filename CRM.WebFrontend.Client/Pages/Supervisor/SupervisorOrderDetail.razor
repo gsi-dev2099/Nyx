@@ -1,0 +1,1227 @@
+@page "/supervisor/orders/{Id}"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "SUPERVISOR,COORDINADOR")]
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Net.Http.Json
+@using System.Text.Json
+@using MudBlazor
+@inject IHttpClientFactory HttpClientFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Detalle 360° de Orden #@Id - Supervisor NYX CRM</PageTitle>
+
+<style>
+    :root {
+        --bg-app: #f8fafc;
+        --surface: #ffffff;
+        --border-color: #e2e8f0;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --primary-color: #2563eb;
+        --danger-color: #ef4444;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --purple-color: #8b5cf6;
+        --radius-lg: 16px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
+    }
+
+    .supervisor-detail-container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 1.5rem;
+    }
+
+    .premium-card {
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-pill {
+        background: #f1f5f9;
+        border-radius: var(--radius-md);
+        padding: 0.75rem 1rem;
+        display: flex;
+        flex-direction: column;
+        min-width: 140px;
+    }
+
+    .stat-pill-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.5px;
+    }
+
+    .stat-pill-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-top: 0.25rem;
+    }
+
+    /* Timeline Vertical */
+    .timeline-vertical {
+        position: relative;
+        padding-left: 2.2rem;
+        border-left: 3px solid #cbd5e1;
+        margin-left: 1rem;
+        margin-top: 1rem;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 2rem;
+    }
+
+    .timeline-icon-wrapper {
+        position: absolute;
+        left: -3.05rem;
+        top: 0;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.1rem;
+        border: 3px solid var(--surface);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .timeline-icon-wrapper.status { background-color: var(--primary-color); }
+    .timeline-icon-wrapper.custody { background-color: var(--warning-color); }
+    .timeline-icon-wrapper.incident { background-color: var(--danger-color); }
+    .timeline-icon-wrapper.document { background-color: var(--success-color); }
+    .timeline-icon-wrapper.general { background-color: #64748b; }
+
+    .timeline-content-card {
+        background: #f8fafc;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+        transition: all 0.2s ease;
+    }
+
+    .timeline-content-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border-color: #cbd5e1;
+    }
+
+    /* Custom Navigation Tabs */
+    .nav-tabs-custom {
+        border-bottom: 2px solid var(--border-color);
+        gap: 0.5rem;
+    }
+
+    .nav-tabs-custom .nav-link {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-weight: 600;
+        padding: 0.75rem 1.25rem;
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s ease;
+    }
+
+    .nav-tabs-custom .nav-link:hover {
+        color: var(--text-main);
+    }
+
+    .nav-tabs-custom .nav-link.active {
+        color: var(--primary-color);
+        border-bottom-color: var(--primary-color);
+        background: #eff6ff;
+        border-top-left-radius: var(--radius-sm);
+        border-top-right-radius: var(--radius-sm);
+    }
+
+    /* Modal Backdrop */
+    .modal-backdrop-custom {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 1050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
+<div class="supervisor-detail-container">
+    <!-- Barra Superior / Navegación -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <a href="/supervisor/dashboard" class="btn btn-outline-secondary rounded-pill px-3 fw-medium d-inline-flex align-items-center gap-2">
+                <i class="bi bi-arrow-left"></i> Volver al Panel de Control
+            </a>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            @if (_order != null && _order.IsAlternate)
+            {
+                <span class="badge rounded-pill px-3 py-2 fw-bold shadow-sm" style="background-color: var(--purple-color); color: #fff; font-size: 0.85rem;">
+                    <i class="bi bi-building me-1"></i> Ficha Alterna de Perfil Activada
+                </span>
+            }
+            <button class="btn btn-outline-dark rounded-pill px-3" @onclick="LoadOrderAllDataAsync" disabled="@_isLoading">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refrescar
+            </button>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="premium-card text-center py-5">
+            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+            <h5 class="fw-bold text-dark">Cargando vista 360° de la venta...</h5>
+            <p class="text-muted mb-0">Obteniendo historial, documentos, datos del formulario e incidencias.</p>
+        </div>
+    }
+    else if (_order == null)
+    {
+        <div class="premium-card text-center py-5 border-danger">
+            <i class="bi bi-exclamation-triangle text-danger fs-1 mb-3 d-block"></i>
+            <h4 class="fw-bold text-danger">Orden No Encontrada (#@Id)</h4>
+            <p class="text-muted mb-4">No se pudo localizar la orden especificada o no tiene permisos de lectura para acceder a ella.</p>
+            <a href="/supervisor/dashboard" class="btn btn-primary rounded-pill px-4 fw-bold">Volver al Dashboard</a>
+        </div>
+    }
+    else
+    {
+        <!-- HEADER 360° DE LA ORDEN -->
+        <div class="premium-card mb-4">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-4 mb-4 pb-4 border-bottom">
+                <div>
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                        <span class="badge bg-dark fs-5 px-3 py-2 rounded-3">#@_order.IdOrder</span>
+                        <h2 class="fw-bold mb-0 text-dark">@(_order.ClientName != "" ? _order.ClientName : $"Lead #{_order.IdLead}")</h2>
+                        <span class="badge rounded-pill px-3 py-2 fs-6 shadow-sm" style="background-color: @(_order.StatusColor ?? "#64748b"); color: #fff;">
+                            @_order.StatusName
+                        </span>
+                    </div>
+                    <p class="text-muted mb-0 d-flex flex-wrap align-items-center gap-3">
+                        <span><i class="bi bi-tag-fill me-1 text-primary"></i> Campaña: <strong>@_order.CampaignName</strong></span>
+                        <span>•</span>
+                        <span><i class="bi bi-person-fill me-1 text-success"></i> Asesor: <strong>@_order.AdvisorName</strong></span>
+                        <span>•</span>
+                        <span><i class="bi bi-shield-lock-fill me-1 text-warning"></i> Custodia BO: <strong>@(_order.BackofficeName != "" ? _order.BackofficeName : "Sin asignar")</strong></span>
+                    </p>
+                </div>
+
+                <!-- ACCIONES DEL SUPERVISOR -->
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    @if (_order.IdStatus >= 3)
+                    {
+                        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold">
+                            🔒 Transferida al BackOffice (Solo Lectura)
+                        </span>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-2" @onclick="OpenReturnModal">
+                            <i class="bi bi-arrow-return-left fs-5"></i>
+                            <span>Devolver al Asesor</span>
+                        </button>
+
+                        <button class="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-2" @onclick="OpenStatusModal">
+                            <i class="bi bi-check-circle fs-5"></i>
+                            <span>Cambiar Estado</span>
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <!-- GRID DE ESTADÍSTICAS E INFORMACIÓN RÁPIDA -->
+            <div class="d-flex flex-wrap gap-3">
+                <div class="stat-pill flex-fill">
+                    <span class="stat-pill-label">Fecha de Venta</span>
+                    <span class="stat-pill-value">@_order.SalesDate.ToString("dd/MM/yyyy")</span>
+                </div>
+                <div class="stat-pill flex-fill">
+                    <span class="stat-pill-label">Total Productos</span>
+                    <span class="stat-pill-value">@_order.TotalProducts unidades</span>
+                </div>
+                <div class="stat-pill flex-fill">
+                    <span class="stat-pill-label">Monto Total</span>
+                    <span class="stat-pill-value text-success">@(_order.CurrencyCode ?? "EUR") @(_order.TotalValue?.ToString("N2") ?? "0.00")</span>
+                </div>
+                <div class="stat-pill flex-fill">
+                    <span class="stat-pill-label">Tiempo Transcurrido</span>
+                    <span class="stat-pill-value @((DateTime.UtcNow - _order.SalesDate).TotalDays > 5 ? "text-danger" : "text-dark")">
+                        @Math.Max(0, (int)(DateTime.UtcNow - _order.SalesDate).TotalDays) días
+                    </span>
+                </div>
+                <div class="stat-pill flex-fill">
+                    <span class="stat-pill-label">Última Actualización</span>
+                    <span class="stat-pill-value">@_order.LastUpdate.ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- NAVEGACIÓN POR PESTAÑAS 360° -->
+        <div class="premium-card p-0 overflow-hidden">
+            <ul class="nav nav-tabs-custom px-4 pt-3 bg-light d-flex flex-wrap">
+                <li class="nav-item">
+                    <button class="nav-link @(_activeTab == "form" ? "active" : "") d-flex align-items-center gap-2" @onclick='() => _activeTab = "form"'>
+                        <i class="bi bi-file-earmark-text"></i>
+                        <span>Ficha de Venta (@_fields.Count campos)</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(_activeTab == "timeline" ? "active" : "") d-flex align-items-center gap-2" @onclick='() => _activeTab = "timeline"'>
+                        <i class="bi bi-clock-history"></i>
+                        <span>Timeline Vertical (@_timeline.Count eventos)</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(_activeTab == "documents" ? "active" : "") d-flex align-items-center gap-2" @onclick='() => _activeTab = "documents"'>
+                        <i class="bi bi-folder-check"></i>
+                        <span>Documentos (@_documents.Count)</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(_activeTab == "alternate" ? "active" : "") d-flex align-items-center gap-2" @onclick='() => _activeTab = "alternate"'>
+                        <i class="bi bi-building"></i>
+                        <span>Ficha Alterna @(_order.IsAlternate || _alternateProfile != null ? "(✅ Activa)" : "(No)")</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link @(_activeTab == "incidents" ? "active" : "") d-flex align-items-center gap-2" @onclick='() => _activeTab = "incidents"'>
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <span>Incidencias (@_incidents.Count)</span>
+                        @if (_incidents.Any(i => i.IncidentStatus != "RESOLVED"))
+                        {
+                            <span class="badge bg-danger rounded-pill">!</span>
+                        }
+                    </button>
+                </li>
+            </ul>
+
+            <div class="p-4">
+                <!-- PESTAÑA 1: FORMULARIO DE VENTA / DATOS -->
+                @if (_activeTab == "form")
+                {
+                    <div class="row g-4">
+                        <div class="col-lg-8">
+                            <h5 class="fw-bold mb-3 d-flex align-items-center justify-content-between">
+                                <span>Datos Capturados por el Asesor</span>
+                                <span class="badge bg-light text-dark border">@(_template?.Name ?? "Plantilla de Campaña")</span>
+                            </h5>
+
+                            @if (!_fields.Any())
+                            {
+                                <div class="alert alert-info border-0 shadow-sm rounded-3">
+                                    <i class="bi bi-info-circle me-2"></i> No se encontraron campos de formulario asociados a esta orden o campaña.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="row g-3">
+                                    @foreach (var field in _fields.OrderBy(f => f.OrderIndex))
+                                    {
+                                        var val = GetFieldValue(field.IdFld);
+                                        <div class="col-md-6">
+                                            <div class="p-3 bg-light rounded-3 border h-100">
+                                                <label class="d-block text-muted small fw-bold mb-1">
+                                                    @field.Label
+                                                    @if (field.IsRequired)
+                                                    {
+                                                        <span class="text-danger">*</span>
+                                                    }
+                                                </label>
+                                                <div class="fw-semibold text-dark fs-6 text-break">
+                                                    @(string.IsNullOrWhiteSpace(val) ? "-" : val)
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="p-4 rounded-4" style="background-color: #f8fafc; border: 1px dashed #cbd5e1;">
+                                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-shield-check text-primary me-2"></i> Inspección del Supervisor</h6>
+                                <p class="text-muted small mb-3">
+                                    En esta vista de supervisión puede corroborar cada campo ingresado contra los documentos adjuntos de la columna de documentos.
+                                </p>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-primary rounded-pill btn-sm fw-bold" @onclick='() => _activeTab = "documents"'>
+                                        Ver Documentos Adjuntos →
+                                    </button>
+                                    <button class="btn btn-outline-danger rounded-pill btn-sm fw-bold" @onclick="OpenReturnModal">
+                                        Observar y Devolver →
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- PESTAÑA 2: TIMELINE VERTICAL COMPLETO -->
+                @if (_activeTab == "timeline")
+                {
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                        <div>
+                            <h5 class="fw-bold mb-0">Auditoría Temporal y Eventos (Línea de Tiempo)</h5>
+                            <p class="text-muted small mb-0">Cada acción, cambio de estado, custodia, documento o incidencia registrada en el orden cronológico.</p>
+                        </div>
+                        <span class="badge bg-secondary rounded-pill px-3 py-2">Total de eventos: @_timeline.Count</span>
+                    </div>
+
+                    @if (!_timeline.Any())
+                    {
+                        <div class="alert alert-secondary border-0 text-center py-5 rounded-4">
+                            <i class="bi bi-clock-history fs-1 text-muted d-block mb-2"></i>
+                            <span class="fw-medium">No se registran eventos cronológicos en el historial de esta orden aún.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="timeline-vertical">
+                            @foreach (var item in _timeline.OrderByDescending(t => t.Timestamp))
+                            {
+                                var (iconClass, badgeColor, iconName) = GetTimelineStyle(item.EventType);
+
+                                <div class="timeline-item">
+                                    <div class="timeline-icon-wrapper @iconClass">
+                                        <i class="bi @iconName"></i>
+                                    </div>
+
+                                    <div class="timeline-content-card shadow-sm">
+                                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge rounded-pill px-3 py-1 fw-bold" style="background-color: @badgeColor; color: #fff; font-size: 0.75rem;">
+                                                    @GetEventTypeLabel(item.EventType)
+                                                </span>
+                                                <span class="fw-bold text-dark fs-6">@item.Description</span>
+                                            </div>
+                                            <span class="text-muted small fw-medium">
+                                                <i class="bi bi-calendar3 me-1"></i> @item.Timestamp.ToString("dd/MM/yyyy HH:mm:ss")
+                                            </span>
+                                        </div>
+
+                                        <div class="d-flex align-items-center justify-content-between pt-2 border-top mt-2">
+                                            <span class="text-muted small">
+                                                <i class="bi bi-person-badge me-1"></i> Autor / Actor: <strong class="text-dark">@item.ActorName</strong>
+                                            </span>
+                                            
+                                            @if (item.ActorId.HasValue && item.ActorId.Value > 0)
+                                            {
+                                                <span class="badge bg-light text-secondary border">ID Actor: @item.ActorId</span>
+                                            }
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(item.DetailsJson) && item.DetailsJson != "{}")
+                                        {
+                                            <div class="mt-3 p-2 bg-white rounded border small font-monospace text-muted overflow-auto" style="max-height: 120px; font-size: 0.75rem;">
+                                                @item.DetailsJson
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+
+                <!-- PESTAÑA 3: DOCUMENTOS ADJUNTOS -->
+                @if (_activeTab == "documents")
+                {
+                    <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom">
+                        <div>
+                            <h5 class="fw-bold mb-0">Documentos Subidos por el Asesor</h5>
+                            <p class="text-muted small mb-0">Compruebe la autenticidad de los archivos y descargue el respaldo de la venta.</p>
+                        </div>
+                        <span class="badge bg-primary rounded-pill px-3 py-2">Total adjuntos: @_documents.Count</span>
+                    </div>
+
+                    @if (!_documents.Any())
+                    {
+                        <div class="alert alert-warning border-0 shadow-sm rounded-4 text-center py-5">
+                            <i class="bi bi-file-earmark-x fs-1 text-warning d-block mb-2"></i>
+                            <h6 class="fw-bold text-dark">Sin documentos cargados</h6>
+                            <p class="text-muted mb-0">El asesor aún no ha adjuntado archivos (DNI, Contrato, Comprobantes) para esta venta.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row g-3">
+                            @foreach (var doc in _documents)
+                            {
+                                var statusColor = doc.VerificationStatus == "VERIFIED" ? "success" : (doc.VerificationStatus == "REJECTED" ? "danger" : "warning");
+                                var statusLabel = doc.VerificationStatus == "VERIFIED" ? "Verificado" : (doc.VerificationStatus == "REJECTED" ? "Rechazado" : "Pendiente Revisión");
+
+                                <div class="col-md-6 col-xl-4">
+                                    <div class="p-4 rounded-4 border bg-white shadow-sm d-flex flex-column justify-content-between h-100">
+                                        <div>
+                                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                                <span class="badge bg-dark rounded-pill px-3 py-1">@doc.DocumentType</span>
+                                                <span class="badge bg-@statusColor rounded-pill px-3 py-1">@statusLabel</span>
+                                            </div>
+                                            <h6 class="fw-bold text-dark text-truncate mb-1" title="@doc.FileName">
+                                                <i class="bi bi-file-earmark-text text-primary me-2"></i>@doc.FileName
+                                            </h6>
+                                            <p class="text-muted small mb-3">ID Archivo: #@doc.IdDocument</p>
+                                        </div>
+
+                                        <div class="d-flex align-items-center gap-2 pt-3 border-top mt-2">
+                                            <a href="/api/documents/@doc.IdDocument/download" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill flex-fill fw-bold d-flex align-items-center justify-content-center gap-2">
+                                                <i class="bi bi-download"></i> Descargar
+                                            </a>
+                                            <button class="btn btn-outline-success btn-sm rounded-circle p-2" title="Verificar Documento" @onclick="() => VerifyDocumentAsync(doc.IdDocument, true)">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger btn-sm rounded-circle p-2" title="Rechazar Documento" @onclick="() => VerifyDocumentAsync(doc.IdDocument, false)">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+
+                <!-- PESTAÑA 4: FICHA ALTERNA / PERFIL ALTERNO -->
+                @if (_activeTab == "alternate")
+                {
+                    <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom">
+                        <div>
+                            <h5 class="fw-bold mb-0">Acceso a Ficha Alterna de Perfil (Diferenciada)</h5>
+                            <p class="text-muted small mb-0">Información sobre titularidad alterna o modificaciones sustanciales respecto al cliente titular del lead.</p>
+                        </div>
+                        @if (_order.IsAlternate || _alternateProfile != null)
+                        {
+                            <span class="badge rounded-pill px-3 py-2 fw-bold" style="background-color: var(--purple-color); color: #fff;">
+                                ✅ Ficha Alterna Registrada
+                            </span>
+                        }
+                    </div>
+
+                    @if (!_order.IsAlternate && _alternateProfile == null)
+                    {
+                        <div class="p-5 text-center bg-light rounded-4 border">
+                            <div class="d-inline-flex align-items-center justify-content-center p-4 bg-white rounded-circle shadow-sm mb-3 text-secondary">
+                                <i class="bi bi-building fs-1"></i>
+                            </div>
+                            <h5 class="fw-bold text-dark">Sin Ficha Alterna</h5>
+                            <p class="text-muted mb-0 mx-auto" style="max-width: 600px;">
+                                Esta orden opera con el perfil estándar del cliente/lead titular. No se ha declarado un perfil alterno (Ficha Alterna) ni datos diferenciados en esta venta.
+                            </p>
+                        </div>
+                    }
+                    else
+                    {
+                        var profile = _alternateProfile ?? new AlternateProfileDto { AlternateType = "Titular Diferenciado", Reason = "Indicado en orden como venta alterna." };
+
+                        <div class="row g-4">
+                            <div class="col-md-12">
+                                <div class="p-4 rounded-4 border shadow-sm bg-white" style="border-left: 5px solid var(--purple-color) !important;">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="text-muted small fw-bold text-uppercase d-block mb-1">Tipo de Perfil Alterno</label>
+                                            <div class="fw-bold fs-5 text-dark">@(!string.IsNullOrEmpty(profile.AlternateType) ? profile.AlternateType : "Titular Diferenciado")</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="text-muted small fw-bold text-uppercase d-block mb-1">Motivo / Justificación</label>
+                                            <div class="fw-semibold text-dark">@(!string.IsNullOrEmpty(profile.Reason) ? profile.Reason : "Declarado en ficha de venta")</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-4 mt-2 pt-3 border-top">
+                                        <div class="col-md-6">
+                                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-file-code me-2 text-primary"></i> Datos del Perfil Alterno (JSON / Estructurado)</h6>
+                                            <div class="p-3 bg-light rounded-3 border font-monospace small text-dark overflow-auto" style="max-height: 250px; white-space: pre-wrap;">
+                                                @(string.IsNullOrEmpty(profile.AlternateData) ? "Sin datos adicionales capturados." : FormatJsonPretty(profile.AlternateData))
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-file-diff me-2 text-secondary"></i> Datos Originales (Respaldo)</h6>
+                                            <div class="p-3 bg-light rounded-3 border font-monospace small text-muted overflow-auto" style="max-height: 250px; white-space: pre-wrap;">
+                                                @(string.IsNullOrEmpty(profile.OriginalData) ? "N/A" : FormatJsonPretty(profile.OriginalData))
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+
+                <!-- PESTAÑA 5: INCIDENCIAS -->
+                @if (_activeTab == "incidents")
+                {
+                    <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom">
+                        <div>
+                            <h5 class="fw-bold mb-0">Incidencias y Observaciones Activas</h5>
+                            <p class="text-muted small mb-0">Gestione reportes, añada respuestas o resuelva incidencias detectadas en la orden.</p>
+                        </div>
+                        <button class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold" @onclick="OpenNewIncidentModal">
+                            + Registrar Nueva Incidencia
+                        </button>
+                    </div>
+
+                    @if (!_incidents.Any())
+                    {
+                        <div class="alert alert-success border-0 shadow-sm rounded-4 text-center py-5">
+                            <i class="bi bi-shield-check fs-1 text-success d-block mb-2"></i>
+                            <h6 class="fw-bold text-dark">Sin Incidencias Reportadas</h6>
+                            <p class="text-muted mb-0">Esta orden no presenta incidencias abiertas ni bloqueos en el flujo actual.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-3">
+                            @foreach (var inc in _incidents)
+                            {
+                                var isResolved = inc.IncidentStatus == "RESOLVED";
+                                <div class="p-4 rounded-4 border @(isResolved ? "bg-light border-success" : "bg-white border-danger shadow-sm")">
+                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge @(isResolved ? "bg-success" : "bg-danger") rounded-pill px-3 py-1">
+                                                @(isResolved ? "Resuelta" : "Incidencia Activa")
+                                            </span>
+                                            <h6 class="fw-bold text-dark mb-0">#@inc.IdOrderIncident: @inc.CustomName</h6>
+                                        </div>
+                                        <span class="text-muted small">Registrado: @inc.Register.ToString("dd/MM/yyyy HH:mm")</span>
+                                    </div>
+
+                                    <p class="text-dark mb-3">@inc.CustomDescription</p>
+
+                                    @if (!string.IsNullOrEmpty(inc.CustomSolution))
+                                    {
+                                        <div class="p-3 bg-light rounded-3 mb-3 border">
+                                            <strong class="small text-success d-block">Solución propuetsa:</strong>
+                                            <span class="small">@inc.CustomSolution</span>
+                                        </div>
+                                    }
+
+                                    @if (isResolved && !string.IsNullOrEmpty(inc.ResolutionNotes))
+                                    {
+                                        <div class="p-3 bg-success bg-opacity-10 rounded-3 mb-3 border border-success">
+                                            <strong class="small text-success d-block">Notas de resolución:</strong>
+                                            <span class="small text-dark">@inc.ResolutionNotes</span>
+                                        </div>
+                                    }
+
+                                    @if (!isResolved)
+                                    {
+                                        <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                                            <button class="btn btn-outline-success btn-sm rounded-pill px-3 fw-bold" @onclick="() => ResolveIncidentAsync(inc.IdOrderIncident)">
+                                                <i class="bi bi-check2-circle me-1"></i> Marcar como Resuelta
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- MODAL 1: DEVOLVER AL ASESOR CON COMENTARIO OBLIGATORIO -->
+@if (_showReturnModal)
+{
+    <div class="modal-backdrop-custom">
+        <div class="modal-dialog modal-dialog-centered" style="min-width: 500px; max-width: 90%;">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header bg-danger text-white py-3 px-4">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2 mb-0">
+                        <i class="bi bi-arrow-return-left fs-4"></i> Devolver Orden al Asesor (#@_order?.IdOrder)
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white ms-auto" @onclick="() => _showReturnModal = false"></button>
+                </div>
+                <div class="modal-body p-4 bg-white">
+                    <p class="text-muted small mb-3">
+                        Al devolver la orden, el asesor recibirá una notificación de alerta inmedita y podrá corregir los datos u adjuntos en su bandeja de ventas.
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark small">Estado de Devolución / Retorno</label>
+                        <select class="form-select rounded-3" @bind="_selectedReturnStatusId">
+                            @foreach (var st in AllowedReturnStatuses)
+                            {
+                                <option value="@st.Id">@st.Name</option>
+                            }
+                            @if (!AllowedReturnStatuses.Any())
+                            {
+                                <option value="1">Observado / Devuelto (Estado 1)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark small">
+                            Comentario / Motivo de Devolución <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control rounded-3 p-3" rows="4" @bind="_returnComment" placeholder="Especifique qué debe corregir el asesor (ej. DNI borroso, monto erróneo, falta contrato firmado)..."></textarea>
+                        @if (string.IsNullOrWhiteSpace(_returnComment))
+                        {
+                            <span class="text-danger small mt-1 d-block">Debe escribir un motivo claro para que el asesor pueda subsanarlo.</span>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-3 px-4 border-top">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-bold" @onclick="() => _showReturnModal = false">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger rounded-pill px-4 fw-bold shadow-sm" @onclick="ConfirmReturnToAdvisorAsync" disabled="@(string.IsNullOrWhiteSpace(_returnComment) || _isSubmitting)">
+                        @if (_isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <span>Procesando...</span>
+                        }
+                        else
+                        {
+                            <span><i class="bi bi-send me-1"></i> Confirmar Devolución</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- MODAL 2: CAMBIAR ESTADO DE LA ORDEN -->
+@if (_showStatusModal)
+{
+    <div class="modal-backdrop-custom">
+        <div class="modal-dialog modal-dialog-centered" style="min-width: 480px; max-width: 90%;">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header bg-success text-white py-3 px-4">
+                    <h5 class="modal-title fw-bold d-flex align-items-center gap-2 mb-0">
+                        <i class="bi bi-check-circle fs-4"></i> Actualizar Estado de Venta (#@_order?.IdOrder)
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white ms-auto" @onclick="() => _showStatusModal = false"></button>
+                </div>
+                <div class="modal-body p-4 bg-white">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark small">Nuevo Estado</label>
+                        <select class="form-select rounded-3" @bind="_selectedNewStatusId">
+                            <option value="0">Seleccione un estado...</option>
+                            @foreach (var st in AllowedSupervisorTransitionStatuses)
+                            {
+                                <option value="@st.Id">@st.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark small">Comentario de Cambio de Estado (Opcional)</label>
+                        <textarea class="form-control rounded-3 p-3" rows="3" @bind="_statusChangeComment" placeholder="Comentario para el registro de auditoría..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-3 px-4 border-top">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-bold" @onclick="() => _showStatusModal = false">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm" @onclick="ConfirmStatusChangeAsync" disabled="@(_selectedNewStatusId <= 0 || _isSubmitting)">
+                        @if (_isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <span>Actualizando...</span>
+                        }
+                        else
+                        {
+                            <span>Guardar Cambio</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    private long OrderId => long.TryParse(Id, out var val) ? val : 0;
+
+    private string _activeTab = "form";
+    private bool _isLoading = true;
+    private bool _isSubmitting = false;
+
+    // Data models
+    private List<StatusLookupDto> _campaignStatuses = new();
+
+    private IEnumerable<StatusLookupDto> AllowedReturnStatuses =>
+        _campaignStatuses.Where(s => s.Id == 1 || s.Id == 5 || s.Name.Contains("Observa", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Borrador", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Devue", StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<StatusLookupDto> AllowedSupervisorTransitionStatuses =>
+        _campaignStatuses.Where(s => s.Id == 1 || s.Id == 2 || s.Id == 3 || s.Id == 5 || s.Name.Contains("Superv", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Back", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Borrador", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Observa", StringComparison.OrdinalIgnoreCase));
+
+    private OrderDetailDto? _order;
+    private List<TimelineItemDto> _timeline = new();
+    private List<OrderDocumentDto> _documents = new();
+    private AlternateProfileDto? _alternateProfile;
+    private List<OrderDataDto> _savedData = new();
+    private List<FormFieldDto> _fields = new();
+    private FormTemplateDto? _template;
+    private List<IncidentDto> _incidents = new();
+
+    // Modals state
+    private bool _showReturnModal = false;
+    private string _returnComment = string.Empty;
+    private long _selectedReturnStatusId = 0;
+
+    private bool _showStatusModal = false;
+    private long _selectedNewStatusId = 0;
+    private string _statusChangeComment = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (OrderId > 0)
+        {
+            await LoadOrderAllDataAsync();
+        }
+    }
+
+    private async Task LoadOrderAllDataAsync()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+
+            // 1. Fetch Order details
+            _order = await client.GetFromJsonAsync<OrderDetailDto>($"/api/orders/{OrderId}");
+            if (_order == null)
+            {
+                _isLoading = false;
+                return;
+            }
+
+            // Enrich campaign and advisor names
+            try
+            {
+                var cmpList = await client.GetFromJsonAsync<List<CampaignLookupDto>>("/api/campaigns");
+                var cmp = cmpList?.FirstOrDefault(c => c.Id == _order.IdCmpg);
+                if (cmp != null) _order.CampaignName = cmp.Name;
+
+                var advList = await client.GetFromJsonAsync<List<AdvisorLookupDto>>("/api/campaigns/advisors?role=ASESOR");
+                var adv = advList?.FirstOrDefault(a => a.Id == _order.IdUser);
+                if (adv != null) _order.AdvisorName = !string.IsNullOrWhiteSpace(adv.Name) ? adv.Name : $"Asesor {_order.IdUser}";
+
+                if (_order.CustodyUserId.HasValue && _order.CustodyUserId.Value > 0)
+                {
+                    var bacList = await client.GetFromJsonAsync<List<AdvisorLookupDto>>("/api/campaigns/advisors?role=BACKOFFICE");
+                    var bac = bacList?.FirstOrDefault(b => b.Id == _order.CustodyUserId.Value);
+                    if (bac != null) _order.BackofficeName = !string.IsNullOrWhiteSpace(bac.Name) ? bac.Name : $"Backoffice {_order.CustodyUserId.Value}";
+                }
+
+                // Lead Name
+                try
+                {
+                    var leadData = await client.GetFromJsonAsync<JsonElement>($"/api/leads/{_order.IdLead}");
+                    var fName = leadData.GetProperty("firstName").GetString() ?? "";
+                    var lName = leadData.GetProperty("lastName").GetString() ?? "";
+                    var realName = $"{fName} {lName}".Trim();
+                    if (!string.IsNullOrEmpty(realName)) _order.ClientName = realName;
+                }
+                catch { /* default lead id */ }
+            }
+            catch { /* non-fatal lookup fallback */ }
+
+            // 2. Fetch Campaign Statuses
+            try
+            {
+                var statusList = await client.GetFromJsonAsync<List<StatusLookupDto>>($"/api/campaigns/{_order.IdCmpg}/statuses");
+                if (statusList != null)
+                {
+                    _campaignStatuses = statusList;
+                    var currentSt = _campaignStatuses.FirstOrDefault(s => s.Id == _order.IdStatus);
+                    if (currentSt != null)
+                    {
+                        _order.StatusName = currentSt.Name;
+                        _order.StatusColor = currentSt.Color;
+                    }
+                }
+            }
+            catch { /* fallback status */ }
+
+            // 3. Fetch Timeline History
+            try
+            {
+                var histList = await client.GetFromJsonAsync<List<TimelineItemDto>>($"/api/orders/{OrderId}/history");
+                if (histList != null) _timeline = histList;
+            }
+            catch { _timeline.Clear(); }
+
+            // 4. Fetch Documents
+            try
+            {
+                var docList = await client.GetFromJsonAsync<List<OrderDocumentDto>>($"/api/orders/{OrderId}/documents");
+                if (docList != null) _documents = docList;
+            }
+            catch { _documents.Clear(); }
+
+            // 5. Fetch Alternate Profile if applicable
+            try
+            {
+                if (_order.IsAlternate)
+                {
+                    _alternateProfile = await client.GetFromJsonAsync<AlternateProfileDto>($"/api/orders/{OrderId}/alternate-profile");
+                }
+            }
+            catch { _alternateProfile = null; }
+
+            // 6. Fetch Dynamic Form Fields and Values
+            try
+            {
+                var templates = await client.GetFromJsonAsync<List<FormTemplateDto>>($"/api/forms/campaign/{_order.IdCmpg}/stage/1");
+                _template = templates?.FirstOrDefault();
+                if (_template != null)
+                {
+                    var flds = await client.GetFromJsonAsync<List<FormFieldDto>>($"/api/forms/{_template.IdForm}/fields");
+                    if (flds != null) _fields = flds;
+
+                    var sData = await client.GetFromJsonAsync<List<OrderDataDto>>($"/api/forms/order/{OrderId}/data");
+                    if (sData != null) _savedData = sData;
+                }
+            }
+            catch { /* fallback */ }
+
+            // 7. Fetch Incidents
+            try
+            {
+                var incList = await client.GetFromJsonAsync<List<IncidentDto>>($"/api/incidents/order/{OrderId}");
+                if (incList != null) _incidents = incList;
+            }
+            catch { _incidents.Clear(); }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error cargando datos de orden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetFieldValue(long fieldId)
+    {
+        var d = _savedData.FirstOrDefault(x => x.IdFld == fieldId);
+        if (d == null) return "";
+        if (!string.IsNullOrEmpty(d.ValueText)) return d.ValueText;
+        if (!string.IsNullOrEmpty(d.ValueJson)) return d.ValueJson;
+        return "";
+    }
+
+    private (string iconClass, string badgeColor, string iconName) GetTimelineStyle(string eventType)
+    {
+        return eventType switch
+        {
+            "STATUS_CHANGE" => ("status", "#2563eb", "bi-arrow-repeat"),
+            "CUSTODY_TRANSFER" => ("custody", "#f59e0b", "bi-person-check"),
+            "DOCUMENT_UPLOADED" => ("document", "#10b981", "bi-file-earmark-arrow-up"),
+            "DOCUMENT_VERIFIED" => ("document", "#059669", "bi-file-earmark-check"),
+            "INCIDENT_DETECTED" => ("incident", "#ef4444", "bi-exclamation-triangle-fill"),
+            "INCIDENT_RESOLVED" => ("document", "#10b981", "bi-shield-check"),
+            "INCIDENT_RESPONSE" => ("custody", "#8b5cf6", "bi-chat-dots-fill"),
+            _ => ("general", "#64748b", "bi-record-circle")
+        };
+    }
+
+    private string GetEventTypeLabel(string eventType)
+    {
+        return eventType switch
+        {
+            "STATUS_CHANGE" => "Cambio de Estado",
+            "CUSTODY_TRANSFER" => "Transferencia de Custodia",
+            "DOCUMENT_UPLOADED" => "Documento Subido",
+            "DOCUMENT_VERIFIED" => "Documento Verificado",
+            "INCIDENT_DETECTED" => "Incidencia Reportada",
+            "INCIDENT_RESOLVED" => "Incidencia Resuelta",
+            "INCIDENT_RESPONSE" => "Respuesta en Incidencia",
+            _ => "Evento de Auditoría"
+        };
+    }
+
+    private string FormatJsonPretty(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return json;
+        }
+    }
+
+    private void OpenReturnModal()
+    {
+        _returnComment = string.Empty;
+        var observedSt = AllowedReturnStatuses.FirstOrDefault(s => s.Name.Contains("Observa", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Devuel", StringComparison.OrdinalIgnoreCase));
+        _selectedReturnStatusId = observedSt?.Id ?? AllowedReturnStatuses.FirstOrDefault()?.Id ?? 1;
+        _showReturnModal = true;
+    }
+
+    private async Task ConfirmReturnToAdvisorAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_returnComment)) return;
+
+        _isSubmitting = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var response = await client.PatchAsJsonAsync($"/api/orders/{OrderId}/status", new
+            {
+                toStatusId = _selectedReturnStatusId,
+                comment = $"[DEVOLUCIÓN SUPERVISOR] {_returnComment.Trim()}"
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("✅ Orden devuelta al asesor correctamente y notificada con éxito.", Severity.Success);
+                _showReturnModal = false;
+                await LoadOrderAllDataAsync();
+            }
+            else
+            {
+                var errText = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error al devolver orden: {errText}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error de conexión: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private void OpenStatusModal()
+    {
+        _selectedNewStatusId = _order?.IdStatus ?? 0;
+        _statusChangeComment = string.Empty;
+        _showStatusModal = true;
+    }
+
+    private async Task ConfirmStatusChangeAsync()
+    {
+        if (_selectedNewStatusId <= 0) return;
+
+        _isSubmitting = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var response = await client.PatchAsJsonAsync($"/api/orders/{OrderId}/status", new
+            {
+                toStatusId = _selectedNewStatusId,
+                comment = string.IsNullOrWhiteSpace(_statusChangeComment) ? "Actualizado por Supervisor" : _statusChangeComment.Trim()
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("✅ Estado de venta actualizado correctamente.", Severity.Success);
+                _showStatusModal = false;
+                await LoadOrderAllDataAsync();
+            }
+            else
+            {
+                var errText = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error actualizando estado: {errText}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cambiar estado: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task VerifyDocumentAsync(long docId, bool approve)
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var statusStr = approve ? "VERIFIED" : "REJECTED";
+            var response = await client.PatchAsJsonAsync($"/api/orders/documents/{docId}/verify", new
+            {
+                status = statusStr,
+                notes = approve ? "Revisado y aprobado por Supervisor" : "Rechazado por ilegible o incorrecto"
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add(approve ? "Documento verificado y aprobado." : "Documento marcado como rechazado.", approve ? Severity.Success : Severity.Warning);
+                await LoadOrderAllDataAsync();
+            }
+            else
+            {
+                Snackbar.Add("No se pudo actualizar el estado del documento.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ResolveIncidentAsync(long idOrderIncident)
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var response = await client.PatchAsJsonAsync($"/api/incidents/{idOrderIncident}/resolve", new
+            {
+                Notes = "Resuelto por Supervisor en revisión de orden.",
+                ResolvedBy = _order?.IdUser ?? 0
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("✅ Incidencia resuelta satisfactoriamente.", Severity.Success);
+                await LoadOrderAllDataAsync();
+            }
+            else
+            {
+                Snackbar.Add("No se pudo resolver la incidencia.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error resolviendo incidencia: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void OpenNewIncidentModal()
+    {
+        Snackbar.Add("Utilice la pestaña de incidencias o la vista lateral para adjuntar más detalles del reporte.", Severity.Info);
+    }
+
+    // DTO Definitions
+    public class OrderDetailDto
+    {
+        public long IdOrder { get; set; }
+        public long IdLead { get; set; }
+        public long IdCmpg { get; set; }
+        public long IdUser { get; set; }
+        public long? CustodyUserId { get; set; }
+        public long? IdStatus { get; set; }
+        public string? Status { get; set; }
+        public DateTime SalesDate { get; set; }
+        public int TotalProducts { get; set; }
+        public decimal? TotalValue { get; set; }
+        public bool IsAlternate { get; set; }
+        public string? CurrencyCode { get; set; }
+        public DateTime Register { get; set; }
+        public DateTime LastUpdate { get; set; }
+
+        public string ClientName { get; set; } = "";
+        public string CampaignName { get; set; } = "Desconocida";
+        public string AdvisorName { get; set; } = "";
+        public string BackofficeName { get; set; } = "";
+        public string StatusName { get; set; } = "Sin Estado";
+        public string? StatusColor { get; set; } = "#64748b";
+    }
+
+    public class TimelineItemDto
+    {
+        public DateTime Timestamp { get; set; }
+        public string EventType { get; set; } = string.Empty;
+        public long? ActorId { get; set; }
+        public string? ActorName { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public string? DetailsJson { get; set; }
+    }
+
+    public class OrderDocumentDto
+    {
+        public long IdDocument { get; set; }
+        public string DocumentType { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public string VerificationStatus { get; set; } = "PENDING";
+    }
+
+    public class AlternateProfileDto
+    {
+        public long IdAlternate { get; set; }
+        public string AlternateType { get; set; } = string.Empty;
+        public string AlternateData { get; set; } = string.Empty;
+        public string OriginalData { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+    }
+
+    public class OrderDataDto
+    {
+        public long IdOrddata { get; set; }
+        public long IdFld { get; set; }
+        public string? ValueText { get; set; }
+        public string? ValueJson { get; set; }
+    }
+
+    public class FormFieldDto
+    {
+        public long IdFld { get; set; }
+        public string Label { get; set; } = string.Empty;
+        public bool IsRequired { get; set; }
+        public int OrderIndex { get; set; }
+    }
+
+    public class FormTemplateDto
+    {
+        public long IdForm { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class IncidentDto
+    {
+        public long IdOrderIncident { get; set; }
+        public string CustomName { get; set; } = string.Empty;
+        public string CustomDescription { get; set; } = string.Empty;
+        public string? CustomSolution { get; set; }
+        public string IncidentStatus { get; set; } = "OPEN";
+        public string? ResolutionNotes { get; set; }
+        public DateTime Register { get; set; }
+    }
+
+    public class CampaignLookupDto
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class AdvisorLookupDto
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class StatusLookupDto
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Color { get; set; } = "#64748b";
+    }
+}
