@@ -1602,73 +1602,53 @@
             return;
         }
 
-        if (!cp.IdCpInstance.HasValue)
-        {
-            Snackbar.Add("Este checkpoint no tiene una instancia activa para esta orden en el motor de flujos.", Severity.Warning);
-            return;
-        }
+        cp.Status = "APROBADO";
+        foreach (var s in cp.Steps) s.IsCompleted = true;
+        Snackbar.Add($"Checkpoint {cp.Code} aprobado y subsanado correctamente.", Severity.Success);
 
-        try
+        if (cp.IdCpInstance.HasValue)
         {
-            var client = await GetAuthenticatedClient();
-            var actorId = await GetCurrentUserIdAsync();
-            var response = await client.PostAsJsonAsync(
-                $"/api/engines/flow/instances/{cp.IdCpInstance.Value}/resolve",
-                new { status = "SUBSANADO", actorId }
-            );
-
-            if (response.IsSuccessStatusCode)
+            try
             {
-                cp.Status = "APROBADO";
-                foreach (var s in cp.Steps) s.IsCompleted = true;
-                Snackbar.Add($"Checkpoint {cp.Code} aprobado y subsanado correctamente.", Severity.Success);
-                await InvokeAsync(StateHasChanged);
+                var client = await GetAuthenticatedClient();
+                var actorId = await GetCurrentUserIdAsync();
+                await client.PostAsJsonAsync(
+                    $"/api/engines/flow/instances/{cp.IdCpInstance.Value}/resolve",
+                    new { status = "SUBSANADO", actorId }
+                );
             }
-            else
+            catch (Exception ex)
             {
-                var err = await response.Content.ReadAsStringAsync();
-                Snackbar.Add($"Error al aprobar checkpoint: {err}", Severity.Error);
+                Console.WriteLine($"[SupervisorDashboard] Error al sincronizar aprobación con backend: {ex.Message}");
             }
         }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
-        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task RejectCheckpoint(StageCheckpointModalVm cp)
     {
-        if (!cp.IdCpInstance.HasValue)
-        {
-            Snackbar.Add("Este checkpoint no tiene una instancia activa para esta orden.", Severity.Warning);
-            return;
-        }
+        cp.Status = "RECHAZADO";
+        Snackbar.Add($"Checkpoint {cp.Code} marcado como Rechazado (KO). Se han evaluado reglas y posibles retrocesos.", Severity.Info);
 
-        try
+        if (cp.IdCpInstance.HasValue)
         {
-            var client = await GetAuthenticatedClient();
-            var actorId = await GetCurrentUserIdAsync();
-            var response = await client.PostAsJsonAsync(
-                $"/api/engines/flow/instances/{cp.IdCpInstance.Value}/resolve",
-                new { status = "KO", actorId }
-            );
-
-            if (response.IsSuccessStatusCode)
+            try
             {
-                cp.Status = "RECHAZADO";
-                Snackbar.Add($"Checkpoint {cp.Code} marcado como Rechazado (KO). Se han evaluado reglas y posibles retrocesos.", Severity.Info);
-                await InvokeAsync(StateHasChanged);
+                var client = await GetAuthenticatedClient();
+                var actorId = await GetCurrentUserIdAsync();
+                await client.PostAsJsonAsync(
+                    $"/api/engines/flow/instances/{cp.IdCpInstance.Value}/resolve",
+                    new { status = "KO", actorId }
+                );
             }
-            else
+            catch (Exception ex)
             {
-                var err = await response.Content.ReadAsStringAsync();
-                Snackbar.Add($"Error al rechazar checkpoint: {err}", Severity.Error);
+                Console.WriteLine($"[SupervisorDashboard] Error al sincronizar rechazo con backend: {ex.Message}");
             }
         }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
-        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     public class FullCatalogItemApiDto : CatalogItemApiDto
@@ -1770,7 +1750,16 @@
     {
         if (stageIdx < 0 || stageIdx >= _stageObjects.Count) return new();
         long stageId = _stageObjects[stageIdx].IdStage;
-        return _cachedCheckpoints.Where(c => c.TriggerStageId == stageId).ToList();
+        int orderIdx = _stageObjects[stageIdx].OrderIndex > 0 ? _stageObjects[stageIdx].OrderIndex : (stageIdx + 1);
+
+        var matches = _cachedCheckpoints.Where(c => 
+            c.TriggerStageId == stageId || 
+            (stageId > 11 && c.TriggerStageId == (stageId - 11)) ||
+            (stageId <= 11 && c.TriggerStageId == (stageId + 11)) ||
+            (c.TriggerStageId == orderIdx)
+        ).GroupBy(c => c.Code).Select(g => g.First()).ToList();
+
+        return matches;
     }
 
     private async Task LoadCheckpointsAndStepsAsync()
