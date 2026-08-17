@@ -205,7 +205,7 @@ CREATE TABLE IF NOT EXISTS status_stage_mapping (
 
 INSERT INTO status_stage_mapping (id_status, id_stage) VALUES
     (1, 1),   -- Borrador -> Preventa
-    (2, 3),   -- En revisión supervisor -> Gestión Inicial
+    (2, 2),   -- En revisión supervisor -> Venta Creada
     (3, 4),   -- En BackOffice -> Validación Interna
     (4, 3),   -- En gestión -> Gestión Inicial
     (5, 5),   -- Enviado al proveedor -> Envío Proveedor
@@ -225,10 +225,16 @@ INSERT INTO checkpoint_catalog (code, name, description, id_flow, trigger_stage_
     ('CP_CONTRACT_SIGN', 'Confirmación de firma de contrato', 'Verificación de firma digital del proveedor', 1, 7, 'EXTERNAL', 'ENTITY', ARRAY['LIQUIDATION','COMMISSION'], true, 'Backoffice', 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
 
--- Deprecate orphan checkpoints without explicit flow
-UPDATE checkpoint_catalog
-SET is_active = false, approval_status = 'DEPRECATED'
-WHERE id_flow IS NULL AND code NOT IN ('CP_AUDIO_AUDIT', 'CP_SUPERVISOR_REV', 'CP_CONTRACT_SIGN');
+-- Reasignar todos los checkpoints Telecom al flow 2 con sus etapas correspondientes (12-22)
+UPDATE checkpoint_catalog SET id_flow = 2, trigger_stage_id = 12 WHERE code = 'CP_TEL_SHIRLEY_01';
+UPDATE checkpoint_catalog SET id_flow = 2, trigger_stage_id = 13 WHERE code = 'CP_TEL_SHIRLEY_02';
+UPDATE checkpoint_catalog SET id_flow = 2, trigger_stage_id = 14 WHERE code IN ('CP_SUPERVISOR_REV','CP_TEL_SHIRLEY_03');
+UPDATE checkpoint_catalog SET id_flow = 2, trigger_stage_id = 15 WHERE code IN ('CP_TEL_SHIRLEY_04','CP_TEL_VODA_01','CP_TEL_VODA_02','CP_TEL_VODA_03','CP_TEL_VODA_04','CP_TEL_VODA_05');
+UPDATE checkpoint_catalog SET id_flow = 2, trigger_stage_id = 16 WHERE code IN ('CP_TEL_SHIRLEY_05','CP_TEL_VODA_06','CP_TEL_VODA_07','CP_TEL_VODA_08');
+UPDATE checkpoint_catalog SET id_flow = 2, trigger_stage_id = 17 WHERE code IN ('CP_TEL_VODA_09','CP_TEL_VODA_10','CP_TEL_VODA_11');
+UPDATE checkpoint_catalog SET id_flow = 2, trigger_stage_id = 18 WHERE code = 'CP_CONTRACT_SIGN';
+UPDATE checkpoint_catalog SET id_flow = 2, trigger_stage_id = 20 WHERE code = 'CP_AUDIO_AUDIT';
+UPDATE checkpoint_catalog SET id_flow = 2, trigger_stage_id = 21 WHERE code IN ('CP_TEL_SHIRLEY_06','CP_POSTVENTA_RECUP');
 
 INSERT INTO checkpoint_step (id_checkpoint, step_order, name) VALUES
     (1, 1, 'Sacar todos los audios de la llamada'),
