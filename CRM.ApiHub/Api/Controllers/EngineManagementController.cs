@@ -49,12 +49,15 @@ public class EngineManagementController : ControllerBase
     }
 
     [HttpGet("flow/stages")]
-    public async Task<IActionResult> GetFlowStages()
+    public async Task<IActionResult> GetFlowStages([FromQuery] long? flowId = null)
     {
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            var response = await _rawHttpClient.GetAsync("http://flow_engine_api:5072/api/flow/stages", cts.Token);
+            var url = flowId.HasValue 
+                ? $"http://flow_engine_api:5072/api/flow/stages?flowId={flowId.Value}" 
+                : "http://flow_engine_api:5072/api/flow/stages";
+            var response = await _rawHttpClient.GetAsync(url, cts.Token);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();

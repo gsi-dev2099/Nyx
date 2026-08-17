@@ -23,9 +23,9 @@ public class FlowController : ControllerBase
     }
 
     [HttpGet("stages")]
-    public async Task<IActionResult> GetStages()
+    public async Task<IActionResult> GetStages([FromQuery] long? flowId = null)
     {
-        var stages = await _service.GetStagesAsync();
+        var stages = await _service.GetStagesAsync(flowId);
         return Ok(stages);
     }
 

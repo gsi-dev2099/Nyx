@@ -857,17 +857,28 @@
         };
     }
 
+    private static long ResolveFlowIdForOrder(SalesOrderViewModel? order)
+    {
+        if (order == null) return 1;
+        if (order.IdCmpg is >= 1 and <= 5) return 2;
+        return 1;
+    }
+
     private List<string> GetStagesForOrder(SalesOrderViewModel? order)
     {
-        if (order == null || !_stageObjects.Any()) return _stages.Any() ? _stages : new List<string> { "Venta Creada", "En Revisión Supervisor", "Validación Técnica", "Activación", "Postventa" };
+        if (order == null || !_stageObjects.Any()) return _stages.Any() ? _stages : new List<string> { "Preventa", "Venta Creada", "Gestión Inicial", "Validación Interna", "Envío Proveedor", "Validación Externa", "Firma", "Tramitación", "Activación", "Postventa", "Cerrada" };
 
-        string cmpgName = GetCampaignNameById(order.IdCmpg);
+        var flowId = ResolveFlowIdForOrder(order);
+        var filtered = _stageObjects
+            .Where(s => s.IdFlow == flowId)
+            .OrderBy(s => s.OrderIndex)
+            .Select(s => s.Name)
+            .ToList();
 
-        var filtered = _stageObjects.Where(s =>
-            string.IsNullOrEmpty(s.Campaign) || s.Campaign == "GENERAL" || s.Campaign == "TODAS" ||
-            s.Campaign.Contains(cmpgName, StringComparison.OrdinalIgnoreCase) ||
-            cmpgName.Contains(s.Campaign, StringComparison.OrdinalIgnoreCase)
-        ).OrderBy(s => s.OrderIndex).Select(s => s.Name).ToList();
+        if (!filtered.Any())
+        {
+            filtered = _stageObjects.Where(s => s.IdFlow == 1).OrderBy(s => s.OrderIndex).Select(s => s.Name).ToList();
+        }
 
         return filtered.Any() ? filtered : _stages;
     }
@@ -878,11 +889,14 @@
         var orderStages = GetStagesForOrder(order);
         if (!orderStages.Any()) return 0;
 
+        var flowId = ResolveFlowIdForOrder(order);
+
         if (!string.IsNullOrEmpty(order.Status))
         {
             var matchObj = _stageObjects.FirstOrDefault(s =>
+                s.IdFlow == flowId && (
                 s.StageCode.Equals(order.Status, StringComparison.OrdinalIgnoreCase) ||
-                s.Name.Equals(order.Status, StringComparison.OrdinalIgnoreCase));
+                s.Name.Equals(order.Status, StringComparison.OrdinalIgnoreCase)));
             if (matchObj != null)
             {
                 var idx = orderStages.IndexOf(matchObj.Name);
@@ -890,10 +904,10 @@
             }
         }
 
-        if (order.IdStatus == 1) return 0; // Venta Creada
-        if (order.IdStatus == 2) return Math.Min(1, orderStages.Count - 1); // En Revisión Supervisor
-        if (order.IdStatus == 3) return Math.Min(2, orderStages.Count - 1); // Activación (Approved)
-        if (order.IdStatus >= 4) return orderStages.Count - 1; // Postventa
+        if (order.IdStatus == 1) return 0; // Preventa / Venta Creada
+        if (order.IdStatus == 2) return Math.Min(1, orderStages.Count - 1);
+        if (order.IdStatus == 3) return Math.Min(2, orderStages.Count - 1);
+        if (order.IdStatus >= 4) return orderStages.Count - 1;
 
         return 0;
     }
@@ -924,8 +938,8 @@
             var stageVms = await client.GetFromJsonAsync<List<StageVmDash>>("/api/engines/flow/stages");
             if (stageVms != null && stageVms.Any())
             {
-                _stageObjects = stageVms.OrderBy(s => s.OrderIndex).ToList();
-                _stages = _stageObjects.Select(s => s.Name).ToList();
+                _stageObjects = stageVms.OrderBy(s => s.IdFlow).ThenBy(s => s.OrderIndex).ToList();
+                _stages = _stageObjects.Where(s => s.IdFlow == 1).Select(s => s.Name).ToList();
             }
         }
         catch (Exception ex)
@@ -937,6 +951,7 @@
     private class StageVmDash
     {
         public long IdStage { get; set; }
+        public long IdFlow { get; set; }
         public string StageCode { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public int OrderIndex { get; set; }

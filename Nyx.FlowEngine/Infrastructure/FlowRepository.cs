@@ -13,6 +13,7 @@ public interface IFlowRepository
     Task<FlowDefinition?> GetFlowByCodeAsync(string code);
     Task<IEnumerable<FlowStage>> GetFlowStagesAsync(long flowId);
     Task<IEnumerable<FlowStage>> GetAllStagesAsync();
+    Task<IEnumerable<FlowStage>> GetStagesAsync(long? flowId = null);
     Task<long> CreateStageAsync(FlowStage stage);
     Task<bool> MoveStageAsync(long stageId, string direction); // "up" | "down"
     Task<bool> SetStageOrderAsync(long stageId, short newOrderIndex);  // direct order set
@@ -88,8 +89,21 @@ public class FlowRepository : IFlowRepository
     public async Task<IEnumerable<FlowStage>> GetAllStagesAsync()
     {
         using var db = CreateConnection();
-        const string sql = "SELECT id_stage AS IdStage, id_flow AS IdFlow, stage_code AS StageCode, name, description, order_index AS OrderIndex, is_terminal AS IsTerminal, sla_hours AS SlaHours, portfolio AS Portfolio, campaign AS Campaign, metadata FROM stage ORDER BY order_index;";
+        const string sql = "SELECT id_stage AS IdStage, id_flow AS IdFlow, stage_code AS StageCode, name, description, order_index AS OrderIndex, is_terminal AS IsTerminal, sla_hours AS SlaHours, portfolio AS Portfolio, campaign AS Campaign, metadata FROM stage ORDER BY id_flow, order_index;";
         return await db.QueryAsync<FlowStage>(sql);
+    }
+
+    public async Task<IEnumerable<FlowStage>> GetStagesAsync(long? flowId = null)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            SELECT id_stage AS IdStage, id_flow AS IdFlow, stage_code AS StageCode, name, description, 
+                   order_index AS OrderIndex, is_terminal AS IsTerminal, sla_hours AS SlaHours, 
+                   portfolio AS Portfolio, campaign AS Campaign, metadata 
+            FROM stage 
+            WHERE (@flowId IS NULL OR id_flow = @flowId) 
+            ORDER BY id_flow, order_index;";
+        return await db.QueryAsync<FlowStage>(sql, new { flowId });
     }
 
     public async Task<long> CreateStageAsync(FlowStage stage)

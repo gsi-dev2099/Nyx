@@ -7,7 +7,7 @@ namespace Nyx.FlowEngine.Application;
 public interface IFlowService
 {
     Task<IEnumerable<FlowDefinition>> GetFlowDefinitionsAsync();
-    Task<IEnumerable<FlowStage>> GetStagesAsync();
+    Task<IEnumerable<FlowStage>> GetStagesAsync(long? flowId = null);
     Task<FlowStage> CreateStageAsync(FlowStage stage);
     Task<bool> MoveStageAsync(long stageId, string direction);
     Task<bool> SetStageOrderAsync(long stageId, short newOrderIndex);
@@ -47,7 +47,7 @@ public class FlowService : IFlowService
     }
 
     public async Task<IEnumerable<FlowDefinition>> GetFlowDefinitionsAsync() => await _repo.GetFlowDefinitionsAsync();
-    public async Task<IEnumerable<FlowStage>> GetStagesAsync() => await _repo.GetAllStagesAsync();
+    public async Task<IEnumerable<FlowStage>> GetStagesAsync(long? flowId = null) => await _repo.GetStagesAsync(flowId);
     public async Task<FlowStage> CreateStageAsync(FlowStage stage)
     {
         var id = await _repo.CreateStageAsync(stage);

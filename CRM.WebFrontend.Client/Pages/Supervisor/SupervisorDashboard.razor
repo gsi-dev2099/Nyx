@@ -869,6 +869,31 @@
     {
         _selectedTimelineOrder = order;
         _selectedModalStageIndex = GetCurrentStageIndex(order);
+
+        try
+        {
+            var client = await GetAuthenticatedClient();
+            var flowInstance = await client.GetFromJsonAsync<FlowInstanceWithCheckpointsApiDto>(
+                $"/api/engines/flow/instances/by-entity/order/{order.IdOrder}");
+
+            if (flowInstance != null)
+            {
+                var stagesForFlow = _stageObjects.Where(s => s.IdFlow == flowInstance.IdFlow).OrderBy(s => s.OrderIndex).ToList();
+                if (stagesForFlow.Any())
+                {
+                    var matchIdx = stagesForFlow.FindIndex(s => s.IdStage == flowInstance.CurrentStageId);
+                    if (matchIdx >= 0)
+                    {
+                        _selectedModalStageIndex = matchIdx;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // fallback to GetCurrentStageIndex
+        }
+
         if (!_cachedCheckpoints.Any())
         {
             await LoadCheckpointsAndStepsAsync();
@@ -895,8 +920,8 @@
             var stageVms = await client.GetFromJsonAsync<List<StageVmDash>>("/api/engines/flow/stages");
             if (stageVms != null && stageVms.Any())
             {
-                _stageObjects = stageVms.OrderBy(s => s.OrderIndex).ToList();
-                _stages = _stageObjects.Select(s => s.Name).ToList();
+                _stageObjects = stageVms.OrderBy(s => s.IdFlow).ThenBy(s => s.OrderIndex).ToList();
+                _stages = _stageObjects.Where(s => s.IdFlow == 1).Select(s => s.Name).ToList();
             }
         }
         catch (Exception ex)
@@ -908,6 +933,7 @@
     private class StageVmDash
     {
         public long IdStage { get; set; }
+        public long IdFlow { get; set; }
         public string StageCode { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public int OrderIndex { get; set; }
@@ -915,17 +941,36 @@
         public string Campaign { get; set; } = "GENERAL";
     }
 
+    private static long ResolveFlowIdForOrder(TeamOrderDto? order)
+    {
+        if (order == null) return 1;
+        if (order.IdCmpg is >= 1 and <= 5) return 2; // Vodafone, Lowi, Yoigo, MasMovil, Orange
+        var cmpgName = order.CampaignName ?? "";
+        if (cmpgName.Contains("VODAFONE", StringComparison.OrdinalIgnoreCase) ||
+            cmpgName.Contains("LOWI", StringComparison.OrdinalIgnoreCase) ||
+            cmpgName.Contains("YOIGO", StringComparison.OrdinalIgnoreCase) ||
+            cmpgName.Contains("MASMOVIL", StringComparison.OrdinalIgnoreCase) ||
+            cmpgName.Contains("ORANGE", StringComparison.OrdinalIgnoreCase) ||
+            cmpgName.Contains("TELECOM", StringComparison.OrdinalIgnoreCase))
+            return 2;
+        return 1;
+    }
+
     private List<string> GetStagesForOrder(TeamOrderDto? order)
     {
-        if (order == null || !_stageObjects.Any()) return _stages.Any() ? _stages : new List<string> { "Venta Creada", "En Revisión Supervisor", "Validación Técnica", "Activación", "Postventa" };
+        if (order == null || !_stageObjects.Any()) return _stages.Any() ? _stages : new List<string> { "Preventa", "Venta Creada", "Gestión Inicial", "Validación Interna", "Envío Proveedor", "Validación Externa", "Firma", "Tramitación", "Activación", "Postventa", "Cerrada" };
 
-        var cmpgName = order.CampaignName ?? "";
+        var flowId = ResolveFlowIdForOrder(order);
+        var filtered = _stageObjects
+            .Where(s => s.IdFlow == flowId)
+            .OrderBy(s => s.OrderIndex)
+            .Select(s => s.Name)
+            .ToList();
 
-        var filtered = _stageObjects.Where(s =>
-            string.IsNullOrEmpty(s.Campaign) || s.Campaign == "GENERAL" || s.Campaign == "TODAS" ||
-            (!string.IsNullOrEmpty(cmpgName) && s.Campaign.Contains(cmpgName, StringComparison.OrdinalIgnoreCase)) ||
-            (!string.IsNullOrEmpty(cmpgName) && cmpgName.Contains(s.Campaign, StringComparison.OrdinalIgnoreCase))
-        ).OrderBy(s => s.OrderIndex).Select(s => s.Name).ToList();
+        if (!filtered.Any())
+        {
+            filtered = _stageObjects.Where(s => s.IdFlow == 1).OrderBy(s => s.OrderIndex).Select(s => s.Name).ToList();
+        }
 
         return filtered.Any() ? filtered : _stages;
     }
@@ -955,9 +1000,12 @@
         var orderStages = GetStagesForOrder(order);
         if (!orderStages.Any()) return 0;
 
+        var flowId = ResolveFlowIdForOrder(order);
+
         if (order.IdStatus.HasValue && _statusStageMap.TryGetValue(order.IdStatus.Value, out var targetStageId))
         {
-            var matchObj = _stageObjects.FirstOrDefault(s => s.IdStage == targetStageId);
+            var effectiveTargetStageId = (flowId == 2 && targetStageId <= 11) ? targetStageId + 11 : targetStageId;
+            var matchObj = _stageObjects.FirstOrDefault(s => s.IdStage == effectiveTargetStageId || (s.IdFlow == flowId && s.OrderIndex == targetStageId));
             if (matchObj != null)
             {
                 var idx = orderStages.IndexOf(matchObj.Name);
@@ -968,8 +1016,9 @@
         if (!string.IsNullOrEmpty(order.StatusName))
         {
             var matchObj = _stageObjects.FirstOrDefault(s =>
+                s.IdFlow == flowId && (
                 s.StageCode.Equals(order.StatusName, StringComparison.OrdinalIgnoreCase) ||
-                s.Name.Equals(order.StatusName, StringComparison.OrdinalIgnoreCase));
+                s.Name.Equals(order.StatusName, StringComparison.OrdinalIgnoreCase)));
             if (matchObj != null)
             {
                 var idx = orderStages.IndexOf(matchObj.Name);
@@ -979,6 +1028,7 @@
 
         return 0;
     }
+
 
     private IEnumerable<StatusDto> FilteredSupervisorStatuses => statuses.Where(s => s.Id == 1 || s.Id == 2 || s.Id == 5 || s.Name.Contains("Superv", StringComparison.OrdinalIgnoreCase) || s.Name.Contains("Borrador", StringComparison.OrdinalIgnoreCase));
 
@@ -1597,6 +1647,15 @@
         [System.Text.Json.Serialization.JsonPropertyName("idInstance")]
         public long IdInstance { get; set; }
 
+        [System.Text.Json.Serialization.JsonPropertyName("idFlow")]
+        public long IdFlow { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("currentStageId")]
+        public long CurrentStageId { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public string Status { get; set; } = "ACTIVE";
+
         [System.Text.Json.Serialization.JsonPropertyName("checkpointInstances")]
         public List<CheckpointInstanceApiDto> CheckpointInstances { get; set; } = new();
     }
@@ -1674,8 +1733,15 @@
 
     private List<StageCheckpointModalVm> GetCheckpointsForStageIndex(int stageIdx)
     {
-        if (stageIdx < 0 || stageIdx >= _stageObjects.Count) return new();
-        long stageId = _stageObjects[stageIdx].IdStage;
+        if (_selectedTimelineOrder == null) return new();
+        var flowId = ResolveFlowIdForOrder(_selectedTimelineOrder);
+        var stagesForFlow = _stageObjects.Where(s => s.IdFlow == flowId).OrderBy(s => s.OrderIndex).ToList();
+        if (!stagesForFlow.Any())
+        {
+            stagesForFlow = _stageObjects.Where(s => s.IdFlow == 1).OrderBy(s => s.OrderIndex).ToList();
+        }
+        if (stageIdx < 0 || stageIdx >= stagesForFlow.Count) return new();
+        long stageId = stagesForFlow[stageIdx].IdStage;
         return _cachedCheckpoints.Where(c => c.TriggerStageId == stageId).ToList();
     }
 
