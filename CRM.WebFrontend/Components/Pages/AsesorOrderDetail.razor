@@ -692,32 +692,48 @@
         };
     }
 
+    private static long ResolveFlowId(long idCmpg)
+    {
+        if (idCmpg is >= 1 and <= 5) return 2; // Telecom (Vodafone, Lowi, Yoigo, MasMovil, Orange)
+        return 1;
+    }
+
     private List<string> GetStagesForCurrentOrder()
     {
-        if (_order == null || !_stageObjects.Any()) return _stages.Any() ? _stages : new List<string> { "Venta Creada", "En Revisión Supervisor", "Validación Técnica", "Activación", "Postventa" };
+        if (_order == null || !_stageObjects.Any()) return _stages.Any() ? _stages : new List<string> { "Preventa", "Venta Creada", "Gestión Inicial", "Validación Interna", "Envío Proveedor", "Validación Externa", "Firma", "Tramitación", "Activación", "Postventa", "Cerrada" };
 
-        string cmpgName = GetCampaignNameById(_order.IdCmpg);
+        var flowId = ResolveFlowId(_order.IdCmpg);
+        var filtered = _stageObjects
+            .Where(s => s.IdFlow == flowId)
+            .OrderBy(s => s.OrderIndex)
+            .Select(s => s.Name)
+            .ToList();
 
-        var filtered = _stageObjects.Where(s =>
-            string.IsNullOrEmpty(s.Campaign) || s.Campaign == "GENERAL" || s.Campaign == "TODAS" ||
-            s.Campaign.Contains(cmpgName, StringComparison.OrdinalIgnoreCase) ||
-            cmpgName.Contains(s.Campaign, StringComparison.OrdinalIgnoreCase)
-        ).OrderBy(s => s.OrderIndex).Select(s => s.Name).ToList();
+        if (!filtered.Any())
+        {
+            filtered = _stageObjects.Where(s => s.IdFlow == 1).OrderBy(s => s.OrderIndex).Select(s => s.Name).ToList();
+        }
 
         return filtered.Any() ? filtered : _stages;
     }
 
+    private int _currentFlowStageIndex = -1;
+
     private int GetCurrentStageIndex()
     {
+        if (_currentFlowStageIndex >= 0) return _currentFlowStageIndex;
         if (_order == null) return 0;
         var orderStages = GetStagesForCurrentOrder();
         if (!orderStages.Any()) return 0;
 
+        var flowId = ResolveFlowId(_order.IdCmpg);
+
         if (!string.IsNullOrEmpty(_order.Status))
         {
             var matchObj = _stageObjects.FirstOrDefault(s =>
+                s.IdFlow == flowId && (
                 s.StageCode.Equals(_order.Status, StringComparison.OrdinalIgnoreCase) ||
-                s.Name.Equals(_order.Status, StringComparison.OrdinalIgnoreCase));
+                s.Name.Equals(_order.Status, StringComparison.OrdinalIgnoreCase)));
             if (matchObj != null)
             {
                 var idx = orderStages.IndexOf(matchObj.Name);
@@ -725,10 +741,10 @@
             }
         }
 
-        if (_order.IdStatus == 1) return 0; // Venta Creada
-        if (_order.IdStatus == 2) return Math.Min(1, orderStages.Count - 1); // En Revisión Supervisor
-        if (_order.IdStatus == 3) return Math.Min(2, orderStages.Count - 1); // Activación (Approved)
-        if (_order.IdStatus >= 4) return orderStages.Count - 1; // Postventa
+        if (_order.IdStatus == 1) return 0;
+        if (_order.IdStatus == 2) return Math.Min(1, orderStages.Count - 1);
+        if (_order.IdStatus == 3) return Math.Min(2, orderStages.Count - 1);
+        if (_order.IdStatus >= 4) return orderStages.Count - 1;
 
         return 0;
     }
@@ -868,8 +884,8 @@
             var stageVms = await client.GetFromJsonAsync<List<StageVmDetail>>("/api/engines/flow/stages");
             if (stageVms != null && stageVms.Any())
             {
-                _stageObjects = stageVms.OrderBy(s => s.OrderIndex).ToList();
-                _stages = _stageObjects.Select(s => s.Name).ToList();
+                _stageObjects = stageVms.OrderBy(s => s.IdFlow).ThenBy(s => s.OrderIndex).ToList();
+                _stages = _stageObjects.Where(s => s.IdFlow == 1).Select(s => s.Name).ToList();
             }
         }
         catch (Exception ex)
@@ -881,11 +897,20 @@
     private class StageVmDetail
     {
         public long IdStage { get; set; }
+        public long IdFlow { get; set; }
         public string StageCode { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public int OrderIndex { get; set; }
         public string Portfolio { get; set; } = "GENERAL";
         public string Campaign { get; set; } = "GENERAL";
+    }
+
+    public class FlowInstanceApiDto
+    {
+        public long IdInstance { get; set; }
+        public long IdFlow { get; set; }
+        public long CurrentStageId { get; set; }
+        public string Status { get; set; } = "ACTIVE";
     }
 
     private async Task LoadOrderDetails()
@@ -949,10 +974,10 @@
                     {
                         try
                         {
-                            var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(alternate.AlternateData);
+                            var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(alternate.AlternateData);
                             if (dict != null)
                             {
-                                _altHolderName = dict.TryGetValue("TitularAlterno", out string? v1) ? v1 : string.Empty;
+                                _altHolderName = dict.TryGetValue("NombreTitularAlterno", out string? v1) ? v1 : string.Empty;
                                 _altHolderDni  = dict.TryGetValue("DniAlterno",     out string? v2) ? v2 : string.Empty;
                                 _altPhone      = dict.TryGetValue("TelefonoAlterno",  out string? v3) ? v3 : string.Empty;
                                 _altAddress    = dict.TryGetValue("DireccionAlterna", out string? v4) ? v4 : string.Empty;
@@ -965,6 +990,27 @@
                 {
                     _alternateProfile = new AlternateProfileViewModel { IdOrder = _order.IdOrder };
                     _showAlternate = false;
+                }
+
+                // 6. Consultar estado real en el Motor de Flujos (FlowEngine)
+                try
+                {
+                    var client = HttpClientFactory.CreateClient("BackendApi");
+                    var flowInst = await client.GetFromJsonAsync<FlowInstanceApiDto>($"/api/engines/flow/instances/by-entity/order/{_order.IdOrder}");
+                    if (flowInst != null)
+                    {
+                        var flowId = flowInst.IdFlow > 0 ? flowInst.IdFlow : ResolveFlowId(_order.IdCmpg);
+                        var stagesForFlow = _stageObjects.Where(s => s.IdFlow == flowId).OrderBy(s => s.OrderIndex).ToList();
+                        var matchIdx = stagesForFlow.FindIndex(s => s.IdStage == flowInst.CurrentStageId);
+                        if (matchIdx >= 0)
+                        {
+                            _currentFlowStageIndex = matchIdx;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback to CRM status mapping
                 }
             }
         }

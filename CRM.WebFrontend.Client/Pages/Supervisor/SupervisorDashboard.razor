@@ -878,27 +878,42 @@
 
             if (flowInstance != null)
             {
-                var stagesForFlow = _stageObjects.Where(s => s.IdFlow == flowInstance.IdFlow).OrderBy(s => s.OrderIndex).ToList();
-                if (stagesForFlow.Any())
+                // Cargar SOLO las etapas del flujo de esta orden
+                var stagesForFlow = await client.GetFromJsonAsync<List<StageVmDash>>(
+                    $"/api/engines/flow/stages?flowId={flowInstance.IdFlow}");
+
+                if (stagesForFlow != null && stagesForFlow.Any())
                 {
-                    var matchIdx = stagesForFlow.FindIndex(s => s.IdStage == flowInstance.CurrentStageId);
-                    if (matchIdx >= 0)
+                    _stageObjects = stagesForFlow.OrderBy(s => s.OrderIndex).ToList();
+                    // Usar currentStageId del motor, no id_status del CRM
+                    _selectedModalStageIndex = _stageObjects
+                        .FindIndex(s => s.IdStage == flowInstance.CurrentStageId);
+                }
+                else
+                {
+                    var flowStages = _stageObjects.Where(s => s.IdFlow == flowInstance.IdFlow).OrderBy(s => s.OrderIndex).ToList();
+                    if (flowStages.Any())
                     {
-                        _selectedModalStageIndex = matchIdx;
+                        _selectedModalStageIndex = flowStages.FindIndex(s => s.IdStage == flowInstance.CurrentStageId);
                     }
                 }
+
+                await LoadCheckpointInstancesForOrder(order.IdOrder);
+            }
+            else
+            {
+                await LoadCheckpointInstancesForOrder(order.IdOrder);
             }
         }
         catch
         {
-            // fallback to GetCurrentStageIndex
+            await LoadCheckpointInstancesForOrder(order.IdOrder);
         }
 
         if (!_cachedCheckpoints.Any())
         {
             await LoadCheckpointsAndStepsAsync();
         }
-        await LoadCheckpointInstancesForOrder(order.IdOrder);
     }
     private void CloseTimelineModal()
     {
