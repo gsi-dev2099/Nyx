@@ -88,9 +88,20 @@ public class FlowInstance
     public long CurrentStageId { get; set; }
     public int DayCounter { get; set; } = 1;
     public string Metadata { get; set; } = "{}";
+    public string Facts { get; set; } = "{}";
     public string Status { get; set; } = "ACTIVE"; // ACTIVE, COMPLETED, CANCELLED
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? CompletedAt { get; set; }
+}
+
+public class CheckpointCatalogWithStepsDto : CheckpointCatalog
+{
+    public List<CheckpointStep> Steps { get; set; } = new();
+}
+
+public class FlowInstanceWithCheckpointsDto : FlowInstance
+{
+    public List<CheckpointInstance> CheckpointInstances { get; set; } = new();
 }
 
 public class CheckpointInstance

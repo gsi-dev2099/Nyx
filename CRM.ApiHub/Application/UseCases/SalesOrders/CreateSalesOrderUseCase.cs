@@ -53,10 +53,20 @@ public class CreateSalesOrderUseCase
         await _slaEngineClient.StartMeasurementAsync("order", newId, "SLA_SALES_VALIDATION", order.OwnerUserId, order.IdUser);
 
         // Instanciar pipeline y checkpoints autonomos en Nyx.FlowEngine
-        await _flowEngineClient.StartFlowInstanceAsync("PIPELINE_ALARMAS", "order", newId, order.IdUser);
+        var flowCode = ResolveFlowCode(order.IdCmpg);
+        await _flowEngineClient.StartFlowInstanceAsync(flowCode, "order", newId, order.IdUser);
 
         return order;
     }
 
+    private static string ResolveFlowCode(long idCmpg)
+    {
+        return idCmpg switch
+        {
+            1 or 2 => "PIPELINE_ALARMAS", // Securitas Direct y Alarmas
+            3 or 4 or 5 => "PIPELINE_TELECOM", // Telecom (Vodafone, Yoigo, MásMóvil)
+            _ => "PIPELINE_ALARMAS" // Fallback estándar
+        };
+    }
 }
 

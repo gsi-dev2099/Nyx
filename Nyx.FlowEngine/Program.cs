@@ -8,6 +8,7 @@ builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddScoped<IFlowRepository, FlowRepository>();
 builder.Services.AddScoped<IFlowService, FlowService>();
+builder.Services.AddHostedService<ScheduledCheckpointActivator>();
 
 var app = builder.Build();
 

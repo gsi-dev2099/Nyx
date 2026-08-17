@@ -68,10 +68,19 @@ public class FlowController : ControllerBase
     }
 
     [HttpGet("checkpoints/catalog")]
+    [HttpGet("catalogs")]
     public async Task<IActionResult> GetCheckpointCatalog([FromQuery] long? flowId)
     {
         var catalog = await _service.GetCheckpointCatalogAsync(flowId);
         return Ok(catalog);
+    }
+
+    [HttpGet("checkpoints/catalog/full")]
+    [HttpGet("catalogs/full")]
+    public async Task<IActionResult> GetFullCheckpointCatalog([FromQuery] long? flowId)
+    {
+        var fullCatalog = await _service.GetFullCheckpointCatalogAsync(flowId);
+        return Ok(fullCatalog);
     }
 
     [HttpPost("checkpoints/catalog")]
@@ -149,6 +158,40 @@ public class FlowController : ControllerBase
         {
             return BadRequest(new { error = ex.Message });
         }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("instances/{id:long}")]
+    public async Task<IActionResult> GetInstance(long id)
+    {
+        var instance = await _service.GetFlowInstanceByIdAsync(id);
+        if (instance == null) return NotFound(new { error = $"Flow instance #{id} not found." });
+        return Ok(instance);
+    }
+
+    [HttpGet("instances/{id:long}/checkpoints")]
+    public async Task<IActionResult> GetInstanceCheckpoints(long id)
+    {
+        var checkpoints = await _service.GetCheckpointInstancesForFlowAsync(id);
+        return Ok(checkpoints);
+    }
+
+    [HttpGet("instances/by-entity/{entityType}/{entityId:long}")]
+    public async Task<IActionResult> GetByEntity(string entityType, long entityId)
+    {
+        var instanceWithCps = await _service.GetFlowInstanceWithCheckpointsByEntityAsync(entityType, entityId);
+        if (instanceWithCps == null) return NotFound(new { error = $"No flow instance found for {entityType} #{entityId}." });
+        return Ok(instanceWithCps);
+    }
+
+    [HttpPost("instances/{id:long}/facts")]
+    public async Task<IActionResult> SetFacts(long id, [FromBody] SetFactsRequest req)
+    {
+        await _service.SetFlowInstanceFactsAsync(id, req.FactsJson, req.ActorId ?? 1);
+        return Ok(new { updated = true });
     }
 
     [HttpPost("checkpoints/instances/{id:long}/resolve")]
@@ -156,6 +199,20 @@ public class FlowController : ControllerBase
     {
         var result = await _service.ResolveCheckpointAsync(id, req.Status, req.ActorId ?? 1);
         return Ok(result);
+    }
+
+    [HttpGet("checkpoints/instances/{id:long}/steps")]
+    public async Task<IActionResult> GetStepProgress(long id)
+    {
+        var steps = await _service.GetStepProgressAsync(id);
+        return Ok(steps);
+    }
+
+    [HttpPost("checkpoints/instances/{cpInstanceId:long}/steps/{stepId:long}/toggle")]
+    public async Task<IActionResult> ToggleStepProgress(long cpInstanceId, long stepId, [FromBody] ToggleStepRequest req)
+    {
+        await _service.ToggleStepProgressAsync(cpInstanceId, stepId, req.IsCompleted, req.ActorId ?? 1);
+        return Ok(new { cpInstanceId, stepId, isCompleted = req.IsCompleted });
     }
 }
 
@@ -167,6 +224,5 @@ public record SetOrderRequest(short OrderIndex);
 public record UpdateCampaignRequest(string Campaign);
 public record UpdatePortfolioRequest(string Portfolio);
 public record UpdateStageIdRequest(long? StageId);
-
-
-
+public record SetFactsRequest(string FactsJson, long? ActorId);
+public record ToggleStepRequest(bool IsCompleted, long? ActorId);

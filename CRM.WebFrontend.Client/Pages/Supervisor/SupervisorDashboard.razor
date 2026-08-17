@@ -628,7 +628,7 @@
                         {
                             <div class="text-center py-4 bg-light rounded-3">
                                 <i class="bi bi-info-circle text-muted fs-4 d-block mb-1"></i>
-                                <span class="text-muted small fw-semibold">No hay checkpoints obligatorios registrados en esta etapa.</span>
+                                <span class="text-muted small fw-semibold">No hay checkpoints obligatorios registrados para la etapa <strong>@activeStageName</strong>.</span>
                             </div>
                         }
                         else
@@ -705,13 +705,28 @@
                                             }
 
                                             <!-- Acciones Directas de Aprobación/Rechazo por Checkpoint -->
+                                            @{
+                                                bool hasUnfinishedRequired = cp.Steps.Any(s => s.IsRequired && !s.IsCompleted);
+                                            }
                                             <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary border-opacity-10">
-                                                <span class="text-muted small" style="font-size:11px;">Aprobación directa de @cp.Code:</span>
+                                                <div>
+                                                    <span class="text-muted small" style="font-size:11px;">Aprobación de @cp.Code:</span>
+                                                    @if (hasUnfinishedRequired)
+                                                    {
+                                                        <small class="text-danger ms-2" style="font-size:10px;">
+                                                            (@cp.Steps.Count(s => s.IsRequired && !s.IsCompleted) paso(s) obligatorio(s) pendiente(s))
+                                                        </small>
+                                                    }
+                                                </div>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1" style="font-size:11px;" @onclick="() => RejectCheckpoint(cp)">
                                                         <i class="bi bi-x-lg me-1"></i> Rechazar / KO
                                                     </button>
-                                                    <button type="button" class="btn btn-sm @(cp.Status == "APROBADO" ? "btn-success text-white" : "btn-outline-success") rounded-pill px-3 py-1" style="font-size:11px;" @onclick="() => ApproveCheckpoint(cp)">
+                                                    <button type="button" class="btn btn-sm @(cp.Status == "APROBADO" ? "btn-success text-white" : "btn-outline-success") rounded-pill px-3 py-1" 
+                                                            style="font-size:11px;" 
+                                                            disabled="@hasUnfinishedRequired"
+                                                            title="@(hasUnfinishedRequired ? "Completa todos los pasos obligatorios antes de aprobar" : "")"
+                                                            @onclick="() => ApproveCheckpoint(cp)">
                                                         <i class="bi bi-check-lg me-1"></i> Aprobar Checkpoint
                                                     </button>
                                                 </div>
@@ -858,6 +873,7 @@
         {
             await LoadCheckpointsAndStepsAsync();
         }
+        await LoadCheckpointInstancesForOrder(order.IdOrder);
     }
     private void CloseTimelineModal()
     {
@@ -1362,6 +1378,7 @@
     public class StageCheckpointModalVm
     {
         public long IdCheckpoint { get; set; }
+        public long? IdCpInstance { get; set; }
         public string Code { get; set; } = "";
         public string Name { get; set; } = "";
         public long? TriggerStageId { get; set; }
@@ -1374,9 +1391,89 @@
         public int CompletedStepsCount => Steps.Count(s => s.IsCompleted);
     }
 
-    private void ToggleStepCompletion(StageCheckpointModalVm cp, CheckpointStepModalVm step, bool isCompleted)
+    private async Task<long> GetCurrentUserIdAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var idClaim = authState.User.FindFirst("id")?.Value ?? authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (long.TryParse(idClaim, out var id)) return id;
+        }
+        catch { }
+        return 9; // Fallback Supervisor
+    }
+
+    private async Task LoadCheckpointInstancesForOrder(long orderId)
+    {
+        try
+        {
+            var client = await GetAuthenticatedClient();
+            var flowInstance = await client.GetFromJsonAsync<FlowInstanceWithCheckpointsApiDto>($"/api/engines/flow/instances/by-entity/order/{orderId}");
+            if (flowInstance?.CheckpointInstances != null)
+            {
+                foreach (var cpVm in _cachedCheckpoints)
+                {
+                    var match = flowInstance.CheckpointInstances
+                        .FirstOrDefault(ci => ci.IdCheckpoint == cpVm.IdCheckpoint && (ci.Status == "PENDING" || ci.Status == "SUBSANADO" || ci.Status == "KO" || ci.Status == "SCHEDULED"));
+                    
+                    if (match != null)
+                    {
+                        cpVm.IdCpInstance = match.IdCpInstance;
+                        cpVm.Status = match.Status == "SUBSANADO" ? "APROBADO" : (match.Status == "KO" ? "RECHAZADO" : "PENDIENTE");
+
+                        // Cargar progreso de pasos si la instancia existe
+                        try
+                        {
+                            var stepProgress = await client.GetFromJsonAsync<List<StepProgressApiDto>>($"/api/engines/flow/checkpoints/instances/{match.IdCpInstance}/steps");
+                            if (stepProgress != null)
+                            {
+                                var completedMap = stepProgress.ToDictionary(sp => sp.IdStep, sp => sp.IsCompleted);
+                                foreach (var step in cpVm.Steps)
+                                {
+                                    if (completedMap.TryGetValue(step.IdStep, out var isComp))
+                                    {
+                                        step.IsCompleted = isComp;
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                    else
+                    {
+                        cpVm.IdCpInstance = null;
+                        cpVm.Status = "PENDIENTE";
+                        foreach (var step in cpVm.Steps) step.IsCompleted = false;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SupervisorDashboard] Error cargando instancias de orden #{orderId}: {ex.Message}");
+        }
+    }
+
+    private async Task ToggleStepCompletion(StageCheckpointModalVm cp, CheckpointStepModalVm step, bool isCompleted)
     {
         step.IsCompleted = isCompleted;
+        if (cp.IdCpInstance.HasValue)
+        {
+            try
+            {
+                var client = await GetAuthenticatedClient();
+                var actorId = await GetCurrentUserIdAsync();
+                await client.PostAsJsonAsync(
+                    $"/api/engines/flow/checkpoints/instances/{cp.IdCpInstance.Value}/steps/{step.IdStep}/toggle",
+                    new { isCompleted, actorId }
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SupervisorDashboard] Error toggling step #{step.IdStep}: {ex.Message}");
+            }
+        }
+
         if (cp.AreAllRequiredStepsCompleted && cp.Status == "PENDIENTE")
         {
             cp.Status = "APROBADO";
@@ -1385,20 +1482,120 @@
         {
             cp.Status = "PENDIENTE";
         }
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void ApproveCheckpoint(StageCheckpointModalVm cp)
+    private async Task ApproveCheckpoint(StageCheckpointModalVm cp)
     {
-        foreach (var s in cp.Steps)
+        if (cp.Steps.Any(s => s.IsRequired && !s.IsCompleted))
         {
-            s.IsCompleted = true;
+            Snackbar.Add("⚠ Hay pasos obligatorios sin completar. Marca todos los pasos obligatorios antes de aprobar.", Severity.Warning);
+            return;
         }
-        cp.Status = "APROBADO";
+
+        if (!cp.IdCpInstance.HasValue)
+        {
+            Snackbar.Add("Este checkpoint no tiene una instancia activa para esta orden en el motor de flujos.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var client = await GetAuthenticatedClient();
+            var actorId = await GetCurrentUserIdAsync();
+            var response = await client.PostAsJsonAsync(
+                $"/api/engines/flow/instances/{cp.IdCpInstance.Value}/resolve",
+                new { status = "SUBSANADO", actorId }
+            );
+
+            if (response.IsSuccessStatusCode)
+            {
+                cp.Status = "APROBADO";
+                foreach (var s in cp.Steps) s.IsCompleted = true;
+                Snackbar.Add($"Checkpoint {cp.Code} aprobado y subsanado correctamente.", Severity.Success);
+                await InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error al aprobar checkpoint: {err}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
     }
 
-    private void RejectCheckpoint(StageCheckpointModalVm cp)
+    private async Task RejectCheckpoint(StageCheckpointModalVm cp)
     {
-        cp.Status = "RECHAZADO";
+        if (!cp.IdCpInstance.HasValue)
+        {
+            Snackbar.Add("Este checkpoint no tiene una instancia activa para esta orden.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var client = await GetAuthenticatedClient();
+            var actorId = await GetCurrentUserIdAsync();
+            var response = await client.PostAsJsonAsync(
+                $"/api/engines/flow/instances/{cp.IdCpInstance.Value}/resolve",
+                new { status = "KO", actorId }
+            );
+
+            if (response.IsSuccessStatusCode)
+            {
+                cp.Status = "RECHAZADO";
+                Snackbar.Add($"Checkpoint {cp.Code} marcado como Rechazado (KO). Se han evaluado reglas y posibles retrocesos.", Severity.Info);
+                await InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error al rechazar checkpoint: {err}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    public class FullCatalogItemApiDto : CatalogItemApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("steps")]
+        public List<CheckpointStepApiDto> Steps { get; set; } = new();
+    }
+
+    public class FlowInstanceWithCheckpointsApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idInstance")]
+        public long IdInstance { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("checkpointInstances")]
+        public List<CheckpointInstanceApiDto> CheckpointInstances { get; set; } = new();
+    }
+
+    public class CheckpointInstanceApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idCpInstance")]
+        public long IdCpInstance { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("idCheckpoint")]
+        public long IdCheckpoint { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public string Status { get; set; } = "PENDING";
+    }
+
+    public class StepProgressApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idStep")]
+        public long IdStep { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("isCompleted")]
+        public bool IsCompleted { get; set; }
     }
 
     public class CatalogItemApiDto
@@ -1453,36 +1650,44 @@
 
     private List<StageCheckpointModalVm> GetCheckpointsForStageIndex(int stageIdx)
     {
-        long stageId = (stageIdx >= 0 && stageIdx < _stageObjects.Count) ? _stageObjects[stageIdx].IdStage : (long)(stageIdx + 1);
-        var filtered = _cachedCheckpoints.Where(c => c.TriggerStageId == stageId).ToList();
-        
-        Console.WriteLine($"[SupervisorDashboard] GetCheckpointsForStageIndex: stageIdx={stageIdx}, stageId={stageId}, Total cached={_cachedCheckpoints.Count}, Coincidentes={filtered.Count}");
-        
-        if (!filtered.Any() && _cachedCheckpoints.Any())
-        {
-            // Fallback match: if stageId didn't match directly or trigger_stage_id is null/0
-            filtered = _cachedCheckpoints.Where(c => c.TriggerStageId == null || c.TriggerStageId == 0 || c.TriggerStageId == stageId).ToList();
-            Console.WriteLine($"[SupervisorDashboard] Fallback aplicado! Checkpoints retornados={filtered.Count}");
-        }
-
-        return filtered;
+        if (stageIdx < 0 || stageIdx >= _stageObjects.Count) return new();
+        long stageId = _stageObjects[stageIdx].IdStage;
+        return _cachedCheckpoints.Where(c => c.TriggerStageId == stageId).ToList();
     }
 
     private async Task LoadCheckpointsAndStepsAsync()
     {
         try
         {
-            Console.WriteLine("[SupervisorDashboard] Cargando catálogo de checkpoints desde /api/engines/flow/catalogs...");
             var client = await GetAuthenticatedClient();
-            var catalog = await client.GetFromJsonAsync<List<CatalogItemApiDto>>("/api/engines/flow/catalogs");
-            Console.WriteLine($"[SupervisorDashboard] Catálogo recibido de la API: {(catalog != null ? catalog.Count : 0)} items.");
+            var fullCatalog = await client.GetFromJsonAsync<List<FullCatalogItemApiDto>>("/api/engines/flow/catalogs/full");
 
-            if (catalog != null)
+            if (fullCatalog != null && fullCatalog.Any())
             {
-                var list = new List<StageCheckpointModalVm>();
-                foreach (var c in catalog)
+                _cachedCheckpoints = fullCatalog.Select(c => new StageCheckpointModalVm
                 {
-                    var vm = new StageCheckpointModalVm
+                    IdCheckpoint = c.IdCheckpoint,
+                    Code = c.Code,
+                    Name = c.Name,
+                    TriggerStageId = c.TriggerStageId,
+                    BlocksAdvance = c.BlocksAdvance,
+                    RollbackToStage = c.RollbackToStage,
+                    Steps = (c.Steps ?? new List<CheckpointStepApiDto>()).Select(s => new CheckpointStepModalVm
+                    {
+                        IdStep = s.IdStep,
+                        StepOrder = s.StepOrder,
+                        Instruction = !string.IsNullOrWhiteSpace(s.Instruction) ? s.Instruction : s.Name,
+                        IsRequired = s.IsRequired,
+                        IsCompleted = false
+                    }).ToList()
+                }).ToList();
+            }
+            else
+            {
+                var catalog = await client.GetFromJsonAsync<List<CatalogItemApiDto>>("/api/engines/flow/catalogs");
+                if (catalog != null)
+                {
+                    _cachedCheckpoints = catalog.Select(c => new StageCheckpointModalVm
                     {
                         IdCheckpoint = c.IdCheckpoint,
                         Code = c.Code,
@@ -1490,36 +1695,13 @@
                         TriggerStageId = c.TriggerStageId,
                         BlocksAdvance = c.BlocksAdvance,
                         RollbackToStage = c.RollbackToStage
-                    };
-                    try
-                    {
-                        var steps = await client.GetFromJsonAsync<List<CheckpointStepApiDto>>($"/api/engines/flow/catalogs/{c.IdCheckpoint}/steps");
-                        if (steps != null)
-                        {
-                            vm.Steps = steps.Select(s => new CheckpointStepModalVm
-                            {
-                                IdStep = s.IdStep,
-                                StepOrder = s.StepOrder,
-                                Instruction = !string.IsNullOrWhiteSpace(s.Instruction) ? s.Instruction : s.Name,
-                                IsRequired = s.IsRequired,
-                                IsCompleted = false
-                            }).ToList();
-                        }
-                    }
-                    catch (Exception exStep)
-                    {
-                        Console.WriteLine($"[SupervisorDashboard] Warn leyendo pasos de CP #{c.IdCheckpoint}: {exStep.Message}");
-                    }
-
-                    list.Add(vm);
+                    }).ToList();
                 }
-                _cachedCheckpoints = list;
-                Console.WriteLine($"[SupervisorDashboard] Éxito: {_cachedCheckpoints.Count} checkpoints guardados en caché local.");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SupervisorDashboard] Error crítico en LoadCheckpointsAndStepsAsync: {ex.Message}");
+            Console.WriteLine($"[SupervisorDashboard] Error en LoadCheckpointsAndStepsAsync: {ex.Message}");
         }
     }
 }

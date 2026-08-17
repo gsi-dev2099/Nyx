@@ -40,13 +40,17 @@ public class UpdateSalesOrderStatusUseCase
         // Consultar avance de etapa en Nyx.FlowEngine si cambia de estado hacia adelante
         if (dto.ToStatusId > existingOrder.IdStatus)
         {
-            try
+            var flowInstance = await _flowEngineClient.GetInstanceByEntityAsync("order", idOrder);
+            if (flowInstance != null)
             {
-                await _flowEngineClient.AdvanceStageAsync(idOrder, actorId);
-            }
-            catch (InvalidOperationException ex)
-            {
-                throw new InvalidOperationException($"Transición bloqueada por el Motor de Flujos (Nyx.FlowEngine): {ex.Message}");
+                try
+                {
+                    await _flowEngineClient.AdvanceStageAsync(flowInstance.IdInstance, actorId);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    throw new InvalidOperationException($"Transición bloqueada por el Motor de Flujos (Nyx.FlowEngine): {ex.Message}");
+                }
             }
         }
 

@@ -297,23 +297,85 @@ public class EngineManagementController : ControllerBase
         }
     }
 
-    [HttpGet("flow/instances/{id:long}/checkpoints")]
-    public async Task<IActionResult> GetInstanceCheckpoints(long id)
+    [HttpGet("flow/catalogs/full")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetFullFlowCatalogs([FromQuery] long? flowId)
+    {
+        var fullCatalog = await _flowClient.GetFullCatalogAsync(flowId);
+        return Ok(fullCatalog);
+    }
+
+    [HttpGet("flow/instances/by-entity/{entityType}/{entityId:long}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetFlowInstanceByEntity(string entityType, long entityId)
+    {
+        var instance = await _flowClient.GetInstanceWithCheckpointsByEntityAsync(entityType, entityId);
+        if (instance == null) return NotFound(new { error = $"No flow instance found for {entityType} #{entityId}." });
+        return Ok(instance);
+    }
+
+    [HttpPost("flow/instances/{cpInstanceId:long}/resolve")]
+    [HttpPost("flow/checkpoints/instances/{cpInstanceId:long}/resolve")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResolveCheckpoint(long cpInstanceId, [FromBody] System.Text.Json.JsonElement payload)
     {
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            var response = await _rawHttpClient.GetAsync($"http://flow_engine_api:5072/api/flow/instances/{id}/checkpoints", cts.Token);
-            if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync(cts.Token);
-                return Content(content, "application/json");
-            }
-            return Ok(Array.Empty<object>());
+            var status = payload.TryGetProperty("status", out var stProp) ? stProp.GetString() ?? "SUBSANADO" : "SUBSANADO";
+            var actorId = payload.TryGetProperty("actorId", out var actProp) && actProp.TryGetInt64(out var act) ? act : 1;
+            var result = await _flowClient.ResolveCheckpointAsync(cpInstanceId, status, actorId);
+            return Ok(result);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return Ok(Array.Empty<object>());
+            _logger.LogError(ex, "Error resolving checkpoint instance #{CpInstanceId}", cpInstanceId);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("flow/checkpoints/instances/{cpInstanceId:long}/steps/{stepId:long}/toggle")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ToggleStepProgress(long cpInstanceId, long stepId, [FromBody] System.Text.Json.JsonElement payload)
+    {
+        try
+        {
+            var isCompleted = payload.TryGetProperty("isCompleted", out var icProp) && icProp.GetBoolean();
+            var actorId = payload.TryGetProperty("actorId", out var actProp) && actProp.TryGetInt64(out var act) ? act : 1;
+            var ok = await _flowClient.ToggleStepProgressAsync(cpInstanceId, stepId, isCompleted, actorId);
+            return ok ? Ok(new { cpInstanceId, stepId, isCompleted }) : BadRequest(new { error = "No se pudo actualizar el paso." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error toggling step progress for CP #{CpInstanceId}, Step #{StepId}", cpInstanceId, stepId);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("flow/checkpoints/instances/{cpInstanceId:long}/steps")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetStepProgress(long cpInstanceId)
+    {
+        var steps = await _flowClient.GetStepProgressAsync(cpInstanceId);
+        return Ok(steps);
+    }
+
+    [HttpPost("flow/instances/{id:long}/advance")]
+    [AllowAnonymous]
+    public async Task<IActionResult> AdvanceFlowInstance(long id, [FromBody] System.Text.Json.JsonElement payload)
+    {
+        try
+        {
+            var actorId = payload.TryGetProperty("actorId", out var actProp) && actProp.TryGetInt64(out var act) ? act : 1;
+            var result = await _flowClient.AdvanceStageAsync(id, actorId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
         }
     }
 

@@ -19,6 +19,7 @@ public interface IFlowRepository
     Task<bool> UpdateStageAsync(FlowStage stage); // edit name, description, sla, terminal
     
     Task<IEnumerable<CheckpointCatalog>> GetCheckpointCatalogAsync(long? flowId = null);
+    Task<IEnumerable<CheckpointCatalogWithStepsDto>> GetFullCheckpointCatalogAsync(long? flowId = null);
     Task<CheckpointCatalog?> GetCheckpointByCodeAsync(string code);
     Task<long> CreateCheckpointCatalogAsync(CheckpointCatalog cp);
     Task ApproveCheckpointCatalogAsync(long checkpointId, string approvedByJson);
@@ -27,18 +28,24 @@ public interface IFlowRepository
     Task<bool> UpdateCheckpointStageAsync(long checkpointId, long? stageId);
     Task<bool> UpdateCheckpointCatalogAsync(long id, CheckpointCatalog cp);
 
-
-
-    
     Task<IEnumerable<CheckpointStep>> GetCheckpointStepsAsync(long checkpointId);
     Task SaveCheckpointStepsAsync(long checkpointId, IEnumerable<CheckpointStep> steps);
+    
     Task<long> CreateFlowInstanceAsync(FlowInstance instance);
     Task<FlowInstance?> GetFlowInstanceAsync(string entityType, long entityId, long flowId);
+    Task<FlowInstance?> GetFlowInstanceByIdAsync(long instanceId);
+    Task<FlowInstance?> GetFlowInstanceByEntityAsync(string entityType, long entityId);
     Task UpdateFlowInstanceStageAsync(long instanceId, long currentStageId, int dayCounter, string status);
+    Task UpdateFlowInstanceFactsAsync(long instanceId, string factsJson);
     
     Task<long> CreateCheckpointInstanceAsync(CheckpointInstance cpInst);
+    Task<CheckpointInstance?> GetCheckpointInstanceByIdAsync(long cpInstanceId);
     Task<IEnumerable<CheckpointInstance>> GetCheckpointInstancesForFlowAsync(long instanceId);
     Task UpdateCheckpointInstanceStatusAsync(long cpInstanceId, string status, long? resolvedBy);
+
+    Task<IEnumerable<CheckpointStepProgress>> GetStepProgressAsync(long cpInstanceId);
+    Task UpsertStepProgressAsync(long cpInstanceId, long stepId, bool isCompleted, long? completedBy);
+    Task ActivateDueScheduledCheckpointsAsync();
     
     Task RecordStageTransitionAsync(StageTransition transition);
     Task LogAuditAsync(long actorId, string action, long? instanceId, long? checkpointId, string detailJson);
@@ -203,6 +210,52 @@ public class FlowRepository : IFlowRepository
         return await db.QueryAsync<CheckpointCatalog>(sql, new { flowId });
     }
 
+    public async Task<IEnumerable<CheckpointCatalogWithStepsDto>> GetFullCheckpointCatalogAsync(long? flowId = null)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            SELECT cc.id_checkpoint AS IdCheckpoint, cc.code, cc.name, cc.description, cc.id_flow AS IdFlow, 
+                   cc.trigger_stage_id AS TriggerStageId, cc.origin, cc.scope, cc.blocks, cc.blocks_advance AS BlocksAdvance, 
+                   cc.rollback_to_stage AS RollbackToStage, cc.triggered_by_ko AS TriggeredByKo, cc.is_recurrent AS IsRecurrent, 
+                   cc.recurrence_days AS RecurrenceDays, cc.max_occurrences AS MaxOccurrences, cc.owner_dept AS OwnerDept, 
+                   cc.category AS Category, cc.division AS Division, cc.approval_job_title AS ApprovalJobTitle, 
+                   cc.satellites AS Satellites, cc.execution_order AS ExecutionOrder, 
+                   cc.rollback_to_checkpoint_code AS RollbackToCheckpointCode, cc.rollback_to_step_order AS RollbackToStepOrder, 
+                   cc.precondition_fact AS PreconditionFact, cc.portfolio AS Portfolio, cc.campaign AS Campaign, 
+                   cc.provider AS Provider, cc.finalizes_cycle AS FinalizesCycle, cc.target_roles AS TargetRoles, 
+                   cc.approval_status AS ApprovalStatus, cc.approved_by AS ApprovedBy, cc.is_active AS IsActive, 
+                   cc.version, cc.created_by AS CreatedBy, cc.created_at AS CreatedAt,
+                   cs.id_step AS IdStep, cs.id_checkpoint AS IdCheckpoint, cs.step_order AS StepOrder, 
+                   cs.name AS Name, cs.is_required AS IsRequired
+            FROM checkpoint_catalog cc
+            LEFT JOIN checkpoint_step cs ON cs.id_checkpoint = cc.id_checkpoint
+            WHERE cc.is_active = true AND (@flowId IS NULL OR cc.id_flow IS NULL OR cc.id_flow = @flowId)
+            ORDER BY cc.execution_order ASC, cc.id_checkpoint ASC, cs.step_order ASC;";
+
+        var lookup = new Dictionary<long, CheckpointCatalogWithStepsDto>();
+        await db.QueryAsync<CheckpointCatalogWithStepsDto, CheckpointStep, CheckpointCatalogWithStepsDto>(
+            sql,
+            (cp, step) =>
+            {
+                if (!lookup.TryGetValue(cp.IdCheckpoint, out var entry))
+                {
+                    entry = cp;
+                    entry.Steps = new List<CheckpointStep>();
+                    lookup.Add(entry.IdCheckpoint, entry);
+                }
+                if (step != null && step.IdStep > 0)
+                {
+                    entry.Steps.Add(step);
+                }
+                return entry;
+            },
+            new { flowId },
+            splitOn: "IdStep"
+        );
+
+        return lookup.Values;
+    }
+
     public async Task<CheckpointCatalog?> GetCheckpointByCodeAsync(string code)
     {
         using var db = CreateConnection();
@@ -233,8 +286,8 @@ public class FlowRepository : IFlowRepository
     {
         using var db = CreateConnection();
         const string sql = @"
-            INSERT INTO flow_instance (id_flow, entity_type, entity_id, current_stage_id, day_counter, metadata, status)
-            VALUES (@IdFlow, @EntityType, @EntityId, @CurrentStageId, @DayCounter, @Metadata::jsonb, 'ACTIVE')
+            INSERT INTO flow_instance (id_flow, entity_type, entity_id, current_stage_id, day_counter, metadata, facts, status)
+            VALUES (@IdFlow, @EntityType, @EntityId, @CurrentStageId, @DayCounter, @Metadata::jsonb, COALESCE(@Facts::jsonb, '{}'::jsonb), 'ACTIVE')
             RETURNING id_instance;";
         return await db.ExecuteScalarAsync<long>(sql, inst);
     }
@@ -349,10 +402,38 @@ public class FlowRepository : IFlowRepository
     {
         using var db = CreateConnection();
         const string sql = @"
-            SELECT id_instance AS IdInstance, id_flow AS IdFlow, entity_type AS EntityType, entity_id AS EntityId, current_stage_id AS CurrentStageId, day_counter AS DayCounter, metadata, status, created_at AS CreatedAt, completed_at AS CompletedAt
+            SELECT id_instance AS IdInstance, id_flow AS IdFlow, entity_type AS EntityType, entity_id AS EntityId, 
+                   current_stage_id AS CurrentStageId, day_counter AS DayCounter, metadata, facts, status, 
+                   created_at AS CreatedAt, completed_at AS CompletedAt
             FROM flow_instance
             WHERE entity_type = @entityType AND entity_id = @entityId AND id_flow = @flowId;";
         return await db.QueryFirstOrDefaultAsync<FlowInstance>(sql, new { entityType, entityId, flowId });
+    }
+
+    public async Task<FlowInstance?> GetFlowInstanceByIdAsync(long instanceId)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            SELECT id_instance AS IdInstance, id_flow AS IdFlow, entity_type AS EntityType, entity_id AS EntityId, 
+                   current_stage_id AS CurrentStageId, day_counter AS DayCounter, metadata, facts, status, 
+                   created_at AS CreatedAt, completed_at AS CompletedAt
+            FROM flow_instance
+            WHERE id_instance = @instanceId;";
+        return await db.QueryFirstOrDefaultAsync<FlowInstance>(sql, new { instanceId });
+    }
+
+    public async Task<FlowInstance?> GetFlowInstanceByEntityAsync(string entityType, long entityId)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            SELECT id_instance AS IdInstance, id_flow AS IdFlow, entity_type AS EntityType, entity_id AS EntityId, 
+                   current_stage_id AS CurrentStageId, day_counter AS DayCounter, metadata, facts, status, 
+                   created_at AS CreatedAt, completed_at AS CompletedAt
+            FROM flow_instance
+            WHERE entity_type = @entityType AND entity_id = @entityId
+            ORDER BY id_instance DESC
+            LIMIT 1;";
+        return await db.QueryFirstOrDefaultAsync<FlowInstance>(sql, new { entityType, entityId });
     }
 
     public async Task UpdateFlowInstanceStageAsync(long instanceId, long currentStageId, int dayCounter, string status)
@@ -360,9 +441,20 @@ public class FlowRepository : IFlowRepository
         using var db = CreateConnection();
         const string sql = @"
             UPDATE flow_instance
-            SET current_stage_id = @currentStageId, day_counter = @dayCounter, status = @status, completed_at = CASE WHEN @status = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE completed_at END
+            SET current_stage_id = @currentStageId, day_counter = @dayCounter, status = @status, 
+                completed_at = CASE WHEN @status = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE completed_at END
             WHERE id_instance = @instanceId;";
         await db.ExecuteAsync(sql, new { instanceId, currentStageId, dayCounter, status });
+    }
+
+    public async Task UpdateFlowInstanceFactsAsync(long instanceId, string factsJson)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            UPDATE flow_instance
+            SET facts = COALESCE(@factsJson::jsonb, '{}'::jsonb)
+            WHERE id_instance = @instanceId;";
+        await db.ExecuteAsync(sql, new { instanceId, factsJson });
     }
 
     public async Task<long> CreateCheckpointInstanceAsync(CheckpointInstance cpInst)
@@ -375,11 +467,27 @@ public class FlowRepository : IFlowRepository
         return await db.ExecuteScalarAsync<long>(sql, cpInst);
     }
 
+    public async Task<CheckpointInstance?> GetCheckpointInstanceByIdAsync(long cpInstanceId)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            SELECT id_cp_instance AS IdCpInstance, id_instance AS IdInstance, id_checkpoint AS IdCheckpoint, 
+                   status, opened_at_stage AS OpenedAtStage, is_retroactive AS IsRetroactive, 
+                   occurrence_number AS OccurrenceNumber, scheduled_for AS ScheduledFor, 
+                   resolved_by AS ResolvedBy, resolved_at AS ResolvedAt, created_at AS CreatedAt
+            FROM checkpoint_instance
+            WHERE id_cp_instance = @cpInstanceId;";
+        return await db.QueryFirstOrDefaultAsync<CheckpointInstance>(sql, new { cpInstanceId });
+    }
+
     public async Task<IEnumerable<CheckpointInstance>> GetCheckpointInstancesForFlowAsync(long instanceId)
     {
         using var db = CreateConnection();
         const string sql = @"
-            SELECT id_cp_instance AS IdCpInstance, id_instance AS IdInstance, id_checkpoint AS IdCheckpoint, status, opened_at_stage AS OpenedAtStage, is_retroactive AS IsRetroactive, occurrence_number AS OccurrenceNumber, scheduled_for AS ScheduledFor, resolved_by AS ResolvedBy, resolved_at AS ResolvedAt, created_at AS CreatedAt
+            SELECT id_cp_instance AS IdCpInstance, id_instance AS IdInstance, id_checkpoint AS IdCheckpoint, 
+                   status, opened_at_stage AS OpenedAtStage, is_retroactive AS IsRetroactive, 
+                   occurrence_number AS OccurrenceNumber, scheduled_for AS ScheduledFor, 
+                   resolved_by AS ResolvedBy, resolved_at AS ResolvedAt, created_at AS CreatedAt
             FROM checkpoint_instance
             WHERE id_instance = @instanceId ORDER BY id_cp_instance;";
         return await db.QueryAsync<CheckpointInstance>(sql, new { instanceId });
@@ -393,6 +501,49 @@ public class FlowRepository : IFlowRepository
             SET status = @status, resolved_by = @resolvedBy, resolved_at = CURRENT_TIMESTAMP
             WHERE id_cp_instance = @cpInstanceId;";
         await db.ExecuteAsync(sql, new { cpInstanceId, status, resolvedBy });
+    }
+
+    public async Task<IEnumerable<CheckpointStepProgress>> GetStepProgressAsync(long cpInstanceId)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            SELECT id_progress AS IdProgress, id_cp_instance AS IdCpInstance, id_step AS IdStep, 
+                   is_completed AS IsCompleted, completed_by AS CompletedBy, completed_at AS CompletedAt
+            FROM checkpoint_step_progress
+            WHERE id_cp_instance = @cpInstanceId
+            ORDER BY id_step;";
+        return await db.QueryAsync<CheckpointStepProgress>(sql, new { cpInstanceId });
+    }
+
+    public async Task UpsertStepProgressAsync(long cpInstanceId, long stepId, bool isCompleted, long? completedBy)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            INSERT INTO checkpoint_step_progress (id_cp_instance, id_step, is_completed, completed_by, completed_at)
+            VALUES (@cpInstanceId, @stepId, @isCompleted, @completedBy, CASE WHEN @isCompleted THEN CURRENT_TIMESTAMP ELSE NULL END)
+            ON CONFLICT (id_cp_instance, id_step)
+            DO UPDATE SET 
+                is_completed = @isCompleted, 
+                completed_by = @completedBy, 
+                completed_at = CASE WHEN @isCompleted THEN CURRENT_TIMESTAMP ELSE NULL END;";
+        await db.ExecuteAsync(sql, new { cpInstanceId, stepId, isCompleted, completedBy });
+    }
+
+    public async Task ActivateDueScheduledCheckpointsAsync()
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            UPDATE checkpoint_instance ci
+            SET status = 'PENDING',
+                opened_at_stage = (
+                    SELECT fi.current_stage_id 
+                    FROM flow_instance fi 
+                    WHERE fi.id_instance = ci.id_instance
+                )
+            WHERE ci.status = 'SCHEDULED' 
+              AND ci.scheduled_for IS NOT NULL 
+              AND ci.scheduled_for <= CURRENT_TIMESTAMP;";
+        await db.ExecuteAsync(sql);
     }
 
     public async Task RecordStageTransitionAsync(StageTransition t)
