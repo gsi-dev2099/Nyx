@@ -205,7 +205,7 @@ public class FlowRepository : IFlowRepository
         const string sql = @"
             SELECT id_checkpoint AS IdCheckpoint, code, name, description, id_flow AS IdFlow, trigger_stage_id AS TriggerStageId, origin, scope, blocks, blocks_advance AS BlocksAdvance, rollback_to_stage AS RollbackToStage, triggered_by_ko AS TriggeredByKo, is_recurrent AS IsRecurrent, recurrence_days AS RecurrenceDays, max_occurrences AS MaxOccurrences, owner_dept AS OwnerDept, category AS Category, division AS Division, approval_job_title AS ApprovalJobTitle, satellites AS Satellites, execution_order AS ExecutionOrder, rollback_to_checkpoint_code AS RollbackToCheckpointCode, rollback_to_step_order AS RollbackToStepOrder, precondition_fact AS PreconditionFact, portfolio AS Portfolio, campaign AS Campaign, provider AS Provider, finalizes_cycle AS FinalizesCycle, target_roles AS TargetRoles, approval_status AS ApprovalStatus, approved_by AS ApprovedBy, is_active AS IsActive, version, created_by AS CreatedBy, created_at AS CreatedAt
             FROM checkpoint_catalog
-            WHERE is_active = true AND (@flowId IS NULL OR id_flow IS NULL OR id_flow = @flowId)
+            WHERE is_active = true AND (@flowId IS NULL OR id_flow = @flowId)
             ORDER BY execution_order ASC, id_checkpoint ASC;";
         return await db.QueryAsync<CheckpointCatalog>(sql, new { flowId });
     }
@@ -229,7 +229,7 @@ public class FlowRepository : IFlowRepository
                    cs.name AS Name, cs.is_required AS IsRequired
             FROM checkpoint_catalog cc
             LEFT JOIN checkpoint_step cs ON cs.id_checkpoint = cc.id_checkpoint
-            WHERE cc.is_active = true AND (@flowId IS NULL OR cc.id_flow IS NULL OR cc.id_flow = @flowId)
+            WHERE cc.is_active = true AND (@flowId IS NULL OR cc.id_flow = @flowId)
             ORDER BY cc.execution_order ASC, cc.id_checkpoint ASC, cs.step_order ASC;";
 
         var lookup = new Dictionary<long, CheckpointCatalogWithStepsDto>();

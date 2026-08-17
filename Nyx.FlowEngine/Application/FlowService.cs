@@ -439,25 +439,11 @@ public class FlowService : IFlowService
             facts = new();
         }
 
-        // Resolve target stage code for cross-flow checkpoint matching
-        var allStages = await _repo.GetAllStagesAsync();
-        var currentStage = allStages.FirstOrDefault(s => s.IdStage == stageId);
-        var stageCode = currentStage?.StageCode ?? "";
-
-        // Build a set of equivalent stageIds sharing the same stage_code across all flows
-        var equivalentStageIds = allStages
-            .Where(s => s.StageCode == stageCode)
-            .Select(s => s.IdStage)
-            .ToHashSet();
-
-        // Get all checkpoints that belong to this flow OR to any flow that shares the same stage progression
-        var allCatalog = await _repo.GetCheckpointCatalogAsync(null); // load all active
-        var catalogCheckpoints = allCatalog
+        var catalogCheckpoints = (await _repo.GetCheckpointCatalogAsync(flowId))
             .Where(c => c.ApprovalStatus == "ACTIVE" 
-                     && c.TriggerStageId.HasValue
-                     && equivalentStageIds.Contains(c.TriggerStageId!.Value)
+                     && c.TriggerStageId == stageId 
                      && c.TriggeredByKo == null
-                     && (c.IdFlow == null || c.IdFlow == flowId || c.IdFlow == 1))
+                     && c.IdFlow == flowId)
             .ToList();
 
         foreach (var cp in catalogCheckpoints)
