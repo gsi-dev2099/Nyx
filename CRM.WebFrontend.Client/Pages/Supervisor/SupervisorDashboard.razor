@@ -1805,10 +1805,331 @@
                     }).ToList();
                 }
             }
+
+            if (!_cachedCheckpoints.Any())
+            {
+                _cachedCheckpoints = GetDefaultCheckpointCatalog();
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[SupervisorDashboard] Error en LoadCheckpointsAndStepsAsync: {ex.Message}");
+            if (!_cachedCheckpoints.Any())
+            {
+                _cachedCheckpoints = GetDefaultCheckpointCatalog();
+            }
         }
+    }
+
+    private static List<StageCheckpointModalVm> GetDefaultCheckpointCatalog()
+    {
+        return new List<StageCheckpointModalVm>
+        {
+            // Etapa 1 / 12 - Preventa
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 17,
+                Code = "CP_TEL_SHIRLEY_01",
+                Name = "Preventa Shirley (Calificación y Scoring)",
+                TriggerStageId = 12,
+                BlocksAdvance = false,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 101, StepOrder = 1, Instruction = "Verificar cobertura fibra / 5G en el domicilio", IsRequired = false, IsCompleted = true },
+                    new CheckpointStepModalVm { IdStep = 102, StepOrder = 2, Instruction = "Realizar scoring de solvencia inicial", IsRequired = false, IsCompleted = true }
+                }
+            },
+            // Etapa 2 / 13 - Venta Creada
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 9,
+                Code = "CP_ALARM_03",
+                Name = "Venta y formalización",
+                TriggerStageId = 13,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 49, StepOrder = 1, Instruction = "Validar formulario de venta completo y firmado", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 50, StepOrder = 2, Instruction = "Confirmar titularidad de servicios y coincidencia de DNI", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 51, StepOrder = 3, Instruction = "Generar número de orden en sistema CRM", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 18,
+                Code = "CP_TEL_SHIRLEY_02",
+                Name = "Creación CRM GSI",
+                TriggerStageId = 13,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 52, StepOrder = 1, Instruction = "Cargar ficha de venta en plataforma central", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 53, StepOrder = 2, Instruction = "Asignar asesor responsable y campaña activa", IsRequired = true }
+                }
+            },
+            // Etapa 3 / 14 - Gestión Inicial
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 2,
+                Code = "CP_SUPERVISOR_REV",
+                Name = "Revisión de Supervisor",
+                TriggerStageId = 14,
+                BlocksAdvance = true,
+                RollbackToStage = "Venta Creada",
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 201, StepOrder = 1, Instruction = "Revisar datos del cliente y scoring inicial", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 202, StepOrder = 2, Instruction = "Validar coherencia de paquetes seleccionados", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 203, StepOrder = 3, Instruction = "Aprobar paso a Validación Interna", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 10,
+                Code = "CP_ALARM_04",
+                Name = "Verificación documental preliminar",
+                TriggerStageId = 14,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 204, StepOrder = 1, Instruction = "Validar documento de identidad legible", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 205, StepOrder = 2, Instruction = "Confirmar dirección de instalación", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 19,
+                Code = "CP_TEL_SHIRLEY_03",
+                Name = "Revisión de Supervisor Shirley",
+                TriggerStageId = 14,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 206, StepOrder = 1, Instruction = "Control de calidad de la llamada de preventa", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 207, StepOrder = 2, Instruction = "Verificación de consentimiento explícito", IsRequired = true }
+                }
+            },
+            // Etapa 4 / 15 - Validación Interna
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 23,
+                Code = "CP_TEL_VODA_01",
+                Name = "Información Apta para Validación",
+                TriggerStageId = 15,
+                BlocksAdvance = true,
+                RollbackToStage = "Gestión Inicial",
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 301, StepOrder = 1, Instruction = "Auditoría de scoring de riesgo crediticio", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 302, StepOrder = 2, Instruction = "Comprobación de no duplicidad de cuenta", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 24,
+                Code = "CP_TEL_VODA_02",
+                Name = "Conformidad de Validación Interna",
+                TriggerStageId = 15,
+                BlocksAdvance = true,
+                RollbackToStage = "Gestión Inicial",
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 303, StepOrder = 1, Instruction = "Validar datos bancarios IBAN y titularidad", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 25,
+                Code = "CP_TEL_VODA_03",
+                Name = "Gestión de Datos Corregidos (Condicional)",
+                TriggerStageId = 15,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 304, StepOrder = 1, Instruction = "Subsanar observaciones de datos de cliente", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 26,
+                Code = "CP_TEL_VODA_04",
+                Name = "Confirmación de Datos para Cargar",
+                TriggerStageId = 15,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 305, StepOrder = 1, Instruction = "Verificar paquete de fibra y líneas móviles", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 27,
+                Code = "CP_TEL_VODA_05",
+                Name = "Solicitud de Carga por Operaciones",
+                TriggerStageId = 15,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 306, StepOrder = 1, Instruction = "Generar paquete de tramitación a BackOffice", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 20,
+                Code = "CP_TEL_SHIRLEY_04",
+                Name = "Validación Interna Shirley",
+                TriggerStageId = 15,
+                BlocksAdvance = true,
+                RollbackToStage = "Gestión Inicial",
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 307, StepOrder = 1, Instruction = "Cotejo de datos con base de portabilidad", IsRequired = true }
+                }
+            },
+            // Etapa 5 / 16 - Envío Proveedor
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 28,
+                Code = "CP_TEL_VODA_06",
+                Name = "Confirmación de Carga — Operaciones",
+                TriggerStageId = 16,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 401, StepOrder = 1, Instruction = "Confirmar entrada en el sistema del proveedor", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 29,
+                Code = "CP_TEL_VODA_07",
+                Name = "Revisión de Información Antes de la Carga",
+                TriggerStageId = 16,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 402, StepOrder = 1, Instruction = "Revisión final de formulario tramitado", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 30,
+                Code = "CP_TEL_VODA_08",
+                Name = "Carga de Venta al Proveedor",
+                TriggerStageId = 16,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 403, StepOrder = 1, Instruction = "Inyección de venta en portal proveedor Vodafone", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 21,
+                Code = "CP_TEL_SHIRLEY_05",
+                Name = "Envío de Carga a España",
+                TriggerStageId = 16,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 404, StepOrder = 1, Instruction = "Confirmar acuse de recibo de la matriz", IsRequired = true }
+                }
+            },
+            // Etapa 6 / 17 - Validación Externa
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 31,
+                Code = "CP_TEL_VODA_09",
+                Name = "Confirmación de Proveedor — Contacto con Cliente",
+                TriggerStageId = 17,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 501, StepOrder = 1, Instruction = "Confirmar llamada de bienvenida del operador", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 32,
+                Code = "CP_TEL_VODA_10",
+                Name = "Gestión de Fraude — Validación Externa",
+                TriggerStageId = 17,
+                BlocksAdvance = false,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 502, StepOrder = 1, Instruction = "Validación de filtros antifraude del operador", IsRequired = false }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 33,
+                Code = "CP_TEL_VODA_11",
+                Name = "Fraude Confirmado — Sin Remedio",
+                TriggerStageId = 17,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 503, StepOrder = 1, Instruction = "Revisar informe de denegación por fraude", IsRequired = true }
+                }
+            },
+            // Etapa 7 / 18 - Firma
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 3,
+                Code = "CP_CONTRACT_SIGN",
+                Name = "Confirmación de firma de contrato",
+                TriggerStageId = 18,
+                BlocksAdvance = true,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 601, StepOrder = 1, Instruction = "Verificar firma digital vía SMS/OTP", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 602, StepOrder = 2, Instruction = "Archivar contrato firmado en expediente", IsRequired = true }
+                }
+            },
+            // Etapa 9 / 20 - Activación
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 1,
+                Code = "CP_AUDIO_AUDIT",
+                Name = "Auditoría de audio",
+                TriggerStageId = 20,
+                BlocksAdvance = false,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 1, StepOrder = 1, Instruction = "Sacar todos los audios de la llamada", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 2, StepOrder = 2, Instruction = "Identificar tramos que sustentan la oferta", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 3, StepOrder = 3, Instruction = "Editar/compilar el audio de sustento", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 4, StepOrder = 4, Instruction = "Enviar sustento por correo al proveedor", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 5, StepOrder = 5, Instruction = "Esperar respuesta del proveedor", IsRequired = true }
+                }
+            },
+            // Etapa 10 / 21 - Postventa
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 22,
+                Code = "CP_TEL_SHIRLEY_06",
+                Name = "Postventa / Seguimiento (7 touchpoints)",
+                TriggerStageId = 21,
+                BlocksAdvance = false,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 701, StepOrder = 1, Instruction = "Touchpoint Día 1 — Bienvenida y confirmación de instalación", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 702, StepOrder = 2, Instruction = "Touchpoint Día 7 — Verificación de línea y servicios", IsRequired = true },
+                    new CheckpointStepModalVm { IdStep = 703, StepOrder = 3, Instruction = "Touchpoint Día 30 — Primera factura y satisfacción", IsRequired = true }
+                }
+            },
+            new StageCheckpointModalVm
+            {
+                IdCheckpoint = 34,
+                Code = "CP_POSTVENTA_RECUP",
+                Name = "Gestión de Recuperación",
+                TriggerStageId = 21,
+                BlocksAdvance = false,
+                Steps = new List<CheckpointStepModalVm>
+                {
+                    new CheckpointStepModalVm { IdStep = 704, StepOrder = 1, Instruction = "Contactar al cliente ante posible baja temprana", IsRequired = true }
+                }
+            }
+        };
     }
 }
