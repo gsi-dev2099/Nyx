@@ -400,7 +400,10 @@ public class FlowService : IFlowService
         }
 
         var catalogCheckpoints = (await _repo.GetCheckpointCatalogAsync(flowId))
-            .Where(c => c.ApprovalStatus == "ACTIVE" && c.TriggerStageId == stageId && c.TriggeredByKo == null)
+            .Where(c => c.ApprovalStatus == "ACTIVE" 
+                     && c.TriggerStageId == stageId 
+                     && c.TriggeredByKo == null
+                     && (c.IdFlow == null || c.IdFlow == flowId))
             .ToList();
 
         foreach (var cp in catalogCheckpoints)

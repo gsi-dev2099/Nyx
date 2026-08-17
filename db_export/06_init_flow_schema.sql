@@ -180,6 +180,15 @@ INSERT INTO stage (id_flow, stage_code, name, order_index, is_terminal, portfoli
     (1, 'CERRADA', 'Cerrada', 11, true, 'GENERAL', 'GENERAL')
 ON CONFLICT (id_flow, stage_code) DO NOTHING;
 
+-- Copy stages to PIPELINE_TELECOM
+INSERT INTO stage (id_flow, stage_code, name, order_index, is_terminal, portfolio, campaign)
+SELECT f.id_flow, s.stage_code, s.name, s.order_index, s.is_terminal, s.portfolio, s.campaign
+FROM stage s
+CROSS JOIN flow_definition f
+WHERE s.id_flow = (SELECT id_flow FROM flow_definition WHERE code = 'PIPELINE_ALARMAS')
+  AND f.code = 'PIPELINE_TELECOM'
+ON CONFLICT (id_flow, stage_code) DO NOTHING;
+
 -- 10. Status Stage Mapping (CRM id_status -> FlowEngine id_stage)
 CREATE TABLE IF NOT EXISTS status_stage_mapping (
     id_status   INT NOT NULL,
@@ -208,6 +217,11 @@ INSERT INTO checkpoint_catalog (code, name, description, id_flow, trigger_stage_
     ('CP_SUPERVISOR_REV', 'Revisión de supervisor', 'Visto bueno del supervisor en gestión inicial', 1, 3, 'INTERNAL', 'ENTITY', ARRAY[]::text[], true, 'Operaciones', 'ACTIVE'),
     ('CP_CONTRACT_SIGN', 'Confirmación de firma de contrato', 'Verificación de firma digital del proveedor', 1, 7, 'EXTERNAL', 'ENTITY', ARRAY['LIQUIDATION','COMMISSION'], true, 'Backoffice', 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
+
+-- Deprecate orphan checkpoints without explicit flow
+UPDATE checkpoint_catalog
+SET is_active = false, approval_status = 'DEPRECATED'
+WHERE id_flow IS NULL AND code NOT IN ('CP_AUDIO_AUDIT', 'CP_SUPERVISOR_REV', 'CP_CONTRACT_SIGN');
 
 INSERT INTO checkpoint_step (id_checkpoint, step_order, name) VALUES
     (1, 1, 'Sacar todos los audios de la llamada'),

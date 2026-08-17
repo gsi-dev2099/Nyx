@@ -59,14 +59,10 @@ public class CreateSalesOrderUseCase
         return order;
     }
 
-    private static string ResolveFlowCode(long idCmpg)
+    private static string ResolveFlowCode(long idCmpg) => idCmpg switch
     {
-        return idCmpg switch
-        {
-            1 or 2 => "PIPELINE_ALARMAS", // Securitas Direct y Alarmas
-            3 or 4 or 5 => "PIPELINE_TELECOM", // Telecom (Vodafone, Yoigo, MásMóvil)
-            _ => "PIPELINE_ALARMAS" // Fallback estándar
-        };
-    }
+        1 or 2 or 3 or 4 or 5 => "PIPELINE_TELECOM",  // VODAFONE, LOWI, YOIGO, MASMOVIL, ORANGE
+        _ => "PIPELINE_ALARMAS"                         // Todo lo demás
+    };
 }
 
