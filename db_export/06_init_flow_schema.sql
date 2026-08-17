@@ -94,12 +94,19 @@ ALTER TABLE flow_instance ADD COLUMN IF NOT EXISTS facts JSONB DEFAULT '{}';
 
 -- 5b. Flow Campaign Mapping
 CREATE TABLE IF NOT EXISTS flow_campaign_mapping (
-    id_mapping        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    id_campaign       BIGINT NOT NULL,
+    id_cmpg           BIGINT PRIMARY KEY,
     flow_code         VARCHAR(80) NOT NULL,
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_campaign_mapping UNIQUE (id_campaign)
+    description       VARCHAR(100) NOT NULL DEFAULT '',
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+INSERT INTO flow_campaign_mapping (id_cmpg, flow_code, description) VALUES
+    (1, 'PIPELINE_TELECOM', 'Vodafone'),
+    (2, 'PIPELINE_TELECOM', 'Lowi'),
+    (3, 'PIPELINE_TELECOM', 'Yoigo'),
+    (4, 'PIPELINE_TELECOM', 'MásMóvil'),
+    (5, 'PIPELINE_TELECOM', 'Orange')
+ON CONFLICT (id_cmpg) DO UPDATE SET flow_code = EXCLUDED.flow_code, description = EXCLUDED.description;
 
 -- 6. Checkpoint Instances (Layer 2: Live Active Checkpoints)
 CREATE TABLE IF NOT EXISTS checkpoint_instance (
