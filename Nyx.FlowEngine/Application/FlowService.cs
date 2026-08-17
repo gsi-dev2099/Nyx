@@ -23,8 +23,8 @@ public interface IFlowService
     Task<IEnumerable<CheckpointStep>> GetCheckpointStepsAsync(long checkpointId);
     Task SaveCheckpointStepsAsync(long checkpointId, IEnumerable<CheckpointStep> steps);
     Task<IEnumerable<FlowAuditLog>> GetAuditLogsAsync(int limit = 50);
-    Task<FlowInstance> StartFlowInstanceAsync(string flowCode, string entityType, long entityId, long actorId);
-    Task<FlowInstance> AdvanceStageAsync(long instanceId, long actorId);
+    Task<FlowInstanceWithCheckpointsDto> StartFlowInstanceAsync(string flowCode, string entityType, long entityId, long actorId);
+    Task<FlowInstanceWithCheckpointsDto> AdvanceStageAsync(long instanceId, long actorId);
     Task<CheckpointInstance> ResolveCheckpointAsync(long cpInstanceId, string status, long actorId);
     Task<FlowInstance?> GetFlowInstanceByIdAsync(long instanceId);
     Task<FlowInstance?> GetFlowInstanceByEntityAsync(string entityType, long entityId);
@@ -163,7 +163,7 @@ public class FlowService : IFlowService
         await _repo.LogAuditAsync(actorId, "FLOW_FACTS_UPDATED", instanceId, null, factsJson);
     }
 
-    public async Task<FlowInstance> StartFlowInstanceAsync(string flowCode, string entityType, long entityId, long actorId)
+    public async Task<FlowInstanceWithCheckpointsDto> StartFlowInstanceAsync(string flowCode, string entityType, long entityId, long actorId)
     {
         var flow = await _repo.GetFlowByCodeAsync(flowCode) 
             ?? throw new KeyNotFoundException($"Flow definition '{flowCode}' not found.");
@@ -174,7 +174,16 @@ public class FlowService : IFlowService
         var firstStage = stages.First();
 
         var existing = await _repo.GetFlowInstanceAsync(entityType, entityId, flow.IdFlow);
-        if (existing != null) return existing;
+        if (existing != null)
+        {
+            return new FlowInstanceWithCheckpointsDto
+            {
+                IdInstance = existing.IdInstance, IdFlow = existing.IdFlow, EntityType = existing.EntityType,
+                EntityId = existing.EntityId, CurrentStageId = existing.CurrentStageId, DayCounter = existing.DayCounter,
+                Status = existing.Status, Facts = existing.Facts, Metadata = existing.Metadata, CreatedAt = existing.CreatedAt,
+                CheckpointInstances = (await _repo.GetCheckpointInstancesForFlowAsync(existing.IdInstance)).ToList()
+            };
+        }
 
         var instance = new FlowInstance
         {
@@ -204,18 +213,34 @@ public class FlowService : IFlowService
         await TriggerCheckpointsForStageAsync(instanceId, flow.IdFlow, firstStage.IdStage, actorId);
 
         await _repo.LogAuditAsync(actorId, "FLOW_STARTED", instanceId, null, $"{{\"flowCode\":\"{flowCode}\",\"stage\":\"{firstStage.StageCode}\"}}");
-        return instance;
+
+        // Reload instance with freshly-created checkpoint instances as DTO
+        var dto = new FlowInstanceWithCheckpointsDto
+        {
+            IdInstance = instance.IdInstance,
+            IdFlow = instance.IdFlow,
+            EntityType = instance.EntityType,
+            EntityId = instance.EntityId,
+            CurrentStageId = instance.CurrentStageId,
+            DayCounter = instance.DayCounter,
+            Status = instance.Status,
+            Facts = instance.Facts,
+            Metadata = instance.Metadata,
+            CreatedAt = instance.CreatedAt,
+            CheckpointInstances = (await _repo.GetCheckpointInstancesForFlowAsync(instanceId)).ToList()
+        };
+        return dto;
     }
 
-    public async Task<FlowInstance> AdvanceStageAsync(long instanceId, long actorId)
+    public async Task<FlowInstanceWithCheckpointsDto> AdvanceStageAsync(long instanceId, long actorId)
     {
         // 1. Cargar la instancia actual
         var instance = await _repo.GetFlowInstanceByIdAsync(instanceId) 
             ?? throw new KeyNotFoundException($"Flow instance #{instanceId} not found.");
 
-        // 2. Validar checkpoints bloqueantes
+        // 2. Validar checkpoints bloqueantes (catálogo completo para cubrir cross-flow)
         var activeCps = (await _repo.GetCheckpointInstancesForFlowAsync(instanceId)).ToList();
-        var catalog = (await _repo.GetCheckpointCatalogAsync(instance.IdFlow)).ToDictionary(c => c.IdCheckpoint);
+        var catalog = (await _repo.GetCheckpointCatalogAsync(null)).ToDictionary(c => c.IdCheckpoint);
 
         foreach (var cpInst in activeCps)
         {
@@ -267,7 +292,22 @@ public class FlowService : IFlowService
         await _repo.LogAuditAsync(actorId, "STAGE_ADVANCED", instanceId, null, 
             $"{{\"from\":{fromStageId},\"to\":{nextStage.IdStage},\"stage\":\"{nextStage.StageCode}\"}}");
 
-        return instance;
+        // Reload instance with freshly-created checkpoint instances as DTO
+        var reloaded = await _repo.GetFlowInstanceByIdAsync(instanceId) ?? instance;
+        return new FlowInstanceWithCheckpointsDto
+        {
+            IdInstance = reloaded.IdInstance,
+            IdFlow = reloaded.IdFlow,
+            EntityType = reloaded.EntityType,
+            EntityId = reloaded.EntityId,
+            CurrentStageId = reloaded.CurrentStageId,
+            DayCounter = reloaded.DayCounter,
+            Status = reloaded.Status,
+            Facts = reloaded.Facts,
+            Metadata = reloaded.Metadata,
+            CreatedAt = reloaded.CreatedAt,
+            CheckpointInstances = (await _repo.GetCheckpointInstancesForFlowAsync(instanceId)).ToList()
+        };
     }
 
     public async Task<CheckpointInstance> ResolveCheckpointAsync(long cpInstanceId, string status, long actorId)
@@ -399,11 +439,25 @@ public class FlowService : IFlowService
             facts = new();
         }
 
-        var catalogCheckpoints = (await _repo.GetCheckpointCatalogAsync(flowId))
+        // Resolve target stage code for cross-flow checkpoint matching
+        var allStages = await _repo.GetAllStagesAsync();
+        var currentStage = allStages.FirstOrDefault(s => s.IdStage == stageId);
+        var stageCode = currentStage?.StageCode ?? "";
+
+        // Build a set of equivalent stageIds sharing the same stage_code across all flows
+        var equivalentStageIds = allStages
+            .Where(s => s.StageCode == stageCode)
+            .Select(s => s.IdStage)
+            .ToHashSet();
+
+        // Get all checkpoints that belong to this flow OR to any flow that shares the same stage progression
+        var allCatalog = await _repo.GetCheckpointCatalogAsync(null); // load all active
+        var catalogCheckpoints = allCatalog
             .Where(c => c.ApprovalStatus == "ACTIVE" 
-                     && c.TriggerStageId == stageId 
+                     && c.TriggerStageId.HasValue
+                     && equivalentStageIds.Contains(c.TriggerStageId!.Value)
                      && c.TriggeredByKo == null
-                     && (c.IdFlow == null || c.IdFlow == flowId))
+                     && (c.IdFlow == null || c.IdFlow == flowId || c.IdFlow == 1))
             .ToList();
 
         foreach (var cp in catalogCheckpoints)
