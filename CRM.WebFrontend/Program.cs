@@ -77,6 +77,20 @@ builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IKbService, CRM.WebFr
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.ICommissionService, CRM.WebFrontend.Client.Services.CommissionService>();
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IActivationService, CRM.WebFrontend.Client.Services.ActivationService>();
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IMaintenanceService, CRM.WebFrontend.Client.Services.MaintenanceService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<CRM.WebFrontend.ServerAuthHandler>();
+builder.Services.AddScoped(sp =>
+{
+    var navManager = sp.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+    var handler = sp.GetRequiredService<CRM.WebFrontend.ServerAuthHandler>();
+    handler.InnerHandler = new HttpClientHandler();
+    var client = new System.Net.Http.HttpClient(handler, disposeHandler: true)
+    {
+        BaseAddress = new Uri(navManager.BaseUri)
+    };
+    return client;
+});
+
 // Agregar servicios de MudBlazor
 builder.Services.AddMudServices();
 var app = builder.Build();

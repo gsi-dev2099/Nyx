@@ -531,3 +531,75 @@ p, .lead { font-size: 0.8rem; color: var(--text-muted); }
 .filter-pill-select:focus {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.09) !important;
 }
+
+/* ============================================================ */
+/* ACCESSIBILITY PALETTES (DALTONISMO & ALTO CONTRASTE)       */
+/* ============================================================ */
+
+/* 1. Protanopía / Deuteranopía (Adaptación Rojo-Verde) */
+body.theme-protanopia {
+    --bg-main: #F8FAFC;
+    --text-main: #0F172A;
+    --accent-blue: #1D4ED8;
+    --accent-gold: #D97706;
+}
+
+body.theme-protanopia .badge-status,
+body.theme-protanopia .badge-success,
+body.theme-protanopia .text-success {
+    color: #1D4ED8 !important;
+    background-color: rgba(29, 78, 216, 0.12) !important;
+}
+
+body.theme-protanopia .badge-danger,
+body.theme-protanopia .text-danger {
+    color: #D97706 !important;
+    background-color: rgba(217, 119, 6, 0.12) !important;
+}
+
+/* 2. Tritanopía (Adaptación Azul-Amarillo) */
+body.theme-tritanopia {
+    --bg-main: #F1F5F9;
+    --text-main: #1E293B;
+    --accent-red: #DC2626;
+    --accent-teal: #0D9488;
+}
+
+body.theme-tritanopia .badge-status,
+body.theme-tritanopia .badge-primary,
+body.theme-tritanopia .text-primary {
+    color: #DC2626 !important;
+    background-color: rgba(220, 38, 38, 0.12) !important;
+}
+
+body.theme-tritanopia .badge-info,
+body.theme-tritanopia .text-info {
+    color: #0D9488 !important;
+    background-color: rgba(13, 148, 136, 0.12) !important;
+}
+
+/* 3. Alto Contraste Neutro / Heterocromía (Anti-Fatiga Visual) */
+body.theme-high-contrast {
+    background-color: #0F172A !important;
+    color: #F8FAFC !important;
+}
+
+body.theme-high-contrast .custom-sidebar,
+body.theme-high-contrast .card,
+body.theme-high-contrast .panel,
+body.theme-high-contrast .mod-card,
+body.theme-high-contrast .stat-card,
+body.theme-high-contrast .modal-content {
+    background-color: #1E293B !important;
+    color: #F8FAFC !important;
+    border: 1px solid #334155 !important;
+}
+
+body.theme-high-contrast .text-muted {
+    color: #94A3B8 !important;
+}
+
+body.theme-high-contrast a,
+body.theme-high-contrast .nav-link {
+    color: #38BDF8 !important;
+}

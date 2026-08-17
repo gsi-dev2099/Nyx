@@ -23,6 +23,9 @@ public class SalesOrderViewModel
     public string? CurrencyCode { get; set; }
     public DateTime Register { get; set; }
     public DateTime LastUpdate { get; set; }
+    public string? CustomerDni { get; set; }
+    public string? CustomerName { get; set; }
+    public string? CustomerPhone { get; set; }
 }
 
 public class FormTemplateViewModel

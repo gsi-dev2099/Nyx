@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using CRM.ApiHub.Application.DTOs;
 using CRM.ApiHub.Domain.Repositories;
 using CRM.ApiHub.Application.Interfaces;
+using CRM.ApiHub.Infrastructure.Services;
 
 namespace CRM.ApiHub.Application.UseCases.SalesOrders;
 
@@ -10,13 +11,19 @@ public class UpdateSalesOrderStatusUseCase
 {
     private readonly ISalesOrderRepository _salesOrderRepository;
     private readonly INotificationService _notificationService;
+    private readonly ISlaEngineClient _slaEngineClient;
+    private readonly IFlowEngineClient _flowEngineClient;
 
     public UpdateSalesOrderStatusUseCase(
         ISalesOrderRepository salesOrderRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        ISlaEngineClient slaEngineClient,
+        IFlowEngineClient flowEngineClient)
     {
         _salesOrderRepository = salesOrderRepository;
         _notificationService = notificationService;
+        _slaEngineClient = slaEngineClient;
+        _flowEngineClient = flowEngineClient;
     }
 
     public async Task<bool> ExecuteAsync(long idOrder, SalesOrderUpdateStatusDto dto, long actorId, CancellationToken ct = default)
@@ -29,6 +36,20 @@ public class UpdateSalesOrderStatusUseCase
         {
             throw new InvalidOperationException($"Transición de estado no permitida. La orden #{idOrder} se encuentra en custodia del usuario {existingOrder.CustodyUserId.Value}.");
         }
+
+        // Consultar avance de etapa en Nyx.FlowEngine si cambia de estado hacia adelante
+        if (dto.ToStatusId > existingOrder.IdStatus)
+        {
+            try
+            {
+                await _flowEngineClient.AdvanceStageAsync(idOrder, actorId);
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new InvalidOperationException($"Transición bloqueada por el Motor de Flujos (Nyx.FlowEngine): {ex.Message}");
+            }
+        }
+
 
         var success = await _salesOrderRepository.UpdateStatusAsync(
             idOrder,
@@ -45,6 +66,12 @@ public class UpdateSalesOrderStatusUseCase
             var order = await _salesOrderRepository.GetByIdAsync(idOrder, ct);
             if (order != null)
             {
+                // Disparar resolución de SLA si el nuevo estado es terminal (9=ACTIVADO, 13=CANCELADO, 14=BAJA)
+                if (dto.ToStatusId == 9 || dto.ToStatusId == 13 || dto.ToStatusId == 14)
+                {
+                    await _slaEngineClient.ResolveMeasurementAsync("order", idOrder, "SLA_SALES_VALIDATION", actorId);
+                }
+
                 // Notify the original asesor about the status change
                 await _notificationService.SendNotificationAsync(
                     userId: order.IdUser,
@@ -89,3 +116,4 @@ public class UpdateSalesOrderStatusUseCase
         return success;
     }
 }
+

@@ -1,0 +1,86 @@
+@page "/engines/sla"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<PageTitle>Gestor de Políticas SLA — Nyx.SlaEngine</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">⏱️ Gestor de Políticas SLA</h2>
+            <p class="text-muted mb-0">Configura tiempos de atención, umbrales de advertencia y calendarios laborales por entidad.</p>
+        </div>
+        <div>
+            <a href="/engines/hub" class="btn btn-outline-secondary rounded-pill px-3">
+                ← Volver al Hub
+            </a>
+        </div>
+    </div>
+
+    <!-- Lista de Políticas SLA -->
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-header bg-white border-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold">Políticas Configuradas en Nyx.SlaEngine</h5>
+            <button class="btn btn-dark btn-sm rounded-pill px-3" @onclick="OpenNewPolicyModal">
+                + Nueva Política SLA
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Aplica A</th>
+                            <th>Tiempo Objetivo</th>
+                            <th>Alerta Warning (%)</th>
+                            <th>Alerta Breach (%)</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var policy in policies)
+                        {
+                            <tr>
+                                <td class="fw-bold text-primary">@policy.Code</td>
+                                <td>@policy.Name</td>
+                                <td><span class="badge bg-secondary">@policy.AppliesTo</span></td>
+                                <td class="fw-bold">@policy.TargetMinutes min (@(policy.TargetMinutes / 60)h)</td>
+                                <td><span class="badge bg-warning text-dark">@policy.WarningPct%</span></td>
+                                <td><span class="badge bg-danger">@policy.CriticalPct%</span></td>
+                                <td><span class="badge bg-success">ACTIVA</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<SlaPolicyModel> policies = new()
+    {
+        new SlaPolicyModel { Code = "SLA_INCIDENT_CRITICAL", Name = "Resolución de Incidencias Críticas", AppliesTo = "INCIDENT", TargetMinutes = 120, WarningPct = 75, CriticalPct = 100 },
+        new SlaPolicyModel { Code = "SLA_SALES_VALIDATION", Name = "Validación Interna de Ventas", AppliesTo = "ORDER", TargetMinutes = 1440, WarningPct = 80, CriticalPct = 100 },
+        new SlaPolicyModel { Code = "SLA_LEAD_FIRST_CONTACT", Name = "Primer Contacto de Lead", AppliesTo = "LEAD", TargetMinutes = 15, WarningPct = 70, CriticalPct = 100 },
+        new SlaPolicyModel { Code = "SLA_PROVIDER_ACTIVATION", Name = "Activación por Proveedor", AppliesTo = "ACTIVATION", TargetMinutes = 2880, WarningPct = 85, CriticalPct = 100 }
+    };
+
+    private void OpenNewPolicyModal()
+    {
+        // Abrir modal de creación
+    }
+
+    private class SlaPolicyModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string AppliesTo { get; set; } = string.Empty;
+        public int TargetMinutes { get; set; }
+        public int WarningPct { get; set; }
+        public int CriticalPct { get; set; }
+    }
+}

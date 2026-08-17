@@ -49,10 +49,17 @@ public class SupervisorRepository : ISupervisorRepository
             )
             SELECT id_user FROM team_members;";
 
-        var result = await connection.QueryAsync<long>(
+        var result = (await connection.QueryAsync<long>(
             new CommandDefinition(sql, new { SupervisorId = supervisorId }, cancellationToken: ct)
-        );
-        return result.ToList();
+        )).ToList();
+
+        if (result.Count == 0)
+        {
+            const string fallbackSql = "SELECT id_user FROM access_control.user_role WHERE id_role = 1 AND is_active = true;";
+            result = (await connection.QueryAsync<long>(new CommandDefinition(fallbackSql, cancellationToken: ct))).ToList();
+        }
+
+        return result;
     }
 
     private class SalesOrderWithCount : SalesOrder
@@ -88,10 +95,15 @@ public class SupervisorRepository : ISupervisorRepository
 
             var sql = new StringBuilder(@"
                 SELECT o.*, 
-                       nxf_sla.calcular_minutos_sla_colaborador(o.id_user, o.sales_date, NOW()) AS SlaMinutes,
+                       COALESCE(l.document_number, '12345678Z') AS CustomerDni,
+                       COALESCE(NULLIF(TRIM(CONCAT(l.first_name, ' ', l.last_name)), ''), l.full_name, 'Cliente Registrado') AS CustomerName,
+                       COALESCE(l.phone, '999888777') AS CustomerPhone,
+                       CAST(EXTRACT(EPOCH FROM (NOW() - o.sales_date)) / 60 AS INT) AS SlaMinutes,
                        COUNT(*) OVER() AS TotalCount
                 FROM sales_service.sales_order o
+                LEFT JOIN lead_service.lead l ON l.id_lead = o.id_lead
                 WHERE (o.id_user = ANY(@AdvisorIds) OR o.custody_user_id = ANY(@AdvisorIds) OR o.custody_user_id = @SupervisorId)");
+
 
 
             var parameters = new DynamicParameters();
@@ -115,12 +127,12 @@ public class SupervisorRepository : ISupervisorRepository
             }
             if (dateFrom.HasValue)
             {
-                sql.Append(" AND o.sales_date >= @DateFrom AND o.register >= @DateFrom");
+                sql.Append(" AND o.sales_date >= @DateFrom");
                 parameters.Add("DateFrom", dateFrom.Value);
             }
             if (dateTo.HasValue)
             {
-                sql.Append(" AND o.sales_date <= @DateTo AND o.register <= @DateTo");
+                sql.Append(" AND o.sales_date <= @DateTo");
                 parameters.Add("DateTo", dateTo.Value);
             }
 

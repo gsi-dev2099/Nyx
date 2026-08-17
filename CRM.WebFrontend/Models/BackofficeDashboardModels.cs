@@ -5,7 +5,8 @@ public record SalesQueueItem(
     string CustomerName, 
     string Priority, 
     DateTime SubmittedAt, 
-    string Status
+    string Status,
+    string CurrentStage = "Validación Técnica"
 );
 
 public class BackofficeValidationFieldDto
@@ -39,7 +40,9 @@ public record DocumentVerificationData(
     string FormDocumentNumber,
     string ScannedFullName, 
     string ScannedDocumentNumber,
-    List<BackofficeValidationFieldDto>? ValidationFields = null
+    List<BackofficeValidationFieldDto>? ValidationFields = null,
+    string CurrentStage = "Validación Técnica (Backoffice)",
+    string Campaign = "VODAFONE"
 );
 
 public record OpenIncidentItem(

@@ -6,6 +6,7 @@
 @using System.Text.RegularExpressions
 @using System.Text.Json
 @inject ISalesOrderService SalesOrderService
+@inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -191,15 +192,17 @@
     }
 
     /* Stage Strip Styles from Prototype */
-    .stage-strip { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 14px 0 6px; }
-    .stage-dot-wrap { display: flex; flex-direction: column; align-items: center; min-width: 78px; position: relative; flex: 1; }
-    .stage-dot { width: 12px; height: 12px; border-radius: 50%; background: #D8D6CC; z-index: 2; transition: all 0.2s ease; }
-    .stage-dot.done { background: #B98B36; }
-    .stage-dot.current { background: #D9A441; box-shadow: 0 0 0 4px rgba(217, 164, 65, 0.22); }
-    .stage-line { position: absolute; top: 5px; left: 50%; width: 100%; height: 2px; background: #e4e4e7; z-index: 1; }
+    .stage-strip { display: flex; align-items: center; justify-content: space-between; position: relative; padding: 20px 0; }
+    .stage-dot-wrap { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; flex: 1; }
+    .stage-dot { width: 14px; height: 14px; border-radius: 50%; background: #F1F5F9; border: 2px solid #CBD5E1; transition: all 0.25s ease; }
+    .stage-dot.done { background: #94A3B8; border-color: #94A3B8; opacity: 0.38; box-shadow: none; }
+    .stage-dot.current { background: #0F172A; border: 3px solid #38BDF8; width: 18px; height: 18px; box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.25); z-index: 3; }
+    .stage-line { position: absolute; top: 6px; left: 50%; width: 100%; height: 2px; background: #E2E8F0; z-index: 1; }
+    .stage-line.done { background: #CBD5E1; opacity: 0.4; }
     .stage-dot-wrap:last-child .stage-line { display: none; }
-    .stage-label { font-size: 0.65rem; margin-top: 8px; text-align: center; color: #71717a; max-width: 76px; line-height: 1.2; text-transform: uppercase; font-weight: 600; }
-    .stage-label.current { color: #18181b; font-weight: 800; }
+    .stage-label { font-size: 0.65rem; margin-top: 8px; text-align: center; color: #94A3B8; max-width: 85px; line-height: 1.2; text-transform: uppercase; font-weight: 600; }
+    .stage-label.done { color: #94A3B8; opacity: 0.45; font-weight: 500; }
+    .stage-label.current { color: #0F172A; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3px; opacity: 1; }
 </style>
 
 <div class="container-fluid py-4 px-md-4" style="max-width: 1600px;">
@@ -245,8 +248,13 @@
             </div>
             <div class="d-flex align-items-center gap-3">
                 <div class="text-end">
-                    <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Estado Actual</span>
-                    <span class="badge bg-dark fs-6 px-3 py-1 mt-1">@_order.Status</span>
+                    <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Estado & Motor</span>
+                    <div class="d-flex align-items-center gap-2 mt-1">
+                        <span class="badge bg-dark fs-6 px-3 py-1">@_order.Status</span>
+                        <span class="badge bg-secondary text-white rounded-pill px-2 py-1" style="font-size: 11px;" title="Gobernado por Nyx.FlowEngine Capa 1/Capa 2">
+                            <i class="bi bi-shield-lock-fill me-1"></i>Motor Nyx
+                        </span>
+                    </div>
                 </div>
                 <button class="btn btn-outline-dark btn-sm mt-3 fw-bold rounded-pill shadow-sm" @onclick="OpenTimelineModal">
                     <i class="bi bi-clock-history me-1"></i> Línea de Tiempo
@@ -277,19 +285,27 @@
             <div class="col-12">
                 <!-- LINEA DE TIEMPO (STAGES) -->
                 <div class="premium-panel mb-4">
-                    <h6 class="section-title mb-3">Progreso de la Orden</h6>
+                    @{
+                        var orderStages = GetStagesForCurrentOrder();
+                        int currentIdx = GetCurrentStageIndex();
+                    }
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="section-title mb-0">Progreso de la Orden</h6>
+                        <span class="badge bg-light text-dark border px-2 py-1" style="font-size:11px;">
+                            📣 Campaña: <strong>@(GetCampaignNameById(_order?.IdCmpg ?? 1))</strong>
+                        </span>
+                    </div>
                     <div class="stage-strip w-100 px-3">
-                        @for (int i = 0; i < _stages.Count; i++)
+                        @for (int i = 0; i < orderStages.Count; i++)
                         {
-                            var stage = _stages[i];
-                            int currentIdx = GetCurrentStageIndex();
+                            var stage = orderStages[i];
                             bool isDone = i < currentIdx;
                             bool isCurrent = i == currentIdx;
 
                             <div class="stage-dot-wrap">
-                                <div class="stage-line"></div>
+                                <div class="stage-line @(isDone ? "done" : "")"></div>
                                 <div class="stage-dot @(isDone ? "done" : "") @(isCurrent ? "current" : "")"></div>
-                                <div class="stage-label @(isCurrent ? "current" : "")">@stage</div>
+                                <div class="stage-label @(isDone ? "done" : "") @(isCurrent ? "current" : "")">@stage</div>
                             </div>
                         }
                     </div>
@@ -660,21 +676,61 @@
     [Parameter]
     public long Id { get; set; }
 
-    private List<string> _stages = new() {
-        "Preventa", "Venta Creada", "Gestión Inicial", "Validación Interna",
-        "Envío Proveedor", "Validación Externa", "Firma", "Tramitación",
-        "Activación", "Postventa"
-    };
+    // Etapas cargadas 100% desde nyx_flow.stage vía /api/engines/flow/stages
+    private List<StageVmDetail> _stageObjects = new();
+    private List<string> _stages = new();
+
+    private string GetCampaignNameById(long idCmpg)
+    {
+        return idCmpg switch
+        {
+            1 => "TELECOM PRODUCCION",
+            2 => "PORTABILIDAD MÓVIL",
+            3 => "ALARMAS Y SEGURIDAD",
+            4 => "MULTICARTERA PRODUCCION",
+            _ => "GENERAL"
+        };
+    }
+
+    private List<string> GetStagesForCurrentOrder()
+    {
+        if (_order == null || !_stageObjects.Any()) return _stages.Any() ? _stages : new List<string> { "Venta Creada", "En Revisión Supervisor", "Validación Técnica", "Activación", "Postventa" };
+
+        string cmpgName = GetCampaignNameById(_order.IdCmpg);
+
+        var filtered = _stageObjects.Where(s =>
+            string.IsNullOrEmpty(s.Campaign) || s.Campaign == "GENERAL" || s.Campaign == "TODAS" ||
+            s.Campaign.Contains(cmpgName, StringComparison.OrdinalIgnoreCase) ||
+            cmpgName.Contains(s.Campaign, StringComparison.OrdinalIgnoreCase)
+        ).OrderBy(s => s.OrderIndex).Select(s => s.Name).ToList();
+
+        return filtered.Any() ? filtered : _stages;
+    }
 
     private int GetCurrentStageIndex()
     {
         if (_order == null) return 0;
-        if (_order.IdStatus == 1) return 1; // Venta Creada
-        if (_order.IdStatus == 2) return 2; // Gestión Inicial (Supervisor)
-        if (_order.IdStatus == 3) return 8; // Activación (Approved)
-        if (_order.IdStatus >= 4) return 9; // Postventa
-        if (!string.IsNullOrEmpty(_order.Status) && _order.Status.Contains("incidencia", StringComparison.OrdinalIgnoreCase)) return 2;
-        return 2; 
+        var orderStages = GetStagesForCurrentOrder();
+        if (!orderStages.Any()) return 0;
+
+        if (!string.IsNullOrEmpty(_order.Status))
+        {
+            var matchObj = _stageObjects.FirstOrDefault(s =>
+                s.StageCode.Equals(_order.Status, StringComparison.OrdinalIgnoreCase) ||
+                s.Name.Equals(_order.Status, StringComparison.OrdinalIgnoreCase));
+            if (matchObj != null)
+            {
+                var idx = orderStages.IndexOf(matchObj.Name);
+                if (idx >= 0) return idx;
+            }
+        }
+
+        if (_order.IdStatus == 1) return 0; // Venta Creada
+        if (_order.IdStatus == 2) return Math.Min(1, orderStages.Count - 1); // En Revisión Supervisor
+        if (_order.IdStatus == 3) return Math.Min(2, orderStages.Count - 1); // Activación (Approved)
+        if (_order.IdStatus >= 4) return orderStages.Count - 1; // Postventa
+
+        return 0;
     }
 
     private SalesOrderViewModel? _order;
@@ -800,7 +856,36 @@
         else if (_currentUserId == -998) _currentUserId = 9;
         else if (_currentUserId == -1000) _currentUserId = 237;
 
+        await LoadStagesFromApi();
         await LoadOrderDetails();
+    }
+
+    private async Task LoadStagesFromApi()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var stageVms = await client.GetFromJsonAsync<List<StageVmDetail>>("/api/engines/flow/stages");
+            if (stageVms != null && stageVms.Any())
+            {
+                _stageObjects = stageVms.OrderBy(s => s.OrderIndex).ToList();
+                _stages = _stageObjects.Select(s => s.Name).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AsesorOrderDetail] Error cargando etapas desde BD: {ex.Message}");
+        }
+    }
+
+    private class StageVmDetail
+    {
+        public long IdStage { get; set; }
+        public string StageCode { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int OrderIndex { get; set; }
+        public string Portfolio { get; set; } = "GENERAL";
+        public string Campaign { get; set; } = "GENERAL";
     }
 
     private async Task LoadOrderDetails()

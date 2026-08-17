@@ -318,6 +318,17 @@
                             var fields = await fieldsResponse.Content.ReadFromJsonAsync<List<FormFieldDto>>();
                             if (fields != null && fields.Any())
                             {
+                                foreach (var f in fields)
+                                {
+                                    var key = f.FieldKey?.ToLower() ?? "";
+                                    var label = f.Label?.ToLower() ?? "";
+                                    if (key.Contains("cups") || key.Contains("iban") || label.Contains("cups") || label.Contains("iban") || label.Contains("cuenta"))
+                                    {
+                                        f.IsRequired = false;
+                                        f.ValidationType = null;
+                                    }
+                                }
+
                                 formSchema = new FormSchemaDto 
                                 {
                                     IdForm = firstTemplate.IdForm,
@@ -411,11 +422,7 @@
                            || label.Contains("NIE", StringComparison.OrdinalIgnoreCase)
                            || label.Contains("Documento", StringComparison.OrdinalIgnoreCase);
 
-            bool isIbanField = valType.Equals("IBAN", StringComparison.OrdinalIgnoreCase)
-                            || key.Contains("iban", StringComparison.OrdinalIgnoreCase)
-                            || key.Contains("cuenta", StringComparison.OrdinalIgnoreCase)
-                            || label.Contains("IBAN", StringComparison.OrdinalIgnoreCase)
-                            || label.Contains("Cuenta", StringComparison.OrdinalIgnoreCase);
+            bool isIbanField = false; // Optional per user request
 
             bool isPhoneField = valType.Contains("PHONE", StringComparison.OrdinalIgnoreCase)
                              || key.Contains("telef", StringComparison.OrdinalIgnoreCase)

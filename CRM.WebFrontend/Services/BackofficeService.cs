@@ -68,12 +68,15 @@ public class BackofficeService : IBackofficeService
                     : $"Lead #{order.IdLead}";
                 string campaignName = campaignDict.TryGetValue(order.IdCmpg, out var cName) ? cName : "Sin Campaña";
 
+                var stageName = order.IdStatus == 3 ? "Validación Técnica" : (order.IdStatus == 4 ? "Activación y Provisión" : "Gestión Backoffice");
+
                 queueItems.Add(new SalesQueueItem(
                     order.IdOrder,
                     customerName,
                     campaignName,
                     order.SalesDate ?? order.Register,
-                    order.IdStatus.ToString()
+                    order.IdStatus.ToString(),
+                    stageName
                 ));
             }
 
@@ -154,6 +157,9 @@ public class BackofficeService : IBackofficeService
                 new("commercial_plan", "Plan & Tarifa Solicitada", "COMMERCIAL", "Dúo Fibra 300Mbps", "Vigente en Catálogo de Servicios", "VALID")
             };
 
+            var orderStage = !string.IsNullOrEmpty(order.StatusName) ? order.StatusName : "Validación Técnica (Backoffice)";
+            var cmpgName = !string.IsNullOrEmpty(order.CampaignName) ? order.CampaignName : "VODAFONE";
+
             return new DocumentVerificationData(
                 idOrder,
                 downloadUrl,
@@ -161,7 +167,9 @@ public class BackofficeService : IBackofficeService
                 expectedDocNum,
                 scannedName,
                 scannedDocNum,
-                dynamicFields
+                dynamicFields,
+                orderStage,
+                cmpgName
             );
         }
         catch (Exception ex)
@@ -329,6 +337,10 @@ public class BackofficeService : IBackofficeService
     {
         public long IdOrder { get; set; }
         public long IdLead { get; set; }
+        public long IdCmpg { get; set; }
+        public string? Status { get; set; }
+        public string? StatusName { get; set; }
+        public string? CampaignName { get; set; }
     }
 
     private class LeadDto

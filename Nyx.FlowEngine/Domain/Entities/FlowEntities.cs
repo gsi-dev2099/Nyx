@@ -24,6 +24,8 @@ public class FlowStage
     public short OrderIndex { get; set; }
     public bool IsTerminal { get; set; }
     public short? SlaHours { get; set; }
+    public string Portfolio { get; set; } = "GENERAL";
+    public string Campaign { get; set; } = "GENERAL";
     public string Metadata { get; set; } = "{}";
 }
 
@@ -45,6 +47,19 @@ public class CheckpointCatalog
     public short? RecurrenceDays { get; set; }
     public short? MaxOccurrences { get; set; }
     public string? OwnerDept { get; set; }
+    public string Category { get; set; } = "GENERAL";
+    public string Division { get; set; } = "OPERACIONES";
+    public string ApprovalJobTitle { get; set; } = "SUPERVISOR";
+    public string[] Satellites { get; set; } = Array.Empty<string>();
+    public int ExecutionOrder { get; set; } = 1;
+    public string? RollbackToCheckpointCode { get; set; }
+    public int? RollbackToStepOrder { get; set; }
+    public string? PreconditionFact { get; set; }
+    public string Portfolio { get; set; } = "GENERAL";
+    public string Campaign { get; set; } = "GENERAL";
+    public string Provider { get; set; } = "INTERNO";
+    public bool FinalizesCycle { get; set; }
+    public string TargetRoles { get; set; } = "SUPERVISOR,BACKOFFICE";
     public string ApprovalStatus { get; set; } = "PROPOSED"; // PROPOSED, ACTIVE, DEPRECATED
     public string ApprovedBy { get; set; } = "[]";
     public bool IsActive { get; set; } = true;
@@ -58,7 +73,9 @@ public class CheckpointStep
     public long IdStep { get; set; }
     public long IdCheckpoint { get; set; }
     public short StepOrder { get; set; }
-    public string Name { get; set; } = string.Empty;
+    private string _name = string.Empty;
+    public string Name { get => _name; set => _name = value; }
+    public string Instruction { get => _name; set => _name = value; }
     public bool IsRequired { get; set; } = true;
 }
 
@@ -111,4 +128,16 @@ public class StageTransition
     public string? TriggeredBy { get; set; }
     public long? ActorId { get; set; }
     public DateTime TransitionedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class FlowAuditLog
+{
+    public long IdLog { get; set; }
+    public long? IdInstance { get; set; }
+    public long? IdCheckpoint { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public long ActorId { get; set; }
+    public string Detail { get; set; } = "{}";
+    public string Checksum { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

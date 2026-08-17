@@ -62,4 +62,16 @@ public class SalesOrder
 
     [NotMapped]
     public int SlaMinutes { get; set; }
+
+    [NotMapped]
+    [Column("customer_dni")]
+    public string? CustomerDni { get; set; }
+
+    [NotMapped]
+    [Column("customer_name")]
+    public string? CustomerName { get; set; }
+
+    [NotMapped]
+    [Column("customer_phone")]
+    public string? CustomerPhone { get; set; }
 }

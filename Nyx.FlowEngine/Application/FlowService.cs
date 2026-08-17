@@ -6,10 +6,21 @@ namespace Nyx.FlowEngine.Application;
 public interface IFlowService
 {
     Task<IEnumerable<FlowDefinition>> GetFlowDefinitionsAsync();
+    Task<IEnumerable<FlowStage>> GetStagesAsync();
+    Task<FlowStage> CreateStageAsync(FlowStage stage);
+    Task<bool> MoveStageAsync(long stageId, string direction);
+    Task<bool> SetStageOrderAsync(long stageId, short newOrderIndex);
+    Task<bool> UpdateStageAsync(FlowStage stage);
     Task<IEnumerable<CheckpointCatalog>> GetCheckpointCatalogAsync(long? flowId);
     Task<CheckpointCatalog> CreateCheckpointCatalogAsync(CheckpointCatalog cp);
     Task ApproveCheckpointCatalogAsync(long checkpointId, string approvedByJson, long actorId);
-    
+    Task<bool> UpdateCheckpointCampaignAsync(long checkpointId, string campaign);
+    Task<bool> UpdateCheckpointPortfolioAsync(long checkpointId, string portfolio);
+    Task<bool> UpdateCheckpointStageAsync(long checkpointId, long? stageId);
+    Task<bool> UpdateCheckpointCatalogAsync(long id, CheckpointCatalog cp);
+    Task<IEnumerable<CheckpointStep>> GetCheckpointStepsAsync(long checkpointId);
+    Task SaveCheckpointStepsAsync(long checkpointId, IEnumerable<CheckpointStep> steps);
+    Task<IEnumerable<FlowAuditLog>> GetAuditLogsAsync(int limit = 50);
     Task<FlowInstance> StartFlowInstanceAsync(string flowCode, string entityType, long entityId, long actorId);
     Task<FlowInstance> AdvanceStageAsync(long instanceId, long actorId);
     Task<CheckpointInstance> ResolveCheckpointAsync(long cpInstanceId, string status, long actorId);
@@ -27,8 +38,37 @@ public class FlowService : IFlowService
     }
 
     public async Task<IEnumerable<FlowDefinition>> GetFlowDefinitionsAsync() => await _repo.GetFlowDefinitionsAsync();
-
+    public async Task<IEnumerable<FlowStage>> GetStagesAsync() => await _repo.GetAllStagesAsync();
+    public async Task<FlowStage> CreateStageAsync(FlowStage stage)
+    {
+        var id = await _repo.CreateStageAsync(stage);
+        stage.IdStage = id;
+        await _repo.LogAuditAsync(stage.IdFlow > 0 ? stage.IdFlow : 1, "STAGE_CREATED", null, null, $"{{\"code\":\"{stage.StageCode}\",\"orderIndex\":{stage.OrderIndex}}}");
+        return stage;
+    }
+    public async Task<bool> SetStageOrderAsync(long stageId, short newOrderIndex)
+    {
+        var ok = await _repo.SetStageOrderAsync(stageId, newOrderIndex);
+        if (ok) await _repo.LogAuditAsync(1, "STAGE_ORDER_SET", null, null, $"{{\"stageId\":{stageId},\"orderIndex\":{newOrderIndex}}}");
+        return ok;
+    }
+    public async Task<bool> UpdateStageAsync(FlowStage stage)
+    {
+        var ok = await _repo.UpdateStageAsync(stage);
+        if (ok) await _repo.LogAuditAsync(1, "STAGE_UPDATED", null, null, $"{{\"stageId\":{stage.IdStage},\"name\":\"{stage.Name}\"}}");
+        return ok;
+    }
+    public async Task<bool> MoveStageAsync(long stageId, string direction)
+    {
+        var moved = await _repo.MoveStageAsync(stageId, direction);
+        if (moved) await _repo.LogAuditAsync(1, "STAGE_REORDERED", null, null, $"{{\"stageId\":{stageId},\"direction\":\"{direction}\"}}");
+        return moved;
+    }
     public async Task<IEnumerable<CheckpointCatalog>> GetCheckpointCatalogAsync(long? flowId) => await _repo.GetCheckpointCatalogAsync(flowId);
+    public async Task<IEnumerable<CheckpointStep>> GetCheckpointStepsAsync(long checkpointId) => await _repo.GetCheckpointStepsAsync(checkpointId);
+    public async Task SaveCheckpointStepsAsync(long checkpointId, IEnumerable<CheckpointStep> steps) => await _repo.SaveCheckpointStepsAsync(checkpointId, steps);
+    public async Task<IEnumerable<FlowAuditLog>> GetAuditLogsAsync(int limit = 50) => await _repo.GetAuditLogsAsync(limit);
+
 
     public async Task<CheckpointCatalog> CreateCheckpointCatalogAsync(CheckpointCatalog cp)
     {
@@ -42,6 +82,26 @@ public class FlowService : IFlowService
     {
         await _repo.ApproveCheckpointCatalogAsync(checkpointId, approvedByJson);
         await _repo.LogAuditAsync(actorId, "CHECKPOINT_APPROVED", null, checkpointId, $"{{\"approvedBy\":{approvedByJson}}}");
+    }
+
+    public async Task<bool> UpdateCheckpointCampaignAsync(long checkpointId, string campaign)
+    {
+        return await _repo.UpdateCheckpointCampaignAsync(checkpointId, campaign);
+    }
+
+    public async Task<bool> UpdateCheckpointPortfolioAsync(long checkpointId, string portfolio)
+    {
+        return await _repo.UpdateCheckpointPortfolioAsync(checkpointId, portfolio);
+    }
+
+    public async Task<bool> UpdateCheckpointStageAsync(long checkpointId, long? stageId)
+    {
+        return await _repo.UpdateCheckpointStageAsync(checkpointId, stageId);
+    }
+
+    public async Task<bool> UpdateCheckpointCatalogAsync(long id, CheckpointCatalog cp)
+    {
+        return await _repo.UpdateCheckpointCatalogAsync(id, cp);
     }
 
     public async Task<FlowInstance> StartFlowInstanceAsync(string flowCode, string entityType, long entityId, long actorId)

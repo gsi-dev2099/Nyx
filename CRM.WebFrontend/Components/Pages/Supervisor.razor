@@ -1,117 +1,12 @@
 @page "/supervisor"
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = "SUPERVISOR")]
+@attribute [Authorize(Roles = "SUPERVISOR,COORDINADOR")]
 @inject NavigationManager Navigation
 
 @code {
-    private bool IsBackoffice => false;
-    private string DashboardTitle => "Centro de Mando - Supervisor";
-    private string DashboardSubtitle => "Monitoreo en tiempo real del equipo de operaciones.";
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("/supervisor/dashboard");
+    }
 }
-
-<PageTitle>@DashboardTitle</PageTitle>
-
-<div class="container-fluid">
-    <div class="row mb-4 align-items-center">
-        <div class="col-md-8">
-            <h2 class="fw-bold">@DashboardTitle</h2>
-            <p class="text-muted">@DashboardSubtitle</p>
-        </div>
-        <div class="col-md-4 text-end">
-            <a href="/supervisor/reports" class="btn btn-dark rounded-pill px-4 py-2 fw-semibold shadow-sm">
-                📊 Ver Métricas y Gráficos
-            </a>
-        </div>
-    </div>
-
-
-    <div class="row g-4">
-        <!-- Rendimiento del Equipo -->
-        <div class="col-md-6">
-            <div class="card h-100 shadow-sm border-0 rounded-4">
-                <div class="card-body">
-                    <h5 class="card-title fw-bold text-primary mb-4">Rendimiento del equipo</h5>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h2 class="display-5 fw-bold mb-0">85%</h2>
-                            <small class="text-success fw-bold">↑ 5% vs Ayer</small>
-                        </div>
-                        <div class="text-end">
-                            <span class="badge bg-light text-dark fs-6 px-3 py-2 rounded-pill border">
-                                Asesores Activos: 24/30
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Alertas Call Center -->
-        <div class="col-md-6">
-            <div class="card h-100 shadow-sm border-0 rounded-4 bg-danger text-white">
-                <div class="card-body">
-                    <h5 class="card-title fw-bold mb-4">Alertas del Call Center</h5>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h2 class="display-5 fw-bold mb-0 text-white">3</h2>
-                            <small class="text-white-50">SLA Excedido</small>
-                        </div>
-                        <div>
-                            <button class="btn btn-light rounded-pill px-4 py-2 fw-bold text-danger shadow-sm">
-                                Accionar Inmediato
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Vista de Agentes (Placeholder) -->
-        <div class="col-12 mt-4">
-            <div class="card shadow-sm border-0 rounded-4">
-                <div class="card-header bg-white border-0 pt-4 pb-0">
-                    <h5 class="fw-bold text-dark">Agentes en Línea</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light text-muted">
-                                <tr>
-                                    <th>Asesor</th>
-                                    <th>Estado</th>
-                                    <th>Ventas Hoy</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">JS</div>
-                                            <span class="fw-bold">Juan Sayago</span>
-                                        </div>
-                                    </td>
-                                    <td><span class="badge bg-success rounded-pill px-3">En llamada</span></td>
-                                    <td class="fw-bold">3</td>
-                                    <td><button class="btn btn-sm btn-outline-primary rounded-pill">Monitorear</button></td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">MF</div>
-                                            <span class="fw-bold">María Farfán</span>
-                                        </div>
-                                    </td>
-                                    <td><span class="badge bg-warning text-dark rounded-pill px-3">En pausa</span></td>
-                                    <td class="fw-bold">5</td>
-                                    <td><button class="btn btn-sm btn-outline-primary rounded-pill">Monitorear</button></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>

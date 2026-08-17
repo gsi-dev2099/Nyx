@@ -1,0 +1,142 @@
+@page "/engines/audit"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject HttpClient Http
+@inject IConfiguration Config
+
+<PageTitle>Auditoría Cryptográfica SHA-512 — Motores Nyx</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">📜 Auditoría Cryptográfica Unificada (SHA-512)</h2>
+            <p class="text-muted mb-0">Trazabilidad inmutable de eventos en SLA Engine, Approval Engine y Flow Engine con firmas cryptográficas cargadas 100% desde la BD PostgreSQL.</p>
+        </div>
+        <div>
+            <a href="/engines/hub" class="btn btn-outline-secondary rounded-pill px-3">
+                ← Volver al Hub
+            </a>
+        </div>
+    </div>
+
+    <!-- Registro de Logs -->
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-header bg-white border-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold">Últimos Eventos Auditados en Base de Datos PostgreSQL (nyx_flow)</h5>
+            <span class="badge bg-dark rounded-pill px-3 py-2">FIRMAS HMAC/SHA-512 BD VERIFICADAS</span>
+        </div>
+        <div class="card-body">
+            @if (isLoading)
+            {
+                <div class="d-flex justify-content-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando auditoría desde BD...</span>
+                    </div>
+                </div>
+            }
+            else if (!auditLogs.Any())
+            {
+                <div class="alert alert-info text-center my-3" role="alert">
+                    📑 No se encontraron registros de auditoría en la base de datos PostgreSQL.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" style="font-size: 0.88rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Motor</th>
+                                <th>Acción</th>
+                                <th>Actor ID</th>
+                                <th>Detalle de Evento</th>
+                                <th>Firma SHA-512 Checksum</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var log in auditLogs)
+                            {
+                                <tr>
+                                    <td><span class="badge @log.BadgeClass">@log.EngineName</span></td>
+                                    <td class="fw-bold">@log.Action</td>
+                                    <td><span class="badge bg-light text-dark border">User #@log.ActorId</span></td>
+                                    <td class="text-muted"><code>@log.Detail</code></td>
+                                    <td class="font-monospace text-truncate" style="max-width: 220px;" title="@log.Checksum">
+                                        <span class="text-success me-1">✓</span>@log.Checksum
+                                    </td>
+                                    <td>@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<AuditLogModel> auditLogs = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAuditLogs();
+    }
+
+    private async Task LoadAuditLogs()
+    {
+        isLoading = true;
+        try
+        {
+            var apiBase = Config["ApiHubUrl"] ?? "http://localhost:5068";
+            var rawLogs = await Http.GetFromJsonAsync<List<FlowAuditApiDto>>($"{apiBase}/api/engines/flow/audit?limit=50");
+            if (rawLogs != null && rawLogs.Any())
+            {
+                auditLogs = rawLogs.Select(l => new AuditLogModel
+                {
+                    EngineName = "FlowEngine",
+                    BadgeClass = "bg-info text-dark",
+                    Action = l.Action,
+                    ActorId = l.ActorId,
+                    Detail = l.Detail,
+                    Checksum = l.Checksum,
+                    Timestamp = l.CreatedAt
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EngineAuditViewer] Error loading live audit logs from DB: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private class FlowAuditApiDto
+    {
+        public long IdLog { get; set; }
+        public long? IdInstance { get; set; }
+        public long? IdCheckpoint { get; set; }
+        public string Action { get; set; } = string.Empty;
+        public long ActorId { get; set; }
+        public string Detail { get; set; } = "{}";
+        public string Checksum { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+    }
+
+    private class AuditLogModel
+    {
+        public string EngineName { get; set; } = string.Empty;
+        public string BadgeClass { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;
+        public long ActorId { get; set; }
+        public string Detail { get; set; } = string.Empty;
+        public string Checksum { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+    }
+}

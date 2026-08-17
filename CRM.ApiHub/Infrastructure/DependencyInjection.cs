@@ -15,6 +15,8 @@ using CRM.ApiHub.Application.UseCases.Reports;
 using CRM.ApiHub.Domain.Repositories;
 using CRM.ApiHub.Infrastructure.Authentication;
 using CRM.ApiHub.Infrastructure.Persistence;
+using CRM.ApiHub.Infrastructure.Services;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -75,6 +77,30 @@ public static class DependencyInjection
         services.AddSingleton<IRefreshTokenStore, RedisRefreshTokenStore>();
         
         services.AddScoped<INotificationService, Application.Services.NotificationService>();
+
+        // SLA Engine Client (Typed HttpClient)
+        services.AddHttpClient<ISlaEngineClient, SlaEngineClient>(client =>
+        {
+            var baseUrl = config["SlaEngineSettings:BaseUrl"] ?? "http://sla_engine_api:5070";
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
+
+        // Flow Engine Client (Typed HttpClient)
+        services.AddHttpClient<IFlowEngineClient, FlowEngineClient>(client =>
+        {
+            var baseUrl = config["FlowEngineSettings:BaseUrl"] ?? "http://flow_engine_api:5072";
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
+
+        // Approval Engine Client (Typed HttpClient)
+        services.AddHttpClient<IApprovalEngineClient, ApprovalEngineClient>(client =>
+        {
+            var baseUrl = config["ApprovalEngineSettings:BaseUrl"] ?? "http://approval_engine_api:5071";
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
 
         // SignalR & Custom UserId & Redis Backplane
         var signalRBuilder = services.AddSignalR();

@@ -44,41 +44,8 @@ public static class ValidationHelper
 
     public static bool ValidateIban(string iban)
     {
-        if (string.IsNullOrWhiteSpace(iban)) return false;
-        
-        // Clean string: remove spaces and dashes, convert to uppercase
-        iban = iban.Replace(" ", "").Replace("-", "").Trim().ToUpper();
-        
-        // General IBAN format check (Spain starts with ES + 22 digits)
-        if (!Regex.IsMatch(iban, @"^ES\d{22}$")) return false;
-        
-        try
-        {
-            // Move first 4 chars to the end (ESxx -> end)
-            string rearranged = iban.Substring(4) + iban.Substring(0, 4);
-            
-            // Replace letters with numbers (A=10, B=11... Z=35)
-            // E = 14, S = 28
-            var numericString = "";
-            foreach (var c in rearranged)
-            {
-                if (char.IsLetter(c))
-                {
-                    numericString += (c - 'A' + 10).ToString();
-                }
-                else
-                {
-                    numericString += c;
-                }
-            }
-            
-            // Calculate modulo 97 using big integer logic or custom mod97 division
-            return Modulo97(numericString) == 1;
-        }
-        catch
-        {
-            return false;
-        }
+        // IBAN validation disabled by user directive (non-blocking)
+        return true;
     }
 
     private static int Modulo97(string numericStr)

@@ -275,11 +275,16 @@
                                             }
                                         </div>
                                     </div>
-                                    <p class="text-muted text-truncate mb-3" style="font-size: 0.85rem;">@(item.CustomDescription ?? "Sin descripción adicional")</p>
-                                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.8rem;">
+                                    <p class="text-muted text-truncate mb-2" style="font-size: 0.85rem;">@(item.CustomDescription ?? "Sin descripción adicional")</p>
+                                    <div class="d-flex justify-content-between align-items-center mb-1.5" style="font-size: 0.8rem;">
                                         <span class="fw-bold">Orden #@item.IdOrder</span>
                                         <span class="@(isExpired && item.IncidentStatus != "RESOLVED" ? "text-danger fw-bold" : "text-muted")">
                                             ⏱️ @slaText
+                                        </span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1 mt-1 pt-1.5 border-top" style="border-color: rgba(228,228,231,0.6) !important;">
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-0.5 font-bold" style="font-size: 0.68rem;">
+                                            ⚠️ Etapa: En Corrección (Incidencia)
                                         </span>
                                     </div>
                                 </div>

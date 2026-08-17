@@ -97,7 +97,7 @@ public class MaintenanceController : ControllerBase
                 COALESCE(ws.end_time::text, '17:00:00') AS EndTime,
                 COALESCE(ws.is_active, true) AS IsActive
             FROM user_service.users u
-            LEFT JOIN nxf_sla.user_work_shifts ws ON u.id_user = ws.id_user
+            LEFT JOIN user_service.user_work_shifts ws ON u.id_user = ws.id_user
             ORDER BY u.username, ws.day_of_week;";
         var shifts = await connection.QueryAsync<UserWorkShiftDto>(sql);
         return Ok(shifts);
@@ -111,10 +111,11 @@ public class MaintenanceController : ControllerBase
     {
         using var connection = _connectionFactory.CreateConnection();
         const string sql = @"
-            INSERT INTO nxf_sla.user_work_shifts (id_user, day_of_week, start_time, end_time, is_active)
+            INSERT INTO user_service.user_work_shifts (id_user, day_of_week, start_time, end_time, is_active)
             VALUES (@IdUser, @DayOfWeek, @StartTime::TIME, @EndTime::TIME, @IsActive)
             ON CONFLICT (id_user, day_of_week) 
             DO UPDATE SET start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time, is_active = EXCLUDED.is_active;";
+
 
         await connection.ExecuteAsync(sql, new 
         { 

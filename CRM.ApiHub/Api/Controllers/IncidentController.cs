@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using CRM.ApiHub.Domain.Entities;
 using CRM.ApiHub.Domain.Repositories;
 using CRM.ApiHub.Application.Interfaces;
+using CRM.ApiHub.Infrastructure.Services;
 using System.Security.Claims;
+
 
 namespace CRM.ApiHub.Api.Controllers;
 
@@ -20,16 +22,20 @@ public class IncidentController : ControllerBase
     private readonly IIncidentRepository _incidentRepository;
     private readonly ISalesOrderRepository _salesOrderRepository;
     private readonly INotificationService _notificationService;
+    private readonly ISlaEngineClient _slaEngineClient;
 
     public IncidentController(
         IIncidentRepository incidentRepository,
         ISalesOrderRepository salesOrderRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        ISlaEngineClient slaEngineClient)
     {
         _incidentRepository = incidentRepository;
         _salesOrderRepository = salesOrderRepository;
         _notificationService = notificationService;
+        _slaEngineClient = slaEngineClient;
     }
+
 
     [HttpGet("catalog")]
     public async Task<IActionResult> GetCatalog([FromQuery] long idCmpg, [FromQuery] long idStatus)
@@ -67,6 +73,9 @@ public class IncidentController : ControllerBase
 
         var newIncidentId = await _incidentRepository.CreateAsync(incident);
         var suggestedArticles = await _incidentRepository.GetKbSuggestionsAsync(incident.IdIncident);
+
+        // Disparar reloj SLA de incidencias en Nyx.SlaEngine
+        await _slaEngineClient.StartMeasurementAsync("incident", newIncidentId, "SLA_INCIDENT_CRITICAL", null, actorId);
 
         // Send alert / notification
         var order = await _salesOrderRepository.GetByIdAsync(incident.IdOrder);
@@ -161,6 +170,9 @@ public class IncidentController : ControllerBase
         }
 
         await _incidentRepository.ResolveAsync(id, request.Notes, actorId);
+
+        // Resolver reloj SLA de incidencias en Nyx.SlaEngine
+        await _slaEngineClient.ResolveMeasurementAsync("incident", id, "SLA_INCIDENT_CRITICAL", actorId);
 
         // Send alert / notification
         var incident = await _incidentRepository.GetByIdAsync(id);

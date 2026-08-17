@@ -96,6 +96,9 @@
             <a href="/backoffice/activations" class="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-semibold shadow-sm">
                 ⚡ Panel de Activaciones
             </a>
+            <a href="/engines/checkpoints" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
+                🛡️ Checkpoints & Aprobaciones
+            </a>
             <button class="btn btn-sm btn-outline-dark rounded-pill px-3 py-1.5 text-nowrap ms-2" style="font-size: 0.85rem;" @onclick="LoadActivations">
                 ↻ Actualizar
             </button>
@@ -199,10 +202,11 @@
                     <thead>
                         <tr>
                             <th class="section-title" style="width: 8%;">Orden</th>
-                            <th class="section-title" style="width: 22%;">Cliente Titular</th>
-                            <th class="section-title" style="width: 25%;">Producto / Servicio</th>
-                            <th class="section-title" style="width: 15%;">Proveedor</th>
-                            <th class="section-title" style="width: 10%;">Transcurrido</th>
+                            <th class="section-title" style="width: 20%;">Cliente Titular</th>
+                            <th class="section-title" style="width: 20%;">Etapa Nyx Flow</th>
+                            <th class="section-title" style="width: 22%;">Producto / Servicio</th>
+                            <th class="section-title" style="width: 12%;">Proveedor</th>
+                            <th class="section-title" style="width: 8%;">Días</th>
                             <th class="section-title text-center" style="width: 10%;">Estado SLA</th>
                             <th class="section-title text-end" style="width: 10%;">Acción</th>
                         </tr>
@@ -211,7 +215,7 @@
                         @if (FilteredActivations.Count == 0)
                         {
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-5">
+                                <td colspan="8" class="text-center text-muted py-5">
                                     No se encontraron productos de activación que coincidan con los filtros aplicados.
                                 </td>
                             </tr>
@@ -227,10 +231,15 @@
                                         <div class="text-muted" style="font-size: 0.75rem;">Solicitado: @item.RequestedDate.ToString("dd/MM/yyyy")</div>
                                     </td>
                                     <td>
-                                        <div class="fw-medium text-truncate" style="max-width: 300px;">@item.ProductName</div>
+                                        <span class="badge bg-dark text-white rounded-pill px-2.5 py-1 font-bold" style="font-size: 0.72rem;">
+                                            ⚡ Activación & Provisión
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="fw-medium text-truncate" style="max-width: 260px;">@item.ProductName</div>
                                         @if (!string.IsNullOrEmpty(item.Notes))
                                         {
-                                            <div class="text-muted text-truncate" style="font-size: 0.75rem; max-width: 300px;">📝 @item.Notes</div>
+                                            <div class="text-muted text-truncate" style="font-size: 0.75rem; max-width: 260px;">📝 @item.Notes</div>
                                         }
                                     </td>
                                     <td>
@@ -240,7 +249,7 @@
                                     </td>
                                     <td>
                                         <span class="fw-semibold @(item.IsDelayed ? "text-danger" : "text-muted")" style="font-size: 0.85rem;">
-                                            @item.DaysElapsed días
+                                            @item.DaysElapsed d
                                         </span>
                                     </td>
                                     <td class="text-center">

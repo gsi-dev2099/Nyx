@@ -204,13 +204,18 @@
                             var badgeClass = item.Priority == "Alta" ? "badge-high" : (item.Priority == "Media" ? "badge-medium" : "badge-low");
                             
                             <div class="queue-item @(isSelected ? "active" : "")" @onclick="() => SelectOrder(item.IdOrder)">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h6 class="mb-0 fw-bold" style="font-size: 0.95rem;">@item.CustomerName</h6>
+                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                    <h6 class="mb-0 fw-bold" style="font-size: 0.92rem;">@item.CustomerName</h6>
                                     <span class="badge-soft @badgeClass">@item.Priority</span>
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="text-muted" style="font-size: 0.8rem;">Ord. #@item.IdOrder</span>
-                                    <span class="text-muted" style="font-size: 0.8rem;">@item.SubmittedAt.ToString("HH:mm")</span>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-muted" style="font-size: 0.78rem;">Ord. #@item.IdOrder</span>
+                                    <span class="text-muted" style="font-size: 0.78rem;">@item.SubmittedAt.ToString("HH:mm")</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-1 mt-1.5 pt-1.5 border-top" style="border-color: rgba(228,228,231,0.6) !important;">
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-0.5 font-bold" style="font-size: 0.68rem;">
+                                        📍 Etapa: @(string.IsNullOrWhiteSpace(item.CurrentStage) ? "Validación Técnica" : item.CurrentStage)
+                                    </span>
                                 </div>
                             </div>
                         }
@@ -231,8 +236,16 @@
                 {
                     <div class="d-flex flex-column gap-4">
                         <div class="premium-panel p-4 p-xl-5">
-                            <div class="d-flex align-items-center justify-content-between mb-4">
-                                <h5 class="fw-bold m-0" style="letter-spacing: -0.5px;">Revisión de Identidad & Contraste</h5>
+                            <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 pb-3 border-bottom gap-2">
+                                <div>
+                                    <h5 class="fw-bold m-0" style="letter-spacing: -0.5px;">Revisión de Identidad & Contraste — Ord. #@_currentDoc.IdOrder</h5>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <span class="badge bg-dark text-white rounded-pill px-3 py-1 font-bold" style="font-size: 0.75rem;">
+                                            📍 ETAPA NYX: @(string.IsNullOrWhiteSpace(_currentDoc.CurrentStage) ? "Validación Técnica (Backoffice)" : _currentDoc.CurrentStage)
+                                        </span>
+                                        <span class="text-muted small">• Campaña: @_currentDoc.Campaign</span>
+                                    </div>
+                                </div>
                                 <a href="/backoffice/audit/@_currentDoc.IdOrder" class="btn btn-sm btn-outline-dark rounded-pill px-3 d-flex align-items-center gap-1" style="font-size: 0.775rem;">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
                                     🎙️ Auditar Grabación de Audio del Asesor

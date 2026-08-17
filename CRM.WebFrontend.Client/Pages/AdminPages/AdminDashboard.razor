@@ -1,0 +1,833 @@
+@page "/admin"
+@page "/admin/dashboard"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "ADMIN_CRM")]
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<PageTitle>Panel Principal de Administración — NYX CRM</PageTitle>
+
+<style>
+    .admin-dash-wrap {
+        max-width: 1360px;
+        margin: 0 auto;
+        padding: 24px;
+        font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    }
+
+    /* Hero Header */
+    .admin-hero {
+        background: linear-gradient(135deg, #090C9B 0%, #171B3D 60%, #1E2761 100%);
+        border-radius: 24px;
+        padding: 32px 36px;
+        color: #ffffff;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 12px 32px rgba(9, 12, 155, 0.18);
+        margin-bottom: 28px;
+    }
+
+    .admin-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 450px;
+        height: 450px;
+        background: radial-gradient(circle, rgba(217, 164, 65, 0.25) 0%, rgba(255,255,255,0) 70%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .hero-title {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .hero-badge {
+        background: rgba(217, 164, 65, 0.22);
+        border: 1px solid rgba(217, 164, 65, 0.5);
+        color: #F6D785;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+    }
+
+    .hero-subtitle {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 14px;
+        max-width: 720px;
+        line-height: 1.5;
+        margin-bottom: 0;
+    }
+
+    /* Quick Stats Strip */
+    .stat-card {
+        background: #ffffff;
+        border: 1px solid #E4E2DA;
+        border-radius: 18px;
+        padding: 20px 22px;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 24px rgba(9, 12, 155, 0.08);
+        border-color: #C5C2B8;
+    }
+
+    .stat-icon-box {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    .stat-val {
+        font-size: 24px;
+        font-weight: 800;
+        color: #171B3D;
+        line-height: 1.1;
+        margin-top: 8px;
+    }
+
+    .stat-lbl {
+        font-size: 12px;
+        color: #5B5F82;
+        font-weight: 600;
+    }
+
+    /* Filter & Search Bar */
+    .search-panel {
+        background: #ffffff;
+        border: 1px solid #E4E2DA;
+        border-radius: 16px;
+        padding: 14px 20px;
+        margin-bottom: 28px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .search-input-group {
+        position: relative;
+        flex: 1;
+    }
+
+    .search-input-group i {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #5B5F82;
+        font-size: 14px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 9px 14px 9px 40px;
+        border-radius: 12px;
+        border: 1px solid #E4E2DA;
+        font-size: 13px;
+        outline: none;
+        transition: border 0.15s;
+    }
+
+    .search-input:focus {
+        border-color: #090C9B;
+    }
+
+    /* Category Section */
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+        margin-top: 10px;
+    }
+
+    .section-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #EBEDFA;
+        color: #090C9B;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+    }
+
+    .section-title {
+        font-size: 16px;
+        font-weight: 800;
+        color: #171B3D;
+        margin: 0;
+    }
+
+    .section-subtitle {
+        font-size: 12px;
+        color: #5B5F82;
+        margin: 0;
+    }
+
+    /* Management Module Card */
+    .mod-card {
+        background: #ffffff;
+        border: 1px solid #E4E2DA;
+        border-radius: 18px;
+        padding: 22px;
+        transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        cursor: pointer;
+        text-decoration: none !important;
+        color: inherit;
+    }
+
+    .mod-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(9, 12, 155, 0.1);
+        border-color: #090C9B;
+    }
+
+    .mod-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 14px;
+    }
+
+    .mod-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        transition: transform 0.2s;
+    }
+
+    .mod-card:hover .mod-icon {
+        transform: scale(1.08);
+    }
+
+    .mod-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 9px;
+        border-radius: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .mod-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: #171B3D;
+        margin-bottom: 6px;
+    }
+
+    .mod-desc {
+        font-size: 12px;
+        color: #5B5F82;
+        line-height: 1.45;
+        margin-bottom: 16px;
+        flex: 1;
+    }
+
+    .mod-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-top: 1px solid #F0EFEA;
+        padding-top: 12px;
+        margin-top: auto;
+    }
+
+    .mod-action-text {
+        font-size: 12px;
+        font-weight: 700;
+        color: #090C9B;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .mod-card:hover .mod-action-text {
+        color: #1E2761;
+    }
+
+    /* Color Palettes per Theme */
+    .bg-theme-navy { background: #EBEDFA; color: #090C9B; }
+    .bg-theme-gold { background: #FBF2DF; color: #B98B36; }
+    .bg-theme-green { background: #E7F3EC; color: #1E7A4C; }
+    .bg-theme-violet { background: #F2EBFB; color: #6B3BA7; }
+    .bg-theme-teal { background: #E0F4F7; color: #087F8C; }
+    .bg-theme-rose { background: #FCEBEB; color: #C0392B; }
+
+    .badge-navy { background: #090C9B; color: #ffffff; }
+    .badge-gold { background: #D9A441; color: #ffffff; }
+    .badge-green { background: #1E7A4C; color: #ffffff; }
+    .badge-violet { background: #6B3BA7; color: #ffffff; }
+    .badge-teal { background: #087F8C; color: #ffffff; }
+    .badge-outline { background: #F6F5F0; border: 1px solid #E4E2DA; color: #5B5F82; }
+
+    @@keyframes pulseGlow {
+        0% { box-shadow: 0 0 0 0 rgba(30, 122, 76, 0.4); }
+        70% { box-shadow: 0 0 0 8px rgba(30, 122, 76, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(30, 122, 76, 0); }
+    }
+
+    .pulse-healthy {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #1E7A4C;
+        display: inline-block;
+        animation: pulseGlow 2s infinite;
+    }
+</style>
+
+<div class="admin-dash-wrap">
+    <!-- Hero Header -->
+    <div class="admin-hero">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <div class="hero-title">
+                    <i class="bi bi-shield-lock-fill text-warning"></i>
+                    <span>Panel Principal de Administración</span>
+                    <span class="hero-badge">Rol: ADMIN_CRM</span>
+                </div>
+                <p class="hero-subtitle">
+                    Centro de comando unificado para el gobierno de la plataforma NYX. Administra usuarios y RBAC, configura el diseñador canvas y estados, y supervisa la orquestación de la suite de 3 Motores Autónomos (SLA, Flow & Approval).
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-light btn-sm fw-bold rounded-pill px-3 py-2 text-dark border-0 shadow-sm" @onclick="RefreshEnginesHealth">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Actualizar Salud
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Cards Bar -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="stat-lbl">ESTADO NYX ENGINES</span>
+                    <div class="stat-icon-box bg-theme-navy">
+                        <i class="bi bi-cpu-fill"></i>
+                    </div>
+                </div>
+                <div class="stat-val d-flex align-items-center gap-2">
+                    @if (loadingHealth)
+                    {
+                        <span class="fs-6 text-muted">Verificando...</span>
+                    }
+                    else if (enginesAllHealthy)
+                    {
+                        <span class="pulse-healthy"></span>
+                        <span class="text-success fs-5 fw-extrabold">3/3 En Línea</span>
+                    }
+                    else
+                    {
+                        <span class="text-warning fs-5 fw-extrabold">Alerta Parcial</span>
+                    }
+                </div>
+                <div class="small text-muted mt-1">SLA :5070 · Approval :5071 · Flow :5072</div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="stat-lbl">CONTROL DE USUARIOS</span>
+                    <div class="stat-icon-box bg-theme-gold">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                </div>
+                <div class="stat-val">5 Roles RBAC</div>
+                <div class="small text-muted mt-1">Asesor, Sup, Backoffice, Coord, Admin</div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="stat-lbl">CAPA 1 CHECKPOINTS</span>
+                    <div class="stat-icon-box bg-theme-violet">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+                </div>
+                <div class="stat-val">Triple Firma</div>
+                <div class="small text-muted mt-1">Gobierno Capa 1 & Reglas SOX / ISO</div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="stat-lbl">AUDITORÍA FORENSE</span>
+                    <div class="stat-icon-box bg-theme-teal">
+                        <i class="bi bi-file-earmark-lock2-fill"></i>
+                    </div>
+                </div>
+                <div class="stat-val">SHA-512</div>
+                <div class="small text-muted mt-1">Custodia inmutable y logs de evento</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Quick Filter Bar -->
+    <div class="search-panel">
+        <div class="search-input-group">
+            <i class="bi bi-search"></i>
+            <input type="text" class="search-input" placeholder="Buscar módulo por nombre o descripción (ej: usuarios, comisiones, canvas, SLA, checkpoints)..." @bind="searchFilter" @bind:event="oninput" />
+        </div>
+        @if (!string.IsNullOrEmpty(searchFilter))
+        {
+            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" @onclick='() => searchFilter = ""'>Limpiar</button>
+        }
+    </div>
+
+    <!-- SECTION 1: GESTIÓN DE USUARIOS Y SEGURIDAD (RBAC) -->
+    @if (IsVisibleCategory("usuarios"))
+    {
+        <div class="section-header">
+            <div class="section-icon"><i class="bi bi-people"></i></div>
+            <div>
+                <h3 class="section-title">1. Usuarios, Permisos & Seguridad RBAC</h3>
+                <p class="section-subtitle">Administración de credenciales, perfiles de acceso y políticas de seguridad organizacional.</p>
+            </div>
+        </div>
+        <div class="row g-3 mb-4">
+            @if (MatchesSearch("Control de Usuarios", "Asignación de roles, cuentas, campañas y perfiles"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/usuarios">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-navy"><i class="bi bi-person-lines-fill"></i></div>
+                            <span class="mod-badge badge-navy">Seguridad</span>
+                        </div>
+                        <div class="mod-name">Control de Usuarios</div>
+                        <div class="mod-desc">Administra el directorio de usuarios, asigna campañas comerciales, activa o bloquea accesos y gestiona credenciales.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Gestionar Usuarios <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">5 Usuarios activos</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Roles y Permisos RBAC", "Matriz de privilegios, autorizaciones y perfiles de grupo"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/roles">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-gold"><i class="bi bi-shield-lock-fill"></i></div>
+                            <span class="mod-badge badge-gold">RBAC Matrix</span>
+                        </div>
+                        <div class="mod-name">Roles y Permisos RBAC</div>
+                        <div class="mod-desc">Define la matriz de control de acceso basada en roles, permisos por endpoint y niveles de autorización ejecutiva.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Configurar Matriz <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">5 Roles base</span>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- SECTION 2: CONFIGURACIÓN OPERATIVA & CANVAS DE FICHAS -->
+    @if (IsVisibleCategory("operativa"))
+    {
+        <div class="section-header">
+            <div class="section-icon"><i class="bi bi-sliders"></i></div>
+            <div>
+                <h3 class="section-title">2. Configuración Operativa & Canvas de Fichas</h3>
+                <p class="section-subtitle">Diseño de formularios dinámicos, catálogo de productos y reglas de ciclo de vida de ventas.</p>
+            </div>
+        </div>
+        <div class="row g-3 mb-4">
+            @if (MatchesSearch("Estados y Flujos", "Pipeline comercial, validadores de transición y reglas"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/estados">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-violet"><i class="bi bi-diagram-3-fill"></i></div>
+                            <span class="mod-badge badge-violet">Pipelines</span>
+                        </div>
+                        <div class="mod-name">Estados y Flujos</div>
+                        <div class="mod-desc">Modifica el pipeline comercial de 10 etapas, configura transiciones permitidas y asigna reglas de bloqueo.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Editar Pipeline <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">10 Etapas activas</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Diseñador Canvas de Fichas", "Formularios dinámicos, campos canvas y layouts de venta"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/fichas">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-teal"><i class="bi bi-layout-wrench-panel"></i></div>
+                            <span class="mod-badge badge-teal">Canvas Designer</span>
+                        </div>
+                        <div class="mod-name">Diseñador Canvas de Fichas</div>
+                        <div class="mod-desc">Diseña los esquemas dinámicos de formularios de venta (Capa 2), agrega secciones y personaliza campos por campaña.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Abrir Diseñador <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Campos dinámicos</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Campañas y Catálogo", "Productos, tarifas, ofertas, promociones y catálogo de venta"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/catalogo">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-green"><i class="bi bi-bag-check-fill"></i></div>
+                            <span class="mod-badge badge-green">Catálogo</span>
+                        </div>
+                        <div class="mod-name">Campañas y Catálogo</div>
+                        <div class="mod-desc">Gestiona el catálogo de ofertas comerciales, planes, tarifas de proveedores y campañas activas de la compañía.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Gestionar Ofertas <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Campañas Activas</span>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- SECTION 3: MOTORES AUTÓNOMOS (NYX ENGINES HUB) -->
+    @if (IsVisibleCategory("motores"))
+    {
+        <div class="section-header">
+            <div class="section-icon" style="background:#FBF2DF; color:#B98B36;"><i class="bi bi-cpu"></i></div>
+            <div>
+                <h3 class="section-title">3. Orquestación de Motores Autónomos (Nyx Engines Hub)</h3>
+                <p class="section-subtitle">Gestión centralizada de los 3 microservicios autónomos (SLA, FlowEngine & ApprovalEngine).</p>
+            </div>
+        </div>
+        <div class="row g-3 mb-4">
+            @if (MatchesSearch("Nyx Engines Hub", "Dashboard de motores, salud microservicios, latencia y endpoints"))
+            {
+                <div class="col-12 col-md-6 col-lg-3">
+                    <a class="mod-card" href="/engines/hub">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-navy"><i class="bi bi-speedometer2"></i></div>
+                            <span class="mod-badge badge-navy">Central Hub</span>
+                        </div>
+                        <div class="mod-name">Engines Hub Control</div>
+                        <div class="mod-desc">Monitor en vivo de la salud (`/health`), puertos y estado de conectividad de los 3 motores autónomos.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Ver Dashboard <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">3 Servicios</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Checkpoints & Aprobaciones", "Modelo de checkpoints, triple firma, Capa 1 y gestor N-Capas"))
+            {
+                <div class="col-12 col-md-6 col-lg-3">
+                    <a class="mod-card" href="/engines/checkpoints">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-gold"><i class="bi bi-ui-checks"></i></div>
+                            <span class="mod-badge badge-gold">Gobierno N-Capas</span>
+                        </div>
+                        <div class="mod-name">Gobierno N-Capas (Admin)</div>
+                        <div class="mod-desc">Administración del catálogo de capas (Capa 1 a N), creación/eliminación de capas y editor de checkpoints vía API.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Gestionar Capas <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Rol ADMIN_CRM</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Bandeja de Aprobaciones", "Firma SOX, evaluación de solicitudes, autorizaciones supervisor"))
+            {
+                <div class="col-12 col-md-6 col-lg-3">
+                    <a class="mod-card" href="/engines/approvals">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-green"><i class="bi bi-shield-check"></i></div>
+                            <span class="mod-badge badge-green">Firma SOX</span>
+                        </div>
+                        <div class="mod-name">Bandeja de Aprobaciones</div>
+                        <div class="mod-desc">Revisión y firma directa de solicitudes de autorización pendientes de supervisión (SOX / ISO 27001).</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Ver Solicitudes <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Bandeja SOX</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Políticas SLA", "Ventanas operativas, SLAs de venta, incidencias y escalamiento"))
+            {
+                <div class="col-12 col-md-6 col-lg-3">
+                    <a class="mod-card" href="/engines/sla">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-violet"><i class="bi bi-clock-history"></i></div>
+                            <span class="mod-badge badge-violet">Nyx.SlaEngine</span>
+                        </div>
+                        <div class="mod-name">Políticas de SLA</div>
+                        <div class="mod-desc">Configuración de ventanas laborables de colaboradores, tiempos de resolución de incidencias y umbrales de alerta.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Ajustar SLAs <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Puerto 5070</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Auditoría SHA-512", "Criptografía, logs forenses, firma digital y custodia"))
+            {
+                <div class="col-12 col-md-6 col-lg-3">
+                    <a class="mod-card" href="/engines/audit">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-teal"><i class="bi bi-file-lock2"></i></div>
+                            <span class="mod-badge badge-teal">SHA-512</span>
+                        </div>
+                        <div class="mod-name">Auditoría SHA-512</div>
+                        <div class="mod-desc">Visor de la traza criptográfica de modificaciones, registros inmutables y cadena de preservación digital.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Ver Logs <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Criptográfico</span>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- SECTION 4: AUDITORÍA, COMISIONES & OPERACIONES -->
+    @if (IsVisibleCategory("auditoria"))
+    {
+        <div class="section-header">
+            <div class="section-icon" style="background:#E7F3EC; color:#1E7A4C;"><i class="bi bi-journal-check"></i></div>
+            <div>
+                <h3 class="section-title">4. Auditoría, Comisiones & Logs de Operación</h3>
+                <p class="section-subtitle">Evaluación de calidad, liquidación financiera, registros de custodia y logs del sistema.</p>
+            </div>
+        </div>
+        <div class="row g-3 mb-4">
+            @if (MatchesSearch("Auditoría de Calidad", "Monitoreo de audio, pautas de calidad y evaluación de llamadas"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/auditoria-calidad">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-green"><i class="bi bi-headset"></i></div>
+                            <span class="mod-badge badge-green">Calidad</span>
+                        </div>
+                        <div class="mod-name">Auditoría de Calidad</div>
+                        <div class="mod-desc">Pauta de evaluación de auditoría de audio de llamadas, métricas de cumplimiento de asesores y feedback.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Evaluar Auditoría <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Mód. Audio</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Liquidación Comisiones", "Cálculo de comisiones, bonos, metas y exportación"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/comisiones">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-gold"><i class="bi bi-cash-stack"></i></div>
+                            <span class="mod-badge badge-gold">Finanzas</span>
+                        </div>
+                        <div class="mod-name">Liquidación Comisiones</div>
+                        <div class="mod-desc">Cálculo de comisiones por canal de venta, validación de cortes comerciales y exportación de reportes de pago.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Calcular Comisiones <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Planillas de Pago</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Log Forense Custodia", "Cadena de custodia, evidencias, grabaciones y documentos"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/custodia-log">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-violet"><i class="bi bi-box-seam-fill"></i></div>
+                            <span class="mod-badge badge-violet">Custodia</span>
+                        </div>
+                        <div class="mod-name">Log Forense Custodia</div>
+                        <div class="mod-desc">Seguimiento de la cadena de custodia de evidencias multimedia, contratos firmados y grabaciones legales.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Ver Evidencias <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Evidencias Venta</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Logs del Sistema", "Excepciones, eventos del servidor, traza de errores e infraestructura"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/system-logs">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-rose"><i class="bi bi-terminal-fill"></i></div>
+                            <span class="mod-badge badge-outline">Sistema</span>
+                        </div>
+                        <div class="mod-name">Logs del Sistema</div>
+                        <div class="mod-desc">Visor técnico de logs de aplicación de ASP.NET Core, errores no manejados y eventos del servidor.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Inspeccionar Logs <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Nivel Servidor</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Base de Conocimiento", "Documentación, wikis, manuales y guías de procedimiento"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/kb">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-teal"><i class="bi bi-journal-bookmark-fill"></i></div>
+                            <span class="mod-badge badge-teal">Wiki</span>
+                        </div>
+                        <div class="mod-name">Base de Conocimiento</div>
+                        <div class="mod-desc">Gestión de la wiki corporativa, manuales operacionales, preguntas frecuentes y procedimientos para asesores.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Editar Artículos <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">Documentación</span>
+                        </div>
+                    </a>
+                </div>
+            }
+
+            @if (MatchesSearch("Mantenimiento SLA", "Turnos de trabajo, horarios laborales y mantenimiento de tablas legacy"))
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="mod-card" href="/admin/maintenance">
+                        <div class="mod-card-top">
+                            <div class="mod-icon bg-theme-navy"><i class="bi bi-tools"></i></div>
+                            <span class="mod-badge badge-outline">Legacy Utilities</span>
+                        </div>
+                        <div class="mod-name">Mantenimiento SLA</div>
+                        <div class="mod-desc">Configuración de turnos laborables de usuarios, horarios de atención y utilitarios de mantenimiento del sistema.</div>
+                        <div class="mod-footer">
+                            <span class="mod-action-text">Configurar Turnos <i class="bi bi-arrow-right"></i></span>
+                            <span class="text-muted small">User Shifts</span>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private string searchFilter = string.Empty;
+    private bool loadingHealth = false;
+    private bool enginesAllHealthy = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshEnginesHealth();
+    }
+
+    private async Task RefreshEnginesHealth()
+    {
+        loadingHealth = true;
+        try
+        {
+            var baseUri = Nav.BaseUri.TrimEnd('/');
+            var status = await Http.GetFromJsonAsync<EngineStatusVm>($"{baseUri}/api/engines/status");
+            if (status?.Engines != null && status.Engines.Any())
+            {
+                enginesAllHealthy = status.Engines.All(e => e.IsHealthy);
+            }
+            else
+            {
+                enginesAllHealthy = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AdminDashboard] Error checking engines health: {ex.Message}");
+            enginesAllHealthy = false;
+        }
+        finally
+        {
+            loadingHealth = false;
+        }
+    }
+
+    private bool MatchesSearch(string title, string description)
+    {
+        if (string.IsNullOrWhiteSpace(searchFilter)) return true;
+        var term = searchFilter.Trim().ToLowerInvariant();
+        return title.ToLowerInvariant().Contains(term) || description.ToLowerInvariant().Contains(term);
+    }
+
+    private bool IsVisibleCategory(string categoryKey)
+    {
+        if (string.IsNullOrWhiteSpace(searchFilter)) return true;
+        
+        switch (categoryKey)
+        {
+            case "usuarios":
+                return MatchesSearch("Control de Usuarios", "") || MatchesSearch("Roles y Permisos RBAC", "");
+            case "operativa":
+                return MatchesSearch("Estados y Flujos", "") || MatchesSearch("Diseñador Canvas de Fichas", "") || MatchesSearch("Campañas y Catálogo", "");
+            case "motores":
+                return MatchesSearch("Nyx Engines Hub", "") || MatchesSearch("Checkpoints & Aprobaciones", "") || MatchesSearch("Políticas SLA", "") || MatchesSearch("Auditoría SHA-512", "");
+            case "auditoria":
+                return MatchesSearch("Auditoría de Calidad", "") || MatchesSearch("Liquidación Comisiones", "") || MatchesSearch("Log Forense Custodia", "") || MatchesSearch("Logs del Sistema", "") || MatchesSearch("Base de Conocimiento", "") || MatchesSearch("Mantenimiento SLA", "");
+            default:
+                return true;
+        }
+    }
+
+    private class EngineStatusVm
+    {
+        public DateTime Timestamp { get; set; }
+        public List<EngineItemVm>? Engines { get; set; }
+    }
+
+    private class EngineItemVm
+    {
+        public string Name { get; set; } = string.Empty;
+        public int Port { get; set; }
+        public string Database { get; set; } = string.Empty;
+        public bool IsHealthy { get; set; }
+    }
+}

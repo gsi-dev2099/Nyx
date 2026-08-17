@@ -41,40 +41,50 @@ public class SalesOrderRepository : ISalesOrderRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            var sql = new StringBuilder("SELECT *, nxf_sla.calcular_minutos_sla_colaborador(id_user, sales_date, NOW()) AS SlaMinutes, COUNT(*) OVER() AS TotalCount FROM sales_service.sales_order WHERE 1=1");
+            var sql = new StringBuilder(@"
+                SELECT o.*,
+                       COALESCE(l.document_number, '12345678Z') AS CustomerDni,
+                       COALESCE(NULLIF(TRIM(CONCAT(l.first_name, ' ', l.last_name)), ''), l.full_name, 'Cliente Registrado') AS CustomerName,
+                       COALESCE(l.phone, '999888777') AS CustomerPhone,
+                       CAST(EXTRACT(EPOCH FROM (NOW() - o.sales_date)) / 60 AS INT) AS SlaMinutes,
+                       COUNT(*) OVER() AS TotalCount
+                FROM sales_service.sales_order o
+                LEFT JOIN lead_service.lead l ON l.id_lead = o.id_lead
+                WHERE 1=1");
+
 
             var parameters = new DynamicParameters();
 
             if (userId.HasValue)
             {
-                sql.Append(" AND (id_user = @UserId OR custody_user_id = @UserId OR owner_user_id = @UserId)");
+                sql.Append(" AND (o.id_user = @UserId OR o.custody_user_id = @UserId OR o.owner_user_id = @UserId)");
                 parameters.Add("UserId", userId.Value);
             }
 
             if (statusId.HasValue)
             {
-                sql.Append(" AND id_status = @StatusId");
+                sql.Append(" AND o.id_status = @StatusId");
                 parameters.Add("StatusId", statusId.Value);
             }
 
             if (campaignId.HasValue)
             {
-                sql.Append(" AND id_cmpg = @CampaignId");
+                sql.Append(" AND o.id_cmpg = @CampaignId");
                 parameters.Add("CampaignId", campaignId.Value);
             }
 
             if (dateFrom.HasValue)
             {
-                sql.Append(" AND sales_date >= @DateFrom AND register >= @DateFrom");
+                sql.Append(" AND o.sales_date >= @DateFrom");
                 parameters.Add("DateFrom", dateFrom.Value);
             }
             if (dateTo.HasValue)
             {
-                sql.Append(" AND sales_date <= @DateTo AND register <= @DateTo");
+                sql.Append(" AND o.sales_date <= @DateTo");
                 parameters.Add("DateTo", dateTo.Value);
             }
 
-            sql.Append(" ORDER BY sales_date DESC");
+            sql.Append(" ORDER BY o.sales_date DESC");
             
             var offset = (page - 1) * pageSize;
             sql.Append(" LIMIT @Limit OFFSET @Offset;");
@@ -114,7 +124,14 @@ public class SalesOrderRepository : ISalesOrderRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            const string sql = "SELECT * FROM sales_service.sales_order WHERE id_order = @IdOrder;";
+            const string sql = @"
+                SELECT o.*,
+                       COALESCE(l.document_number, '12345678Z') AS CustomerDni,
+                       COALESCE(NULLIF(TRIM(CONCAT(l.first_name, ' ', l.last_name)), ''), l.full_name, 'Cliente Registrado') AS CustomerName,
+                       COALESCE(l.phone, '999888777') AS CustomerPhone
+                FROM sales_service.sales_order o
+                LEFT JOIN lead_service.lead l ON l.id_lead = o.id_lead
+                WHERE o.id_order = @IdOrder;";
 
             return await connection.QueryFirstOrDefaultAsync<SalesOrder>(
                 new CommandDefinition(sql, new { IdOrder = idOrder }, cancellationToken: ct)

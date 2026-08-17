@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using CRM.ApiHub.Domain.DTOs;
 using CRM.ApiHub.Domain.Repositories;
 using CRM.ApiHub.Application.Interfaces;
+using CRM.ApiHub.Infrastructure.Services;
 using System.Security.Claims;
 
 namespace CRM.ApiHub.Api.Controllers;
@@ -28,15 +29,18 @@ public class ApprovalController : ControllerBase
     private readonly IApprovalRepository _repository;
     private readonly ISalesOrderRepository _salesOrderRepository;
     private readonly INotificationService _notificationService;
+    private readonly IApprovalEngineClient _approvalEngineClient;
 
     public ApprovalController(
         IApprovalRepository repository,
         ISalesOrderRepository salesOrderRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IApprovalEngineClient approvalEngineClient)
     {
         _repository = repository;
         _salesOrderRepository = salesOrderRepository;
         _notificationService = notificationService;
+        _approvalEngineClient = approvalEngineClient;
     }
 
     [HttpPost("api/orders/{id:long}/approvals")]
@@ -60,6 +64,9 @@ public class ApprovalController : ControllerBase
         else if (requestedBy == -998) requestedBy = 9;
 
         var approvalId = await _repository.CreateApprovalRequestAsync(id, dto.Comments, requestedBy);
+
+        // Disparar solicitud en motor autonomo Nyx.ApprovalEngine
+        await _approvalEngineClient.SubmitRequestAsync("APPROVAL_HIGH_DISCOUNT", "order", id, requestedBy);
 
         return CreatedAtAction(nameof(GetById), new { id = approvalId }, new { message = "Solicitud de aprobación registrada como PENDING.", id = approvalId });
     }
@@ -90,6 +97,16 @@ public class ApprovalController : ControllerBase
             return NotFound(new { message = "Aprobación no encontrada." });
         }
 
+        // Registrar decision en motor autonomo Nyx.ApprovalEngine (Valida reglas ISO 27001 / SOX de Segregacion de Deberes)
+        try
+        {
+            await _approvalEngineClient.DecideRequestAsync(id, supervisorId, dto.Status, dto.Comments);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+
         // Emit internal notification on approval
         if (dto.Status == "APPROVED")
         {
@@ -112,6 +129,7 @@ public class ApprovalController : ControllerBase
 
         return Ok(new { message = "Aprobación actualizada correctamente.", id = id });
     }
+
 
     [HttpGet("api/approvals/{id:long}")]
     public async Task<IActionResult> GetById(long id)

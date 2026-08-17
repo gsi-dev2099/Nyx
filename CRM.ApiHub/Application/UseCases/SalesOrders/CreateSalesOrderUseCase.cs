@@ -4,16 +4,24 @@ using System.Threading.Tasks;
 using CRM.ApiHub.Application.DTOs;
 using CRM.ApiHub.Domain.Entities;
 using CRM.ApiHub.Domain.Repositories;
+using CRM.ApiHub.Infrastructure.Services;
 
 namespace CRM.ApiHub.Application.UseCases.SalesOrders;
 
 public class CreateSalesOrderUseCase
 {
     private readonly ISalesOrderRepository _salesOrderRepository;
+    private readonly ISlaEngineClient _slaEngineClient;
+    private readonly IFlowEngineClient _flowEngineClient;
 
-    public CreateSalesOrderUseCase(ISalesOrderRepository salesOrderRepository)
+    public CreateSalesOrderUseCase(
+        ISalesOrderRepository salesOrderRepository,
+        ISlaEngineClient slaEngineClient,
+        IFlowEngineClient flowEngineClient)
     {
         _salesOrderRepository = salesOrderRepository;
+        _slaEngineClient = slaEngineClient;
+        _flowEngineClient = flowEngineClient;
     }
 
     public async Task<SalesOrder> ExecuteAsync(SalesOrderCreateDto dto, CancellationToken ct = default)
@@ -41,6 +49,14 @@ public class CreateSalesOrderUseCase
         var newId = await _salesOrderRepository.CreateAsync(order, ct);
         order.IdOrder = newId;
 
+        // Disparar reloj SLA autonomo en Nyx.SlaEngine
+        await _slaEngineClient.StartMeasurementAsync("order", newId, "SLA_SALES_VALIDATION", order.OwnerUserId, order.IdUser);
+
+        // Instanciar pipeline y checkpoints autonomos en Nyx.FlowEngine
+        await _flowEngineClient.StartFlowInstanceAsync("PIPELINE_ALARMAS", "order", newId, order.IdUser);
+
         return order;
     }
+
 }
+

@@ -33,7 +33,7 @@ builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("LoginLimit", opt =>
     {
-        opt.PermitLimit = 5;
+        opt.PermitLimit = 30;  // Increased for E2E testing (was 5)
         opt.Window = TimeSpan.FromMinutes(1);
         opt.QueueLimit = 0;
     });
