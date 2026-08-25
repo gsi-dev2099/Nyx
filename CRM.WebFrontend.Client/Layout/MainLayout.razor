@@ -1,91 +1,80 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
-<div class="dashboard-root">
-    <!-- Sidebar Left Panel -->
-    <aside class="custom-sidebar @(_sidebarExpanded ? "expanded" : "")">
-        <div class="logo-container">
-            <div class="logo-g d-flex align-items-center justify-content-center" @onclick="ToggleSidebar" title="Expandir/Contraer Menú" style="cursor: pointer; user-select: none; width: 100%;">
-                <img src="/images/logo.png" alt="NYX CRM Logo" style="width: 45px; height: 45px; min-width: 45px; min-height: 45px; flex-shrink: 0; object-fit: contain; transition: transform 0.2s ease;" />
+<!-- Ambient particles for dark mode -->
+<div class="ambient-particles" id="ambientParticles"></div>
+
+<div class="galaxy-layout">
+    <!-- ==================== GALAXY SIDEBAR ==================== -->
+    <aside class="galaxy-sidebar" id="galaxySidebar">
+        <div class="galaxy-logo-area">
+            <div class="galaxy-logo-icon">
+                <img src="/images/logo.png" alt="NYX CRM Logo" />
+            </div>
+            <div>
+                <div class="galaxy-logo-text">NYX CRM</div>
+                <div class="galaxy-logo-sub">OPERACIONES</div>
             </div>
         </div>
+
+        <div class="sidebar-section-label" style="margin-top: 0;">ESPACIO DE TRABAJO</div>
         
-        <div class="sidebar-menu">
-            <NavMenu />
-        </div>
+        <NavMenu />
+
+        <div class="sidebar-section-label" style="margin-top: auto;">CUENTA</div>
         
-        <!-- Bottom Sidebar profile avatar & settings -->
-        <div class="sidebar-footer">
+        <!-- Sidebar Footer -->
+        <div style="position: relative; z-index: 2;">
             <AuthorizeView>
                 <Authorized>
-                    <div class="d-flex align-items-center justify-content-center w-100 mb-2" title="@context.User.Identity?.Name">
-                        <div class="avatar-container flex-shrink-0" 
-                             style="width: 38px; height: 38px; background: #E1F5FE; border: none; color: #003B5C; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
-                            <span class="avatar-letter" style="font-weight: 700; font-size: 0.95rem;">
+                    <div class="galaxy-nav-item" style="cursor: default; margin-bottom: 6px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width: 32px; height: 32px; background: linear-gradient(135deg, var(--accent), var(--indigo)); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
                                 @(context.User.Identity?.Name?.FirstOrDefault().ToString().ToUpper() ?? "U")
-                            </span>
+                            </div>
+                            <span style="color: #E2E8F0; font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@context.User.Identity?.Name</span>
                         </div>
                     </div>
                 </Authorized>
             </AuthorizeView>
 
-            <!-- Settings Link -->
-            <NavLink class="footer-btn d-flex align-items-center w-100" href="/settings" title="Configuración">
-                <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 8.25C9.92893 8.25 8.25 9.92893 8.25 12C8.25 14.0711 9.92893 15.75 12 15.75C14.0711 15.75 15.75 14.0711 15.75 12C15.75 9.92893 14.0711 8.25 12 8.25ZM9.75 12C9.75 10.7574 10.7574 9.75 12 9.75C13.2426 9.75 14.25 10.7574 14.25 12C14.25 13.2426 13.2426 14.25 12 14.25C10.7574 14.25 9.75 13.2426 9.75 12Z" fill="currentColor"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C11.2954 1.25 10.6519 1.44359 9.94858 1.77037C9.26808 2.08656 8.48039 2.55304 7.49457 3.13685L6.74148 3.58283C5.75533 4.16682 4.96771 4.63324 4.36076 5.07944C3.73315 5.54083 3.25177 6.01311 2.90334 6.63212C2.55548 7.25014 2.39841 7.91095 2.32306 8.69506C2.24999 9.45539 2.24999 10.3865 2.25 11.556V12.444C2.24999 13.6135 2.24999 14.5446 2.32306 15.3049C2.39841 16.0891 2.55548 16.7499 2.90334 17.3679C3.25177 17.9869 3.73315 18.4592 4.36076 18.9206C4.96771 19.3668 5.75533 19.8332 6.74148 20.4172L7.4946 20.8632C8.48038 21.447 9.2681 21.9135 9.94858 22.2296C10.6519 22.5564 11.2954 22.75 12 22.75C12.7046 22.75 13.3481 22.5564 14.0514 22.2296C14.7319 21.9134 15.5196 21.447 16.5054 20.8632L17.2585 20.4172C18.2446 19.8332 19.0323 19.3668 19.6392 18.9206C20.2669 18.4592 20.7482 17.9869 21.0967 17.3679C21.4445 16.7499 21.6016 16.0891 21.6769 15.3049C21.75 14.5446 21.75 13.6135 21.75 12.4441V11.556C21.75 10.3866 21.75 9.45538 21.6769 8.69506C21.6016 7.91095 21.4445 7.25014 21.0967 6.63212C20.7482 6.01311 20.2669 5.54083 19.6392 5.07944C19.0323 4.63324 18.2447 4.16683 17.2585 3.58285L16.5054 3.13685C15.5196 2.55303 14.7319 2.08656 14.0514 1.77037C13.3481 1.44359 12.7046 1.25 12 1.25ZM8.22524 4.44744C9.25238 3.83917 9.97606 3.41161 10.5807 3.13069C11.1702 2.85676 11.5907 2.75 12 2.75C12.4093 2.75 12.8298 2.85676 13.4193 3.13069C14.0239 3.41161 14.7476 3.83917 15.7748 4.44744L16.4609 4.85379C17.4879 5.46197 18.2109 5.89115 18.7508 6.288C19.2767 6.67467 19.581 6.99746 19.7895 7.36788C19.9986 7.73929 20.1199 8.1739 20.1838 8.83855C20.2492 9.51884 20.25 10.378 20.25 11.5937V12.4063C20.25 13.622 20.2492 14.4812 20.1838 15.1614C20.1199 15.8261 19.9986 16.2607 19.7895 16.6321C19.581 17.0025 19.2767 17.3253 18.7508 17.712C18.2109 18.1089 17.4879 18.538 16.4609 19.1462L15.7748 19.5526C14.7476 20.1608 14.0239 20.5884 13.4193 20.8693C12.8298 21.1432 12.4093 21.25 12 21.25C11.5907 21.25 11.1702 21.1432 10.5807 20.8693C9.97606 20.5884 9.25238 20.1608 8.22524 19.5526L7.53909 19.1462C6.5121 18.538 5.78906 18.1089 5.24923 17.712C4.72326 17.3253 4.419 17.0025 4.2105 16.6321C4.00145 16.2607 3.88005 15.8261 3.81618 15.1614C3.7508 14.4812 3.75 13.622 3.75 12.4063V11.5937C3.75 10.378 3.7508 9.51884 3.81618 8.83855C3.88005 8.1739 4.00145 7.73929 4.2105 7.36788C4.419 6.99746 4.72326 6.67467 5.24923 6.288C5.78906 5.89115 6.5121 5.46197 7.53909 4.85379L8.22524 4.44744Z" fill="currentColor"></path></svg>
-                <span class="footer-btn-label ms-2">Configuración</span>
+            <NavLink class="galaxy-nav-item" href="/profile" title="Perfil & Accesibilidad">
+                <div><i class="bi bi-gear-fill" style="margin-right: 12px; font-size: 1.05rem; width: 20px; text-align: center;"></i> Configuración</div>
             </NavLink>
-
-            <!-- Logout Link -->
-            <NavLink class="footer-btn text-danger-hover d-flex align-items-center w-100" href="/logout-endpoint" title="Cerrar Sesión">
-                <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;"><path d="M12 3.25C12.4142 3.25 12.75 3.58579 12.75 4C12.75 4.41421 12.4142 4.75 12 4.75C7.99594 4.75 4.75 7.99594 4.75 12C4.75 16.0041 7.99594 19.25 12 19.25C12.4142 19.25 12.75 19.5858 12.75 20C12.75 20.4142 12.4142 20.75 12 20.75C7.16751 20.75 3.25 16.8325 3.25 12C3.25 7.16751 7.16751 3.25 12 3.25Z" fill="currentColor"></path><path d="M16.4697 9.53033C16.1768 9.23744 16.1768 8.76256 16.4697 8.46967C16.7626 8.17678 17.2374 8.17678 17.5303 8.46967L20.5303 11.4697C20.8232 11.7626 20.8232 12.2374 20.5303 12.5303L17.5303 15.5303C17.2374 15.8232 16.7626 15.8232 16.4697 15.5303C16.1768 15.2374 16.1768 14.7626 16.4697 14.4697L18.1893 12.75H10C9.58579 12.75 9.25 12.4142 9.25 12C9.25 11.5858 9.58579 11.25 10 11.25H18.1893L16.4697 9.53033Z" fill="currentColor"></path></svg>
-                <span class="footer-btn-label ms-2">Cerrar Sesión</span>
+            <NavLink class="galaxy-nav-item" href="/logout-endpoint" title="Cerrar Sesión" style="color: #FCA5A5;">
+                <div><i class="bi bi-box-arrow-right" style="margin-right: 12px; font-size: 1.05rem; width: 20px; text-align: center;"></i> Cerrar Sesión</div>
             </NavLink>
         </div>
+
+
     </aside>
 
-    <!-- Main Content Area -->
-    <main class="main-content">
-        <!-- Top Navigation -->
-        <header class="top-navigation">
-            <div class="d-flex align-items-center gap-2">
-                <button type="button" 
-                        class="btn d-md-none me-2 shadow-sm rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" 
-                        @onclick="ToggleMobileSidebar" 
-                        title="Menú de Navegación"
-                        style="width: 36px; height: 36px; background-color: #003B5C; color: #FFFFFF; border: none; z-index: 100;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <line x1="3" y1="12" x2="21" y2="12"></line>
-                        <line x1="3" y1="18" x2="21" y2="18"></line>
-                    </svg>
+    <!-- ==================== MAIN ==================== -->
+    <main class="galaxy-main-content">
+        <!-- Top header -->
+        <div class="galaxy-page-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+                <div class="galaxy-page-label">
+                    — @string.Join(" · ", _breadcrumbs).ToUpper()
+                </div>
+                <h1 class="galaxy-page-title">@_currentTitle</h1>
+                <p class="galaxy-page-desc">@_currentDesc</p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center; flex-shrink:0;">
+                <button type="button" class="btn-ghost-galaxy btn-icon-galaxy d-md-none" @onclick="ToggleMobileSidebar" title="Menú">
+                    <i class="bi bi-list"></i>
                 </button>
-                @for (int i = 0; i < _breadcrumbs.Count; i++)
-                {
-                    var item = _breadcrumbs[i];
-                    var isLast = i == _breadcrumbs.Count - 1;
-                    if (i > 0)
-                    {
-                        <span style="color: var(--border-color); font-size: 13px;">></span>
-                    }
-                    if (isLast)
-                    {
-                        <span style="color: var(--text-primary); font-size: 14px; font-weight: 600;">@item</span>
-                    }
-                    else
-                    {
-                        <span style="color: var(--text-secondary); font-size: 14px;">@item</span>
-                    }
-                }
-            </div>
-            <div class="d-flex align-items-center gap-3">
-                <!-- Search Icon -->
-                <a href="/kb" class="btn btn-light p-0 rounded-circle border-0 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: transparent; color: var(--text-secondary); text-decoration: none;" title="Buscar">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                </a>
+                <div style="width:1px; height:28px; background:var(--border-galaxy); margin:0 4px;"></div>
                 <CRM.WebFrontend.Client.Components.NotificationBell />
+                <!-- Theme Toggle -->
+                <button class="theme-toggle" onclick="window.galaxyTheme.toggleTheme()" title="Cambiar modo claro/oscuro">
+                    <i class="bi bi-moon-stars-fill icon-moon"></i>
+                    <i class="bi bi-sun-fill icon-sun"></i>
+                </button>
             </div>
-        </header>
+        </div>
 
         @if (_mobileSidebarOpen)
         {
@@ -105,7 +94,7 @@
                     <AuthorizeView>
                         <Authorized>
                             <div class="d-flex align-items-center gap-2 mb-2">
-                                <div class="avatar-container flex-shrink-0" style="width: 32px; height: 32px; background: #E1F5FE; color: #003B5C; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem;">
+                                <div style="width: 32px; height: 32px; background: #E1F5FE; color: #003B5C; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem;">
                                     @(context.User.Identity?.Name?.FirstOrDefault().ToString().ToUpper() ?? "U")
                                 </div>
                                 <span class="small fw-bold text-dark text-truncate">@context.User.Identity?.Name</span>
@@ -121,7 +110,7 @@
         }
 
         <!-- Dynamic Page Body -->
-        <div class="container-fluid py-2">
+        <div style="flex: 1; overflow-y: auto;">
             @Body
         </div>
 
@@ -133,33 +122,16 @@
 </div>
 
 <style>
-    /* Collapse sidebar transitions */
-    .custom-sidebar {
-        transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), padding 0.3s ease, border-right 0.3s ease;
-    }
-    
+    /* Mobile sidebar styles */
     .mobile-sidebar-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 1050;
-        backdrop-filter: blur(2px);
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(0, 0, 0, 0.5); z-index: 1050; backdrop-filter: blur(2px);
     }
     .mobile-sidebar-drawer {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 280px;
-        max-width: 85vw;
-        height: 100vh;
-        background: #ffffff;
-        z-index: 1060;
+        position: fixed; top: 0; left: 0; width: 280px; max-width: 85vw;
+        height: 100vh; background: #ffffff; z-index: 1060;
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.18);
-        display: flex;
-        flex-direction: column;
+        display: flex; flex-direction: column;
         animation: slideInLeft 0.22s ease-out;
     }
     @@keyframes slideInLeft {
@@ -172,6 +144,8 @@
     private bool _sidebarExpanded = false;
     private bool _mobileSidebarOpen = false;
     private List<string> _breadcrumbs = new();
+    private string _currentTitle = "Dashboard";
+    private string _currentDesc = "";
 
     private MudTheme _customTheme = new MudTheme()
     {
@@ -196,6 +170,14 @@
     {
         Navigation.LocationChanged += HandleLocationChanged;
         UpdateBreadcrumbs();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("galaxyTheme.init");
+        }
     }
 
     private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -242,6 +224,33 @@
         {
             _breadcrumbs.Add("Dashboard");
         }
+
+        // Derive page title and description from route
+        var lastSegment = segments.LastOrDefault()?.ToLower() ?? "";
+        var parentSegment = segments.Length >= 2 ? segments[^2].ToLower() : "";
+
+        (_currentTitle, _currentDesc) = (lastSegment, parentSegment) switch
+        {
+            ("orders", "asesor") => ("Bandeja del Asesor", "Visualiza y gestiona las ventas y pedidos bajo tu custodia en tiempo real."),
+            ("new", "orders") => ("Nueva Orden", "Inicia el proceso de registro de una nueva venta."),
+            ("preventas", _) => ("Mis Pre-Ventas", "Gestiona y haz seguimiento a tus pre-ventas y leads."),
+            ("comisiones", _) => ("Comisiones", "Visualiza el detalle de tus comisiones."),
+            ("dashboard", "supervisor") => ("Kanban Ventas", "Vista de tablero Kanban para supervisión de ventas."),
+            ("supervisor", _) => ("Dashboard Supervisor", "Panel de supervisión y monitoreo de equipo."),
+            ("equipo", _) => ("Rendimiento de Equipo", "Métricas y análisis del rendimiento del equipo."),
+            ("alertas", _) => ("Alertas Activas", "Monitorea alertas activas del sistema."),
+            ("reports", _) => ("Métricas y Reportes", "Informes y análisis operativos."),
+            ("incidents", _) => ("Incidencias", "Gestión de incidencias."),
+            ("activations", _) => ("Activaciones", "Gestión de activaciones de servicios."),
+            ("approvals", _) => ("Bandeja de Aprobaciones", "Revisión y firma de aprobaciones SOX."),
+            ("admin", _) => ("Panel Admin", "Administración del sistema."),
+            ("usuarios", _) => ("Usuarios & Roles", "Control de acceso y perfiles de usuario."),
+            ("estados", _) => ("Flujos & Canvas", "Diseño de flujos operativos."),
+            ("profile", _) => ("Perfil & Accesibilidad", "Configura tu perfil y preferencias."),
+            ("settings", _) => ("Configuración", "Ajustes del sistema."),
+            ("kb", _) => ("Base de Conocimientos", "Documentación y recursos."),
+            _ => (_breadcrumbs.LastOrDefault() ?? "Dashboard", "")
+        };
     }
 
     private void ToggleSidebar()

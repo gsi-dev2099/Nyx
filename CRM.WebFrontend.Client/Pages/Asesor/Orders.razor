@@ -10,213 +10,80 @@
 
 <PageTitle>Bandeja del Asesor - NYX CRM</PageTitle>
 
-<style>
-    .asesor-hero-card {
-        background: #ffffff;
-        border-radius: 24px;
-        padding: 24px 28px;
-        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
-        border: none;
-    }
-    
-    .asesor-kpi-card {
-        background: rgba(244, 245, 247, 0.8);
-        border-radius: 20px;
-        padding: 20px;
-        border: none;
-        box-shadow: 0 4px 12px -2px rgba(29, 38, 57, 0.03);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    
-    .asesor-kpi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px -4px rgba(29, 38, 57, 0.08);
-    }
-    
-    .kpi-icon-wrapper {
-        width: 44px;
-        height: 44px;
-        border-radius: 16px;
-        background: #ffffff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        color: #1D2639;
-        flex-shrink: 0;
-    }
-
-    .asesor-cta-btn {
-        background: #1D2639;
-        color: #ffffff;
-        border-radius: 9999px;
-        padding: 10px 20px;
-        font-size: 0.85rem;
-        font-weight: 800;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: none;
-        text-decoration: none;
-        transition: all 0.25s ease;
-        box-shadow: 0 8px 20px -4px rgba(29, 38, 57, 0.25);
-    }
-
-    .asesor-cta-btn:hover {
-        background: #465975;
-        color: #ffffff;
-        transform: translateY(-1px);
-        box-shadow: 0 12px 25px -4px rgba(29, 38, 57, 0.35);
-    }
-
-    .table-card {
-        background: #ffffff;
-        border-radius: 24px;
-        border: none;
-        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
-        overflow: hidden;
-    }
-
-    .table-modern thead th {
-        background: #F8FAFC;
-        color: #64748B;
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 14px 18px;
-        border-bottom: 1px solid #E2E8F0;
-    }
-
-    .table-modern tbody tr {
-        transition: background-color 0.2s ease;
-        cursor: pointer;
-    }
-
-    .table-modern tbody tr:hover {
-        background-color: #F1F5F9;
-    }
-
-    .table-modern tbody td {
-        padding: 14px 18px;
-        font-size: 0.88rem;
-        color: #1E293B;
-        vertical-align: middle;
-        border-bottom: 1px solid #F1F5F9;
-    }
-
-    .badge-status {
-        border-radius: 9999px;
-        padding: 5px 12px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-    }
-
-    .action-btn-quick {
-        width: 32px;
-        height: 32px;
-        border-radius: 10px;
-        border: none;
-        background: #F1F5F9;
-        color: #475569;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-    }
-
-    .action-btn-quick:hover {
-        background: #1D2639;
-        color: #ffffff;
-    }
-</style>
-
-<div class="container-fluid py-4 space-y-4">
-    
-    <!-- Hero Banner & KPIs Integrados -->
-    <div class="asesor-hero-card">
-        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
-            <div>
-                <h1 class="h3 font-extrabold text-dark tracking-tight mb-1" style="color: #1D2639;">Bandeja del Asesor</h1>
-                <p class="text-muted small mb-0 font-medium">Visualiza y gestiona las ventas y pedidos bajo tu custodia en tiempo real.</p>
+<div>
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+        <div class="kpi-card-galaxy kpi-card-galaxy--hero">
+            <div class="kpi-label-galaxy" style="position:relative; z-index:2;">PEDIDOS EN CUSTODIA</div>
+            <div style="display:flex; align-items:baseline; position:relative; z-index:2;">
+                <span class="kpi-value-galaxy">@allOrders.Count</span>
+                <span class="kpi-unit-galaxy">activas hoy</span>
             </div>
-            <div>
-                <a href="/asesor/orders/new" class="asesor-cta-btn">
-                    <i class="bi bi-plus-lg fs-6"></i>
-                    <span>Nuevo Pedido</span>
-                </a>
-            </div>
+            <div class="kpi-detail-galaxy" style="position:relative; z-index:2;"><i class="bi bi-activity me-1"></i>Órdenes bajo tu custodia</div>
         </div>
-
-        <!-- KPI Cards (Sin montos) -->
-        <div class="row g-3">
-            <div class="col-12 col-md-6">
-                <div class="asesor-kpi-card">
-                    <div>
-                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Pedidos en Custodia</span>
-                        <span class="fs-3 fw-bold" style="color: #1D2639;">@allOrders.Count</span>
-                    </div>
-                    <div class="kpi-icon-wrapper">
-                        <i class="bi bi-box-seam fs-5"></i>
-                    </div>
-                </div>
+        <div class="kpi-card-galaxy">
+            <div class="kpi-label-galaxy">VENTAS APROBADAS</div>
+            <div style="display:flex; align-items:baseline;">
+                <span class="kpi-value-galaxy">@CalculateApprovedToday()</span>
+                <span class="kpi-unit-galaxy">aprobadas</span>
             </div>
-            <div class="col-12 col-md-6">
-                <div class="asesor-kpi-card">
-                    <div>
-                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Ventas Aprobadas Hoy</span>
-                        <span class="fs-3 fw-bold" style="color: #1D2639;">@CalculateApprovedToday()</span>
-                    </div>
-                    <div class="kpi-icon-wrapper">
-                        <i class="bi bi-check-circle fs-5" style="color: #10B981;"></i>
-                    </div>
-                </div>
+            <div class="kpi-detail-galaxy"><i class="bi bi-check-circle me-1"></i>Con estado aprobado</div>
+            <div class="kpi-bar-galaxy" style="background: var(--success-galaxy);"></div>
+        </div>
+        <div class="kpi-card-galaxy">
+            <div class="kpi-label-galaxy">CAMPAÑAS ACTIVAS</div>
+            <div style="display:flex; align-items:baseline;">
+                <span class="kpi-value-galaxy">@filterCampaigns.Count</span>
+                <span class="kpi-unit-galaxy">campañas</span>
             </div>
+            <div class="kpi-detail-galaxy"><i class="bi bi-megaphone me-1"></i>Campañas disponibles</div>
+            <div class="kpi-bar-galaxy" style="background: var(--indigo);"></div>
+        </div>
+        <div class="kpi-card-galaxy">
+            <div class="kpi-label-galaxy">ESTADOS ACTIVOS</div>
+            <div style="display:flex; align-items:baseline;">
+                <span class="kpi-value-galaxy">@filterStatuses.Count</span>
+                <span class="kpi-unit-galaxy">estados</span>
+            </div>
+            <div class="kpi-detail-galaxy"><i class="bi bi-tags me-1"></i>Flujo operativo</div>
+            <div class="kpi-bar-galaxy" style="background: var(--accent);"></div>
         </div>
     </div>
 
-    <!-- Barra de Filtros y Búsqueda Rápida -->
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
-        <div class="card-body p-3">
-            <div class="row row-cols-1 row-cols-md-4 g-2 align-items-center">
-                <div class="col">
-                    <label for="filter-campaign" class="form-label fw-bold text-muted small mb-1">Campaña</label>
-                    <select id="filter-campaign" class="form-select form-select-sm rounded-3" @bind="filterCampaignId">
-                        <option value="">Todas</option>
-                        @foreach (var c in filterCampaigns)
-                        {
-                            <option value="@c.Id">@c.Name</option>
-                        }
-                    </select>
-                </div>
-                <div class="col">
-                    <label for="filter-status" class="form-label fw-bold text-muted small mb-1">Estado</label>
-                    <select id="filter-status" class="form-select form-select-sm rounded-3" @bind="filterStatusId">
-                        <option value="">Todos</option>
-                        @foreach (var s in filterStatuses)
-                        {
-                            <option value="@s.Id">@s.Name</option>
-                        }
-                    </select>
-                </div>
-                <div class="col">
-                    <label for="filter-date-from" class="form-label fw-bold text-muted small mb-1">Desde</label>
-                    <input type="date" id="filter-date-from" class="form-control form-control-sm rounded-3" @bind="filterDateFrom" />
-                </div>
-                <div class="col d-flex gap-2 align-self-end mt-2 mt-md-0">
-                    <button type="button" class="btn btn-dark btn-sm rounded-pill flex-fill font-semibold" @onclick="ApplyFilters">
-                        <i class="bi bi-search me-1"></i> Filtrar
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill font-semibold" @onclick="ClearFilters">
-                        Limpiar
-                    </button>
-                </div>
+    <!-- Filters -->
+    <div class="galaxy-table-container" style="margin-bottom: 1.5rem; animation-delay: 0.1s;">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
+            <div style="flex: 1; min-width: 160px;">
+                <label for="filter-campaign" style="font-size: 0.65rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-secondary-galaxy); margin-bottom: 4px; display: block;">Campaña</label>
+                <select id="filter-campaign" class="galaxy-filter-select" style="width: 100%;" @bind="filterCampaignId">
+                    <option value="">Todas</option>
+                    @foreach (var c in filterCampaigns)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+            </div>
+            <div style="flex: 1; min-width: 160px;">
+                <label for="filter-status" style="font-size: 0.65rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-secondary-galaxy); margin-bottom: 4px; display: block;">Estado</label>
+                <select id="filter-status" class="galaxy-filter-select" style="width: 100%;" @bind="filterStatusId">
+                    <option value="">Todos</option>
+                    @foreach (var s in filterStatuses)
+                    {
+                        <option value="@s.Id">@s.Name</option>
+                    }
+                </select>
+            </div>
+            <div style="flex: 1; min-width: 160px;">
+                <label for="filter-date-from" style="font-size: 0.65rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-secondary-galaxy); margin-bottom: 4px; display: block;">Desde</label>
+                <input type="date" id="filter-date-from" class="galaxy-search-field" style="width: 100%; padding-left: 12px;" @bind="filterDateFrom" />
+            </div>
+            <div style="display: flex; gap: 8px; align-self: flex-end;">
+                <button type="button" class="btn-accent-galaxy" @onclick="ApplyFilters">
+                    <i class="bi bi-search me-1"></i> Filtrar
+                </button>
+                <button type="button" class="btn-ghost-galaxy" @onclick="ClearFilters">
+                    Limpiar
+                </button>
             </div>
         </div>
     </div>
@@ -227,92 +94,98 @@
     }
     else
     {
-        <!-- Tabla Limpia de Alta Usabilidad Operativa -->
-        <div class="table-card">
-            <div class="table-responsive">
-                <table class="table table-hover table-modern align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th class="ps-4">N° Orden</th>
-                            <th>Cliente</th>
-                            <th>Campaña</th>
-                            <th>Estado</th>
-                            <th>Substatus</th>
-                            <th>Fecha Venta</th>
-                            <th>Días SLA</th>
-                            <th class="text-end pe-4">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (isLoading)
-                        {
-                            <LoadingSkeletonTable Rows="5" Columns="8" />
-                        }
-                        else if (!pagedOrders.Any())
-                        {
-                            <tr>
-                                <td colspan="8" class="p-0 border-0">
-                                    <EmptyState Icon="bi bi-inbox" 
-                                                Title="No se encontraron órdenes" 
-                                                Description="No hay ventas registradas con los filtros seleccionados. Genera una nueva orden para comenzar." 
-                                                ActionButtonText="Generar Nueva Orden" 
-                                                ActionIcon="bi bi-plus-circle" 
-                                                Action='() => NavigationManager.NavigateTo("/asesor/orders/new")' />
-                                </td>
-                            </tr>
-                        }
-                        else
-                        {
-                            @foreach (var order in pagedOrders)
-                            {
-                                <tr @onclick="() => GoToDetail(order.IdOrder)">
-                                    <td class="ps-4 fw-bold" style="color: #2563EB;">#@order.IdOrder</td>
-                                    <td class="fw-semibold text-dark">@order.ClientName</td>
-                                    <td>
-                                        <span class="badge bg-light text-dark border px-2.5 py-1 font-semibold rounded-2">
-                                            @order.CampaignName
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="badge-status" style="background-color: color-mix(in srgb, @(order.StatusColor ?? "#6c757d") 15%, transparent); color: @(order.StatusColor ?? "#6c757d"); border: 1px solid @(order.StatusColor ?? "#6c757d")33;">
-                                            <span style="width: 6px; height: 6px; border-radius: 50%; background-color: @(order.StatusColor ?? "#6c757d"); display: inline-block;"></span>
-                                            @order.StatusName
-                                        </span>
-                                    </td>
-                                    <td class="text-muted small">@(string.IsNullOrEmpty(order.SubstatusName) ? "-" : order.SubstatusName)</td>
-                                    <td class="text-nowrap text-secondary small">@order.SalesDate.ToString("dd/MM/yyyy HH:mm")</td>
-                                    <td>
-                                        <span class="badge @(order.DaysElapsed > 5 ? "bg-danger text-white" : order.DaysElapsed > 2 ? "bg-warning text-dark" : "bg-success text-white") rounded-pill px-2.5 py-1 fw-bold" style="font-size: 0.75rem;">
-                                            <i class="bi bi-clock-history me-1"></i> @order.DaysElapsed @(order.DaysElapsed == 1 ? "día" : "días")
-                                        </span>
-                                    </td>
-                                    <td class="text-end pe-4" @onclick:stopPropagation="true">
-                                        <button type="button" class="action-btn-quick" title="Ver Detalle" @onclick="() => GoToDetail(order.IdOrder)">
-                                            <i class="bi bi-eye-fill"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                        }
-                    </tbody>
-                </table>
+        <!-- Table Card -->
+        <div class="galaxy-table-container">
+            <div class="galaxy-table-toolbar">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <h5 style="margin:0; font-size:1rem; font-weight:800; color: var(--text-primary-galaxy);">Órdenes recientes</h5>
+                    <span class="galaxy-visible-count">@pagedOrders.Count visibles</span>
+                </div>
             </div>
 
-            <!-- Paginación -->
+            <table class="galaxy-order-table">
+                <thead>
+                    <tr>
+                        <th>N° Orden</th>
+                        <th>Cliente</th>
+                        <th>Campaña</th>
+                        <th>Estado</th>
+                        <th>Substatus</th>
+                        <th>Fecha Venta</th>
+                        <th>Días SLA</th>
+                        <th style="text-align:center;">Ficha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (isLoading)
+                    {
+                        <LoadingSkeletonTable Rows="5" Columns="8" />
+                    }
+                    else if (!pagedOrders.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="p-0 border-0">
+                                <EmptyState Icon="bi bi-inbox" 
+                                            Title="No se encontraron órdenes" 
+                                            Description="No hay ventas registradas con los filtros seleccionados. Genera una nueva orden para comenzar." 
+                                            ActionButtonText="Generar Nueva Orden" 
+                                            ActionIcon="bi bi-plus-circle" 
+                                            Action='() => NavigationManager.NavigateTo("/asesor/orders/new")' />
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        int rowIndex = 0;
+                        foreach (var order in pagedOrders)
+                        {
+                            var rowClass = rowIndex % 2 == 0 ? "galaxy-row-white" : "galaxy-row-slate";
+                            <tr class="@rowClass" @onclick="() => GoToDetail(order.IdOrder)">
+                                <td>
+                                    <div class="galaxy-order-id">#@order.IdOrder</div>
+                                    <div class="galaxy-order-date">@order.SalesDate.ToString("dd/MM/yyyy HH:mm")</div>
+                                </td>
+                                <td style="font-weight: 600;">@order.ClientName</td>
+                                <td>
+                                    <span class="galaxy-campaign-pill">@order.CampaignName</span>
+                                </td>
+                                <td>
+                                    <span class="galaxy-status-dynamic" style="background-color: color-mix(in srgb, @(order.StatusColor ?? "#6c757d") 15%, transparent); color: @(order.StatusColor ?? "#6c757d"); border: 1px solid @(order.StatusColor ?? "#6c757d")33;">
+                                        <span style="width: 6px; height: 6px; border-radius: 50%; background-color: @(order.StatusColor ?? "#6c757d"); display: inline-block;"></span>
+                                        @order.StatusName
+                                    </span>
+                                </td>
+                                <td style="color: var(--text-secondary-galaxy); font-size: 0.82rem;">@(string.IsNullOrEmpty(order.SubstatusName) ? "-" : order.SubstatusName)</td>
+                                <td style="white-space: nowrap; color: var(--text-secondary-galaxy); font-size: 0.82rem;">@order.SalesDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    @{
+                                        var slaClass = order.DaysElapsed > 5 ? "galaxy-sla-danger" : order.DaysElapsed > 2 ? "galaxy-sla-warning" : "galaxy-sla-ok";
+                                    }
+                                    <span class="galaxy-sla-badge @slaClass">
+                                        <i class="bi bi-clock-history"></i> @order.DaysElapsed @(order.DaysElapsed == 1 ? "día" : "días")
+                                    </span>
+                                </td>
+                                <td style="text-align:center;" @onclick:stopPropagation="true">
+                                    <button type="button" class="galaxy-ficha-btn" title="Ver Detalle" @onclick="() => GoToDetail(order.IdOrder)">
+                                        <i class="bi bi-eye-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            rowIndex++;
+                        }
+                    }
+                </tbody>
+            </table>
+
+            <!-- Pagination -->
             @if (totalPages > 1)
             {
-                <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top">
-                    <span class="text-muted small">Página <strong>@currentPage</strong> de <strong>@totalPages</strong></span>
-                    <nav aria-label="Navegación de páginas">
-                        <ul class="pagination pagination-sm mb-0">
-                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                                <button class="page-link rounded-pill px-3" @onclick="() => ChangePage(currentPage - 1)">Anterior</button>
-                            </li>
-                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
-                                <button class="page-link rounded-pill px-3" @onclick="() => ChangePage(currentPage + 1)">Siguiente</button>
-                            </li>
-                        </ul>
-                    </nav>
+                <div class="galaxy-pagination">
+                    <span class="text-muted">Página <strong>@currentPage</strong> de <strong>@totalPages</strong></span>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="galaxy-page-btn" disabled="@(currentPage == 1)" @onclick="() => ChangePage(currentPage - 1)">Anterior</button>
+                        <button class="galaxy-page-btn" disabled="@(currentPage == totalPages)" @onclick="() => ChangePage(currentPage + 1)">Siguiente</button>
+                    </div>
                 </div>
             }
         </div>
@@ -321,51 +194,52 @@
 
 @if (selectedOrder != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
-                <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+    <div class="galaxy-modal-overlay open" @onclick="CloseDetail">
+        <div class="galaxy-modal-card" style="width: 720px;" @onclick:stopPropagation="true">
+            <div class="galaxy-modal-header">
+                <div>
+                    <span class="galaxy-modal-badge">Orden de Venta</span>
+                    <h4 style="font-weight:800; color:var(--text-primary-galaxy); margin:0;">Detalle de Orden #@selectedOrder.IdOrder</h4>
+                </div>
+                <button class="galaxy-modal-close" @onclick="CloseDetail"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="galaxy-modal-body">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
                     <div>
-                        <span class="badge bg-primary-subtle text-primary fw-bold mb-1">Orden de Venta</span>
-                        <h4 class="modal-title fw-extrabold text-dark">Detalle de Orden #@selectedOrder.IdOrder</h4>
+                        <span style="display: block; color: var(--text-secondary-galaxy); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Cliente</span>
+                        <span style="font-weight: 700; color: var(--text-primary-galaxy);">@selectedOrder.ClientName</span>
                     </div>
-                    <button type="button" class="btn-close" @onclick="CloseDetail"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="row g-4">
-                        <div class="col-sm-6 col-md-4">
-                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Cliente</span>
-                            <span class="d-block fw-bold text-dark fs-6">@selectedOrder.ClientName</span>
-                        </div>
-                        <div class="col-sm-6 col-md-4">
-                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Campaña</span>
-                            <span class="d-block fw-semibold text-secondary">@selectedOrder.CampaignName</span>
-                        </div>
-                        <div class="col-sm-6 col-md-4">
-                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Estado Actual</span>
-                            <span class="badge-status" style="background-color: color-mix(in srgb, @(selectedOrder.StatusColor ?? "#6c757d") 15%, transparent); color: @(selectedOrder.StatusColor ?? "#6c757d"); border: 1px solid @(selectedOrder.StatusColor ?? "#6c757d")33;">
-                                @selectedOrder.StatusName
-                            </span>
-                        </div>
-                        <div class="col-sm-6 col-md-4">
-                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Substatus</span>
-                            <span class="d-block fw-medium">@(string.IsNullOrEmpty(selectedOrder.SubstatusName) ? "Sin substatus" : selectedOrder.SubstatusName)</span>
-                        </div>
-                        <div class="col-sm-6 col-md-4">
-                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Fecha de Registro</span>
-                            <span class="d-block fw-medium">@selectedOrder.SalesDate.ToString("dd/MM/yyyy HH:mm:ss")</span>
-                        </div>
-                        <div class="col-sm-6 col-md-4">
-                            <span class="d-block text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem;">Tiempo Transcurrido</span>
-                            <span class="fw-bold @(selectedOrder.DaysElapsed > 5 ? "text-danger" : "text-success")">
-                                @selectedOrder.DaysElapsed días transcurridos
-                            </span>
-                        </div>
+                    <div>
+                        <span style="display: block; color: var(--text-secondary-galaxy); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Campaña</span>
+                        <span style="color: var(--text-secondary-galaxy);">@selectedOrder.CampaignName</span>
+                    </div>
+                    <div>
+                        <span style="display: block; color: var(--text-secondary-galaxy); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Estado Actual</span>
+                        <span class="galaxy-status-dynamic" style="background-color: color-mix(in srgb, @(selectedOrder.StatusColor ?? "#6c757d") 15%, transparent); color: @(selectedOrder.StatusColor ?? "#6c757d"); border: 1px solid @(selectedOrder.StatusColor ?? "#6c757d")33;">
+                            @selectedOrder.StatusName
+                        </span>
+                    </div>
+                    <div>
+                        <span style="display: block; color: var(--text-secondary-galaxy); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Substatus</span>
+                        <span>@(string.IsNullOrEmpty(selectedOrder.SubstatusName) ? "Sin substatus" : selectedOrder.SubstatusName)</span>
+                    </div>
+                    <div>
+                        <span style="display: block; color: var(--text-secondary-galaxy); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Fecha de Registro</span>
+                        <span>@selectedOrder.SalesDate.ToString("dd/MM/yyyy HH:mm:ss")</span>
+                    </div>
+                    <div>
+                        <span style="display: block; color: var(--text-secondary-galaxy); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Tiempo Transcurrido</span>
+                        @{
+                            var detailSlaClass = selectedOrder.DaysElapsed > 5 ? "galaxy-sla-danger" : "galaxy-sla-ok";
+                        }
+                        <span class="galaxy-sla-badge @detailSlaClass">
+                            @selectedOrder.DaysElapsed días transcurridos
+                        </span>
                     </div>
                 </div>
-                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
-                    <button type="button" class="btn btn-secondary rounded-pill px-4 font-semibold" @onclick="CloseDetail">Cerrar</button>
-                </div>
+            </div>
+            <div class="galaxy-modal-footer">
+                <button class="btn-ghost-galaxy" @onclick="CloseDetail">Cerrar</button>
             </div>
         </div>
     </div>
@@ -410,7 +284,7 @@
     private DateTime? filterDateTo;
 
     private int currentPage = 1;
-    private int pageSize = 20;
+    private int pageSize = 8;
     private int totalPages = 1;
 
     private bool isLoading = true;

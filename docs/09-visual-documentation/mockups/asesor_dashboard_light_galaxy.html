@@ -1,0 +1,2031 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYX CRM – Bandeja del Asesor (Prototipo Interactivo)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* =============================================================
+           PALETA DE COLORES (Extraída del Login.razor oficial)
+           --bg-deep: #050814
+           --accent: #2563EB
+           --border-focus: #3B82F6
+           --moon-silver: #BFDBFE
+           Galaxy BG: radial-gradient(#1e1b4b, #0f172a, #050814)
+           ============================================================= */
+        :root {
+            /* Login palette */
+            --galaxy-dark: #050814;
+            --galaxy-mid: #0f172a;
+            --galaxy-purple: #1e1b4b;
+            --accent: #2563EB;
+            --accent-light: #3B82F6;
+            --accent-glow: rgba(37, 99, 235, 0.35);
+            --moon-silver: #BFDBFE;
+            --indigo: #6366F1;
+            --indigo-glow: rgba(99, 102, 241, 0.3);
+
+            /* App palette (Light mode defaults) */
+            --bg-app: #F1F5F9;
+            --bg-card: #FFFFFF;
+            --bg-card-alt: #F8FAFC;
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+            --text-tertiary: #94A3B8;
+            --border: #E2E8F0;
+            --border-hover: #CBD5E1;
+
+            /* Table */
+            --table-dark-bg: #0F172A;
+            --table-row-dark: #1E293B;
+
+            /* Functional colors */
+            --success: #059669;
+            --success-bg: #ECFDF5;
+            --warning: #D97706;
+            --warning-bg: #FFFBEB;
+            --danger: #DC2626;
+            --danger-bg: #FEF2F2;
+
+            /* Enhanced shadows */
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+            --shadow-lg: 0 12px 40px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+            --shadow-xl: 0 20px 60px rgba(0,0,0,0.1), 0 8px 20px rgba(0,0,0,0.06);
+            --shadow-glow: 0 0 30px rgba(37, 99, 235, 0.15);
+
+            /* Transition speed */
+            --mode-transition: 0.6s;
+        }
+
+        /* ===================== DARK MODE ===================== */
+        [data-theme="dark"] {
+            --bg-app: #0B0F1A;
+            --bg-card: #111827;
+            --bg-card-alt: #1A2035;
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-tertiary: #64748B;
+            --border: transparent;
+            --border-hover: rgba(255,255,255,0.06);
+
+            --success-bg: rgba(5, 150, 105, 0.15);
+            --warning-bg: rgba(217, 119, 6, 0.15);
+            --danger-bg: rgba(220, 38, 38, 0.15);
+
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.15);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.15);
+            --shadow-lg: 0 12px 40px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.2);
+            --shadow-xl: 0 20px 60px rgba(0,0,0,0.4), 0 8px 20px rgba(0,0,0,0.25);
+            --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.2);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            transition: background-color var(--mode-transition) ease, color var(--mode-transition) ease;
+        }
+
+        /* ===================== ANIMATIONS ===================== */
+        @keyframes twinkle {
+            0% { opacity: 0.1; transform: scale(0.7); }
+            100% { opacity: 1; transform: scale(1.3); }
+        }
+        @keyframes pulse-dot {
+            0% { box-shadow: 0 0 0 0 var(--pulse-color, rgba(37, 99, 235, 0.5)); }
+            70% { box-shadow: 0 0 0 7px transparent; }
+            100% { box-shadow: 0 0 0 0 transparent; }
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeSlideDown {
+            from { opacity: 0; transform: translateY(-12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes ripple-effect { to { transform: scale(4); opacity: 0; } }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.92) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes overlayIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Shooting star transition */
+        @keyframes shootingStar {
+            0% { 
+                left: 105%; top: 10%; 
+                opacity: 0; 
+                transform: rotate(165deg) scale(0.5);
+            }
+            5% { 
+                opacity: 1;
+                transform: rotate(165deg) scale(1);
+            }
+            40% {
+                opacity: 1;
+                transform: rotate(165deg) scale(1);
+            }
+            100% { 
+                left: -10%; top: 70%; 
+                opacity: 0;
+                transform: rotate(165deg) scale(0.3);
+            }
+        }
+
+        @keyframes starTrail {
+            0% { width: 0; opacity: 0; }
+            10% { width: 120px; opacity: 1; }
+            100% { width: 200px; opacity: 0; }
+        }
+
+        @keyframes nightCurtain {
+            0% { transform: scaleX(0); transform-origin: right; }
+            100% { transform: scaleX(1); transform-origin: right; }
+        }
+
+        @keyframes shapeExpand {
+            0% { clip-path: circle(0% at 50% 50%); }
+            100% { clip-path: circle(150% at 50% 50%); }
+        }
+
+        @keyframes windLine {
+            0% { transform: translateX(100vw) scaleX(0); opacity: 0; }
+            10% { opacity: 0.8; transform: translateX(50vw) scaleX(1); }
+            100% { transform: translateX(-150vw) scaleX(2); opacity: 0; }
+        }
+
+        @keyframes sparkle {
+            0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+            50% { opacity: 1; transform: scale(1) rotate(180deg); }
+        }
+
+        @keyframes floatUp {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(-40px) scale(0.5); }
+        }
+
+        /* Shooting Star Element */
+        .shooting-star-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .shooting-star {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 
+                0 0 20px 8px rgba(255,255,255,0.8),
+                0 0 60px 20px rgba(99,102,241,0.5),
+                0 0 100px 40px rgba(37,99,235,0.3);
+            animation: shootingStar 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+
+        .shooting-star::after {
+            content: '';
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(191,219,254,0.6), rgba(255,255,255,0.9));
+            border-radius: 2px;
+            animation: starTrail 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+
+        .transition-curtain {
+            position: fixed;
+            inset: 0;
+            z-index: 99998;
+            pointer-events: none;
+        }
+
+        .transition-curtain.to-dark {
+            background: linear-gradient(135deg, #050814 0%, #0B0F1A 100%);
+            animation: nightCurtain 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            opacity: 1;
+        }
+
+        .transition-curtain.to-light-shape {
+            background: #F1F5F9;
+            animation: shapeExpand 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            opacity: 1;
+        }
+
+        .wind-line {
+            position: fixed;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+            animation: windLine 0.5s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+            z-index: 99999;
+            pointer-events: none;
+        }
+
+        /* Spark particles */
+        .spark-particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #fff;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 99999;
+            animation: floatUp 0.8s ease-out forwards;
+            box-shadow: 0 0 6px rgba(255,255,255,0.8);
+        }
+
+        .star {
+            position: absolute; background: #fff; border-radius: 50%;
+            animation: twinkle var(--dur) ease-in-out infinite alternate;
+            box-shadow: 0 0 6px rgba(255,255,255,0.7);
+            z-index: 0; pointer-events: none;
+        }
+
+        .ripple {
+            position: absolute; border-radius: 50%; transform: scale(0);
+            animation: ripple-effect 0.5s linear; background: rgba(255,255,255,0.25);
+            pointer-events: none;
+        }
+
+        /* ===================== SIDEBAR ===================== */
+        .sidebar {
+            width: 268px; min-width: 268px;
+            background: radial-gradient(ellipse at 50% 0%, var(--galaxy-purple) 0%, var(--galaxy-mid) 50%, var(--galaxy-dark) 100%);
+            display: flex; flex-direction: column; padding: 1.8rem 1rem 1.2rem;
+            position: relative; overflow: hidden; z-index: 20;
+            box-shadow: 4px 0 40px rgba(0,0,0,0.2), 1px 0 0 rgba(255,255,255,0.03);
+        }
+
+        .sidebar-section-label {
+            font-size: 0.6rem; font-weight: 700; color: rgba(148, 163, 184, 0.7);
+            letter-spacing: 1.8px; text-transform: uppercase; padding-left: 14px;
+            margin-bottom: 10px; position: relative; z-index: 2;
+        }
+
+        .logo-area {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 2.8rem; padding-left: 0.5rem;
+            position: relative; z-index: 2;
+        }
+        .logo-icon {
+            width: 40px; height: 40px; border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent), var(--indigo));
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 1.15rem;
+            box-shadow: 0 0 20px var(--indigo-glow), 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .logo-text { font-weight: 800; font-size: 1.25rem; letter-spacing: 1px; color: #fff; line-height: 1.1; }
+        .logo-sub { font-size: 0.55rem; color: var(--text-tertiary); letter-spacing: 2px; font-weight: 600; }
+
+        .nav-link-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.75rem 1rem; color: var(--text-tertiary);
+            text-decoration: none; border-radius: 12px; margin-bottom: 3px;
+            font-weight: 600; font-size: 0.88rem;
+            position: relative; z-index: 2;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .nav-link-item:hover { background: rgba(255,255,255,0.06); color: #E2E8F0; transform: translateX(3px); }
+        .nav-link-item.active {
+            background: linear-gradient(90deg, rgba(37, 99, 235, 0.18), rgba(37, 99, 235, 0.04));
+            color: var(--moon-silver);
+            border-left: 3px solid var(--accent-light);
+            border-radius: 4px 12px 12px 4px;
+        }
+        .nav-link-item i { margin-right: 12px; font-size: 1.05rem; width: 20px; text-align: center; }
+        .nav-count {
+            padding: 2px 10px; border-radius: 20px; font-size: 0.65rem;
+            font-weight: 700; background: rgba(255,255,255,0.08); color: var(--text-tertiary);
+            transition: all 0.3s;
+        }
+        .nav-link-item.active .nav-count {
+            background: var(--accent); color: #fff;
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        /* Shift widget */
+        .shift-card {
+            background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px; padding: 1.1rem 1rem; margin-top: 12px;
+            position: relative; z-index: 2; backdrop-filter: blur(12px);
+        }
+        .shift-bar-track { height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+        .shift-bar-fill {
+            height: 100%; border-radius: 3px; position: relative; overflow: hidden;
+            background: linear-gradient(90deg, var(--accent), var(--indigo));
+        }
+        .shift-bar-fill::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+            animation: shimmer 2.5s ease-in-out infinite;
+        }
+
+        /* ===================== MAIN CONTENT ===================== */
+        .main-content {
+            flex: 1; padding: 2rem 2.5rem; overflow-y: auto; position: relative;
+            transition: background-color var(--mode-transition) ease;
+        }
+
+        .page-header { margin-bottom: 1.8rem; animation: fadeSlideDown 0.5s ease; }
+        .page-label {
+            font-size: 0.72rem; font-weight: 700; letter-spacing: 2px;
+            color: var(--accent); margin-bottom: 6px;
+            transition: color var(--mode-transition) ease;
+        }
+        .page-title {
+            font-weight: 800; font-size: 2rem; letter-spacing: -0.5px;
+            color: var(--text-primary); line-height: 1.15; margin-bottom: 6px;
+            transition: color var(--mode-transition) ease;
+        }
+        .page-desc {
+            color: var(--text-secondary); font-size: 0.92rem; font-weight: 500;
+            transition: color var(--mode-transition) ease;
+        }
+
+        /* ===================== BUTTONS ===================== */
+        .btn-ghost {
+            background: transparent; border: 1px solid var(--border-hover);
+            color: var(--text-primary); border-radius: 4px; padding: 7px 16px;
+            font-weight: 500; font-size: 0.82rem;
+            position: relative; overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        .btn-ghost:hover {
+            border-color: var(--text-secondary); color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .btn-ghost:active { transform: scale(0.98); }
+
+        /* Dark mode ghost: galaxy background */
+        [data-theme="dark"] .btn-ghost {
+            background: radial-gradient(ellipse at 50% 0%, rgba(30,27,75,0.6), rgba(15,23,42,0.8));
+            border: 1px solid rgba(99,102,241,0.2);
+            color: #E2E8F0;
+        }
+        [data-theme="dark"] .btn-ghost:hover {
+            border-color: rgba(99,102,241,0.5);
+            box-shadow: 0 4px 20px rgba(99,102,241,0.2), 0 0 30px rgba(37,99,235,0.1);
+            color: #fff;
+        }
+
+        .btn-accent {
+            background: transparent;
+            border: 1.5px solid var(--accent); color: var(--accent); border-radius: 4px; padding: 7px 16px;
+            font-weight: 600; font-size: 0.82rem;
+            transition: all 0.2s ease;
+            position: relative; overflow: hidden;
+        }
+        .btn-accent:hover {
+            background: rgba(37, 99, 235, 0.1);
+        }
+        .btn-accent:active { transform: scale(0.98); }
+
+        .btn-icon {
+            width: 38px; height: 38px; padding: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+
+        /* ===================== THEME TOGGLE ===================== */
+        .theme-toggle {
+            width: 42px; height: 42px;
+            border-radius: 6px;
+            border: 1.5px solid var(--border-hover);
+            background: transparent;
+            color: var(--text-primary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.1rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow-sm);
+        }
+        .theme-toggle:hover {
+            transform: translateY(-2px) rotate(15deg);
+            box-shadow: var(--shadow-md), 0 0 20px rgba(99,102,241,0.15);
+            border-color: var(--accent-light);
+        }
+        .theme-toggle:active { transform: scale(0.9); }
+
+        [data-theme="dark"] .theme-toggle {
+            background: radial-gradient(ellipse at 50% 0%, rgba(30,27,75,0.8), rgba(15,23,42,0.9));
+            border: 1px solid rgba(99,102,241,0.3);
+            color: #fbbf24;
+            box-shadow: 0 0 20px rgba(99,102,241,0.15);
+        }
+        [data-theme="dark"] .theme-toggle:hover {
+            box-shadow: 0 4px 25px rgba(251,191,36,0.2), 0 0 30px rgba(99,102,241,0.2);
+            border-color: rgba(251,191,36,0.4);
+        }
+
+        .theme-toggle .icon-sun,
+        .theme-toggle .icon-moon {
+            position: absolute;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .theme-toggle .icon-sun { opacity: 0; transform: rotate(-90deg) scale(0); }
+        .theme-toggle .icon-moon { opacity: 1; transform: rotate(0deg) scale(1); }
+
+        [data-theme="dark"] .theme-toggle .icon-sun { opacity: 1; transform: rotate(0deg) scale(1); }
+        [data-theme="dark"] .theme-toggle .icon-moon { opacity: 0; transform: rotate(90deg) scale(0); }
+
+        /* ===================== KPI GRID ===================== */
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.8rem; }
+
+        .kpi-card {
+            background: transparent;
+            border: 1px solid var(--border-hover);
+            border-radius: 4px; padding: 1.2rem 1.4rem;
+            cursor: pointer; position: relative; overflow: hidden;
+            transition: all 0.2s ease;
+            animation: fadeSlideUp 0.5s ease both;
+        }
+        .kpi-card:nth-child(2) { animation-delay: 0.06s; }
+        .kpi-card:nth-child(3) { animation-delay: 0.12s; }
+        .kpi-card:nth-child(4) { animation-delay: 0.18s; }
+        .kpi-card:hover {
+            border-color: var(--text-tertiary);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        /* pseudo-icons for non-hero cards */
+        .kpi-card:nth-child(2)::after { content: '\F334'; font-family: 'bootstrap-icons'; position: absolute; right: 18px; top: 18px; font-size: 1.8rem; color: var(--warning); opacity: 0.15; }
+        .kpi-card:nth-child(3)::after { content: '\F12A'; font-family: 'bootstrap-icons'; position: absolute; right: 18px; top: 18px; font-size: 1.8rem; color: var(--indigo); opacity: 0.15; }
+        .kpi-card:nth-child(4)::after { content: '\F287'; font-family: 'bootstrap-icons'; position: absolute; right: 18px; top: 18px; font-size: 1.8rem; color: var(--success); opacity: 0.15; }
+
+        .kpi-card--hero {
+            background: transparent;
+            border: 1.5px solid var(--accent); color: var(--text-primary) !important;
+        }
+        .kpi-card--hero:hover {
+            border-color: var(--accent-light);
+            background: rgba(37, 99, 235, 0.05);
+        }
+        .kpi-card--hero * { color: var(--text-primary) !important; }
+        
+        [data-theme="dark"] .kpi-card--hero {
+            border-color: var(--accent);
+            color: #fff !important;
+        }
+        [data-theme="dark"] .kpi-card--hero * {
+            color: #fff !important;
+        }
+
+        /* Dark mode KPI cards: ghost transparent */
+        [data-theme="dark"] .kpi-card:not(.kpi-card--hero) {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: none;
+        }
+        [data-theme="dark"] .kpi-card:not(.kpi-card--hero):hover {
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        .kpi-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; }
+        .kpi-card:not(.kpi-card--hero) .kpi-label { color: var(--text-secondary); }
+        .kpi-card--hero .kpi-label { opacity: 0.85; }
+
+        .kpi-value { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+        .kpi-unit { font-size: 0.82rem; font-weight: 600; margin-left: 8px; }
+        .kpi-card:not(.kpi-card--hero) .kpi-unit { color: var(--text-secondary); }
+        .kpi-card--hero .kpi-unit { opacity: 0.85; }
+
+        .kpi-detail { font-size: 0.78rem; font-weight: 600; margin-top: 14px; }
+        .kpi-card:not(.kpi-card--hero) .kpi-detail { color: var(--text-secondary); }
+        .kpi-card--hero .kpi-detail { opacity: 0.8; }
+
+        .kpi-bar { height: 6px; width: 100%; border-radius: 4px; margin-top: 20px; opacity: 0.85; }
+
+        /* ===================== TABS ===================== */
+        .tab-bar {
+            display: flex; gap: 2px; margin-bottom: 1.5rem;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 8px; padding: 4px; width: fit-content;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--mode-transition) ease;
+        }
+
+        [data-theme="dark"] .tab-bar {
+            background: rgba(17,24,39,0.8);
+            border-color: transparent;
+            box-shadow: var(--shadow-md);
+        }
+
+        .tab-btn {
+            padding: 10px 20px; border: none; background: transparent;
+            border-radius: 6px; font-weight: 600; font-size: 0.85rem;
+            color: var(--text-secondary); cursor: pointer;
+            transition: all 0.25s; outline: none;
+        }
+        .tab-btn.active {
+            background: var(--text-primary); color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+        .tab-btn:hover:not(.active) { color: var(--text-primary); background: rgba(0,0,0,0.03); }
+
+        [data-theme="dark"] .tab-btn.active {
+            background: linear-gradient(135deg, var(--accent), var(--indigo));
+            color: #fff;
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+        [data-theme="dark"] .tab-btn:hover:not(.active) {
+            color: #E2E8F0;
+            background: rgba(255,255,255,0.05);
+        }
+
+        /* ===================== TABLE CARD ===================== */
+        .table-container {
+            background: transparent; border-radius: 8px;
+            padding: 1.5rem; overflow: hidden;
+            border: 1px solid var(--border-hover);
+            animation: fadeSlideUp 0.6s ease 0.15s both;
+            transition: all var(--mode-transition) ease;
+        }
+
+        [data-theme="dark"] .table-container {
+            background: transparent;
+            border-color: rgba(255,255,255,0.15);
+            box-shadow: none;
+        }
+
+        /* Remove the outer card's white bg behind slate rows */
+        .table-container .order-table { background: transparent; }
+
+        .table-toolbar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 1rem; padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            transition: border-color var(--mode-transition) ease;
+        }
+
+        [data-theme="dark"] .table-toolbar {
+            border-bottom-color: rgba(255,255,255,0.06);
+        }
+
+        .search-field {
+            background: var(--bg-card); border: 1px solid var(--border-hover);
+            color: var(--text-primary); border-radius: 4px; padding: 7px 12px 7px 32px;
+            font-size: 0.8rem; font-weight: 400; width: 260px;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+            transition: all 0.2s;
+        }
+        .search-field::placeholder { color: var(--text-tertiary); }
+        .search-field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
+
+        [data-theme="dark"] .search-field {
+            background: rgba(255,255,255,0.02);
+            border-color: rgba(255,255,255,0.1);
+        }
+        [data-theme="dark"] .search-field:focus {
+            border-color: var(--accent-light);
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.3);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .filter-select {
+            background: var(--bg-card); border: 1px solid var(--border-hover);
+            color: var(--text-primary); border-radius: 4px; padding: 7px 12px; font-size: 0.8rem;
+            font-weight: 400; transition: all 0.2s; cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+        .filter-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
+        .filter-select option { background: var(--bg-card); color: var(--text-primary); }
+
+        [data-theme="dark"] .filter-select {
+            background: rgba(255,255,255,0.04);
+            border-color: rgba(255,255,255,0.08);
+        }
+        [data-theme="dark"] .filter-select option {
+            background: #1E293B;
+            color: #E2E8F0;
+        }
+
+        .search-wrap { position: relative; }
+        .search-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); font-size: 0.85rem; }
+
+        /* Table */
+        .order-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .order-table th {
+            background: var(--bg-card-alt); color: var(--text-secondary);
+            font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.8px; padding: 12px 16px;
+            border-bottom: 2px solid var(--border);
+            transition: all var(--mode-transition) ease;
+        }
+        .order-table th:last-child { text-align: center; }
+
+        [data-theme="dark"] .order-table th {
+            background: rgba(255,255,255,0.02);
+            border-bottom-color: rgba(255,255,255,0.06);
+        }
+
+        /* Alternating rows */
+        .order-table tbody tr {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+        .order-table tbody tr:hover { filter: brightness(0.97); }
+
+        [data-theme="dark"] .order-table tbody tr:hover {
+            filter: brightness(1.1);
+        }
+
+        .row-white td {
+            background: var(--bg-card); color: var(--text-primary); padding: 12px 16px; vertical-align: middle;
+            border-bottom: 1px solid var(--border);
+            transition: background-color 0.2s;
+        }
+
+        [data-theme="dark"] .row-white td {
+            background: #111827;
+            border-bottom-color: rgba(255,255,255,0.05);
+        }
+
+        .row-slate td {
+            background: #F8FAFC; color: var(--text-primary); padding: 12px 16px; vertical-align: middle;
+            border-bottom: 1px solid var(--border);
+            transition: background-color 0.2s;
+        }
+
+        [data-theme="dark"] .row-slate td {
+            background: #1A2035;
+            border-bottom-color: rgba(255,255,255,0.05);
+        }
+
+        /* Order ID */
+        .order-id { font-weight: 700; font-size: 0.88rem; }
+        .row-white .order-id { color: var(--accent); }
+        .row-slate .order-id { color: var(--accent); }
+        .order-date { font-size: 0.72rem; font-weight: 500; margin-top: 2px; }
+        .row-white .order-date { color: var(--text-secondary); }
+        .row-slate .order-date { color: var(--text-secondary); }
+
+        /* Product pill */
+        .product-pill {
+            padding: 6px 14px; border-radius: 10px; font-size: 0.75rem;
+            font-weight: 600; border: none; cursor: pointer; display: inline-flex;
+            align-items: center; gap: 6px; transition: all 0.2s;
+        }
+        .row-white .product-pill { background: var(--bg-card-alt); color: #475569; border: 1px solid var(--border); }
+        .row-white .product-pill:hover { background: #E2E8F0; color: var(--text-primary); }
+        .row-slate .product-pill { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-hover); }
+        .row-slate .product-pill:hover { background: #E2E8F0; }
+
+        [data-theme="dark"] .row-white .product-pill,
+        [data-theme="dark"] .row-slate .product-pill {
+            background: rgba(255,255,255,0.06);
+            color: #CBD5E1;
+            border-color: rgba(255,255,255,0.08);
+        }
+        [data-theme="dark"] .row-white .product-pill:hover,
+        [data-theme="dark"] .row-slate .product-pill:hover {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+        }
+
+        /* Profile badge */
+        .profile-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; }
+        .profile-standard { background: #EFF6FF; color: var(--accent); border: 1px solid #BFDBFE; }
+        .profile-alternate { background: #FFF7ED; color: #C2410C; border: 1px solid #FED7AA; }
+        .row-slate .profile-standard { background: #DBEAFE; color: var(--accent); border-color: #BFDBFE; }
+        .row-slate .profile-alternate { background: #FFEDD5; color: #C2410C; border-color: #FED7AA; }
+
+        [data-theme="dark"] .profile-standard {
+            background: rgba(37,99,235,0.15); color: #93C5FD; border-color: rgba(37,99,235,0.2);
+        }
+        [data-theme="dark"] .profile-alternate {
+            background: rgba(194,65,12,0.15); color: #FDBA74; border-color: rgba(194,65,12,0.2);
+        }
+        [data-theme="dark"] .row-slate .profile-standard {
+            background: rgba(37,99,235,0.2); color: #93C5FD; border-color: rgba(37,99,235,0.25);
+        }
+        [data-theme="dark"] .row-slate .profile-alternate {
+            background: rgba(194,65,12,0.2); color: #FDBA74; border-color: rgba(194,65,12,0.25);
+        }
+
+        /* Status badge */
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .status-draft { background: #EFF6FF; color: var(--accent); }
+        .status-review { background: var(--warning-bg); color: var(--warning); }
+        .status-approved { background: var(--success-bg); color: var(--success); }
+        .status-incident { background: var(--danger-bg); color: var(--danger); }
+        .row-slate .status-draft { background: #DBEAFE; color: var(--accent); }
+        .row-slate .status-review { background: #FEF3C7; color: var(--warning); }
+        .row-slate .status-approved { background: #D1FAE5; color: var(--success); }
+        .row-slate .status-incident { background: #FEE2E2; color: var(--danger); }
+
+        [data-theme="dark"] .status-draft { background: rgba(37,99,235,0.15); color: #93C5FD; }
+        [data-theme="dark"] .status-review { background: rgba(217,119,6,0.15); color: #FCD34D; }
+        [data-theme="dark"] .status-approved { background: rgba(5,150,105,0.15); color: #6EE7B7; }
+        [data-theme="dark"] .status-incident { background: rgba(220,38,38,0.15); color: #FCA5A5; }
+        [data-theme="dark"] .row-slate .status-draft { background: rgba(37,99,235,0.2); color: #93C5FD; }
+        [data-theme="dark"] .row-slate .status-review { background: rgba(217,119,6,0.2); color: #FCD34D; }
+        [data-theme="dark"] .row-slate .status-approved { background: rgba(5,150,105,0.2); color: #6EE7B7; }
+        [data-theme="dark"] .row-slate .status-incident { background: rgba(220,38,38,0.2); color: #FCA5A5; }
+
+        /* Timeline mini */
+        .timeline-mini { min-width: 170px; padding: 10px 12px !important; transition: background 0.2s; }
+        .row-white .timeline-mini:hover { background: #F8FAFC; }
+        .row-slate .timeline-mini:hover { background: rgba(255,255,255,0.04); }
+
+        .tl-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+        .tl-name { font-size: 0.72rem; font-weight: 700; }
+        .tl-counter { font-size: 0.65rem; font-weight: 600; font-family: 'Inter', monospace; }
+        .row-white .tl-name { color: var(--text-primary); }
+        .row-white .tl-counter { color: var(--text-secondary); }
+        .row-slate .tl-name { color: var(--text-primary); }
+        .row-slate .tl-counter { color: var(--text-secondary); }
+
+        .tl-track { display: flex; align-items: center; justify-content: space-between; position: relative; padding: 5px 0; }
+        .tl-track::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 3px; transform: translateY(-50%); z-index: 1; border-radius: 2px; }
+        .row-white .tl-track::before { background: #E2E8F0; }
+        .row-slate .tl-track::before { background: #CBD5E1; }
+
+        [data-theme="dark"] .row-white .tl-track::before { background: rgba(255,255,255,0.1); }
+        [data-theme="dark"] .row-slate .tl-track::before { background: rgba(255,255,255,0.12); }
+
+        .tl-dot { width: 8px; height: 8px; border-radius: 50%; z-index: 2; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); }
+        .row-white .tl-dot { background: #CBD5E1; }
+        .row-slate .tl-dot { background: #B0BEC5; }
+
+        [data-theme="dark"] .row-white .tl-dot { background: rgba(255,255,255,0.15); }
+        [data-theme="dark"] .row-slate .tl-dot { background: rgba(255,255,255,0.18); }
+
+        .tl-dot.done { background: var(--accent) !important; box-shadow: 0 0 6px var(--accent-glow); }
+        .tl-dot.current {
+            background: var(--indigo) !important;
+            box-shadow: 0 0 0 4px var(--indigo-glow);
+            --pulse-color: rgba(99, 102, 241, 0.5);
+            animation: pulse-dot 1.6s infinite;
+            transform: scale(1.4);
+        }
+        .tl-dot.complete-final { background: var(--success) !important; box-shadow: 0 0 10px rgba(5, 150, 105, 0.5); }
+        .tl-dot.blocked {
+            background: #EF4444 !important;
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25);
+            --pulse-color: rgba(239, 68, 68, 0.4);
+            animation: pulse-dot 1.6s infinite;
+            transform: scale(1.4);
+        }
+
+        /* Action button */
+        .ficha-btn {
+            width: 34px; height: 34px; border-radius: 10px; border: none;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 1rem; transition: all 0.25s; position: relative; overflow: hidden;
+        }
+        .row-white .ficha-btn { background: #F1F5F9; color: var(--accent); border: 1px solid var(--border); }
+        .row-white .ficha-btn:hover { background: var(--accent); color: #fff; box-shadow: 0 4px 16px var(--accent-glow); border-color: transparent; }
+        .row-slate .ficha-btn { background: #FFFFFF; color: var(--accent); border: 1px solid var(--border-hover); }
+        .row-slate .ficha-btn:hover { background: var(--accent); color: #fff; box-shadow: 0 4px 16px var(--accent-glow); border-color: transparent; }
+
+        [data-theme="dark"] .row-white .ficha-btn,
+        [data-theme="dark"] .row-slate .ficha-btn {
+            background: rgba(255,255,255,0.06);
+            color: #93C5FD;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        [data-theme="dark"] .row-white .ficha-btn:hover,
+        [data-theme="dark"] .row-slate .ficha-btn:hover {
+            background: linear-gradient(135deg, var(--accent), var(--indigo));
+            color: #fff;
+            box-shadow: 0 4px 20px var(--accent-glow);
+            border-color: transparent;
+        }
+
+        /* ===================== TOAST ===================== */
+        .toast-bar {
+            position: fixed; bottom: -80px; left: 50%; transform: translateX(-50%);
+            background: var(--galaxy-mid); color: #fff; padding: 14px 28px;
+            border-radius: 16px; font-weight: 700; font-size: 0.88rem;
+            box-shadow: 0 12px 45px rgba(0,0,0,0.4);
+            transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 9999; border: 1px solid rgba(255,255,255,0.08);
+            display: flex; align-items: center; gap: 10px;
+            backdrop-filter: blur(20px);
+        }
+        .toast-bar.visible { bottom: 28px; }
+        .toast-bar i { color: var(--accent-light); }
+
+        /* ===================== MODAL ===================== */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(6px); z-index: 5000;
+            display: none; align-items: center; justify-content: center;
+            animation: overlayIn 0.3s ease;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal-card {
+            background: var(--bg-card); border-radius: 24px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.2);
+            width: 680px; max-width: 92vw; max-height: 85vh; overflow-y: auto;
+            animation: modalIn 0.35s ease;
+            border: 1px solid var(--border);
+            transition: all var(--mode-transition) ease;
+        }
+
+        [data-theme="dark"] .modal-card {
+            background: linear-gradient(180deg, #111827, #0D1322);
+            border-color: rgba(255,255,255,0.06);
+            box-shadow: 0 25px 80px rgba(0,0,0,0.5), 0 0 40px rgba(99,102,241,0.1);
+        }
+
+        .modal-header-custom { padding: 1.8rem 2rem 0; display: flex; justify-content: space-between; align-items: flex-start; }
+        .modal-body-custom { padding: 1.2rem 2rem 1.8rem; }
+        .modal-footer-custom { padding: 0 2rem 1.8rem; display: flex; gap: 10px; justify-content: flex-end; }
+
+        .modal-close {
+            width: 36px; height: 36px; border-radius: 10px;
+            border: 1px solid var(--border); background: var(--bg-card);
+            color: var(--text-secondary); display: flex; align-items: center;
+            justify-content: center; cursor: pointer; transition: all 0.2s;
+        }
+        .modal-close:hover { background: var(--bg-card-alt); color: var(--text-primary); }
+
+        [data-theme="dark"] .modal-close {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.1);
+            color: #94A3B8;
+        }
+        [data-theme="dark"] .modal-close:hover {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+        }
+
+        /* Timeline modal strip */
+        .stage-strip { display: flex; align-items: flex-start; gap: 0; overflow-x: auto; padding: 20px 10px 10px; }
+        .stage-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 60px; position: relative; }
+        .stage-line {
+            position: absolute; top: 5.5px; left: calc(50% + 7px);
+            width: calc(100% - 14px); height: 3px; background: #E2E8F0; z-index: 1;
+        }
+        [data-theme="dark"] .stage-line { background: rgba(255,255,255,0.1) !important; }
+        .stage-wrap:last-child .stage-line { display: none; }
+        .stage-circle {
+            width: 14px; height: 14px; border-radius: 50%;
+            background: #D1D5DB; z-index: 2; transition: all 0.3s; position: relative;
+        }
+        [data-theme="dark"] .stage-circle { background: rgba(255,255,255,0.15); }
+        .stage-circle.done { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+        .stage-circle.current { background: var(--indigo); box-shadow: 0 0 0 4px var(--indigo-glow); animation: pulse-dot 1.6s infinite; --pulse-color: rgba(99,102,241,0.5); }
+        .stage-name {
+            font-size: 0.58rem; font-weight: 700; text-align: center;
+            margin-top: 8px; color: var(--text-secondary); line-height: 1.2; max-width: 70px;
+        }
+        .stage-name.current { color: var(--text-primary); font-weight: 800; }
+
+        /* Modal stage strip container */
+        .stage-strip-container {
+            background: var(--bg-card-alt); border: 1px solid var(--border);
+            border-radius: 16px; padding: 20px 10px;
+            transition: all var(--mode-transition) ease;
+        }
+        [data-theme="dark"] .stage-strip-container {
+            background: rgba(255,255,255,0.03);
+            border-color: rgba(255,255,255,0.06);
+        }
+
+        /* Modal badge */
+        .modal-badge {
+            display: inline-block; background: #EFF6FF; color: var(--accent);
+            font-size: 0.7rem; font-weight: 800; padding: 4px 12px;
+            border-radius: 20px; margin-bottom: 8px;
+        }
+        [data-theme="dark"] .modal-badge {
+            background: rgba(37,99,235,0.15);
+            color: #93C5FD;
+        }
+
+        /* Product modal list */
+        .prod-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 16px; background: var(--bg-card-alt); border: 1px solid var(--border);
+            border-radius: 14px; transition: all 0.2s;
+        }
+        .prod-item:hover { background: var(--bg-card-alt); border-color: var(--border-hover); }
+
+        [data-theme="dark"] .prod-item {
+            background: rgba(255,255,255,0.04);
+            border-color: rgba(255,255,255,0.06);
+        }
+        [data-theme="dark"] .prod-item:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .prod-icon {
+            width: 38px; height: 38px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem;
+        }
+        .prod-icon-blue { background: #EFF6FF; color: var(--accent); }
+        .prod-icon-green { background: #F0FDF4; color: var(--success); }
+        [data-theme="dark"] .prod-icon-blue { background: rgba(37,99,235,0.15); color: #93C5FD; }
+        [data-theme="dark"] .prod-icon-green { background: rgba(5,150,105,0.15); color: #6EE7B7; }
+
+        .prod-qty {
+            background: var(--text-primary); color: #fff;
+            padding: 4px 12px; border-radius: 20px;
+            font-size: 0.7rem; font-weight: 700;
+        }
+        [data-theme="dark"] .prod-qty {
+            background: rgba(255,255,255,0.1);
+            color: #E2E8F0;
+        }
+
+        /* ===================== AMBIENT PARTICLES (dark mode) ===================== */
+        .ambient-particles {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+        [data-theme="dark"] .ambient-particles { opacity: 1; }
+
+        .ambient-dot {
+            position: absolute;
+            width: 2px; height: 2px;
+            background: rgba(99,102,241,0.3);
+            border-radius: 50%;
+            animation: twinkle var(--dur) ease-in-out infinite alternate;
+        }
+
+        /* Visible counter badge in toolbar */
+        .visible-count {
+            background: #EFF6FF; color: var(--accent);
+            font-size: 0.68rem; padding: 3px 10px;
+            border-radius: 20px; font-weight: 700;
+        }
+        [data-theme="dark"] .visible-count {
+            background: rgba(37,99,235,0.15);
+            color: #93C5FD;
+        }
+
+        /* Table title transition */
+        #tableTitle {
+            color: var(--text-primary);
+            transition: color var(--mode-transition) ease;
+        }
+
+        /* ===================== VIEW SYSTEM ===================== */
+        .view-section { display: none; animation: fadeIn 0.4s ease; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Ficha Form Elements */
+        .ficha-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; }
+        .ficha-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .ficha-form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        .ficha-label { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .ficha-input { background: transparent; border: 1px solid var(--border-hover); color: var(--text-primary); border-radius: 4px; padding: 10px 14px; font-size: 0.85rem; transition: all 0.2s; }
+        .ficha-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
+        .ficha-panel { background: transparent; border: 1px solid var(--border-hover); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; animation: fadeSlideUp 0.6s ease both; }
+        
+        [data-theme="dark"] .ficha-input { border-color: rgba(255,255,255,0.15); }
+        [data-theme="dark"] .ficha-input:focus { border-color: var(--accent-light); box-shadow: 0 0 0 2px rgba(99,102,241,0.2); }
+        [data-theme="dark"] .ficha-panel { border-color: rgba(255,255,255,0.15); }
+
+    </style>
+</head>
+<body>
+
+    <!-- Ambient particles for dark mode -->
+    <div class="ambient-particles" id="ambientParticles"></div>
+
+    <!-- ==================== SIDEBAR ==================== -->
+    <aside class="sidebar" id="sidebarGalaxy">
+        <div class="logo-area">
+            <div class="logo-icon"><i class="bi bi-box-fill"></i></div>
+            <div>
+                <div class="logo-text">NYX CRM</div>
+                <div class="logo-sub">OPERACIONES</div>
+            </div>
+        </div>
+
+        <div class="sidebar-section-label" style="margin-top: 0;">ESPACIO DE TRABAJO</div>
+        <a href="#" class="nav-link-item active" data-target="view-bandeja" onclick="switchView(this)">
+            <div><i class="bi bi-inbox-fill"></i> Bandeja</div>
+            <span class="nav-count">18</span>
+        </a>
+        <a href="#" class="nav-link-item" data-target="view-resumen" onclick="switchView(this)">
+            <div><i class="bi bi-grid-1x2"></i> Resumen</div>
+        </a>
+        <a href="#" class="nav-link-item" data-target="view-orders" onclick="switchView(this)">
+            <div><i class="bi bi-card-list"></i> Mis órdenes</div>
+            <span class="nav-count">07</span>
+        </a>
+        
+        <a href="#" class="nav-link-item" data-target="view-archived" onclick="switchView(this)">
+            <div><i class="bi bi-archive"></i> Archivadas</div>
+        </a>
+        <a href="#" class="nav-link-item" data-target="view-preventas" onclick="switchView(this)">
+            <div><i class="bi bi-funnel"></i> Mis Pre-Ventas</div>
+        </a>
+
+
+        <div class="sidebar-section-label" style="margin-top: auto;">CUENTA</div>
+        <a href="#" class="nav-link-item" data-target="view-settings" onclick="switchView(this)">
+            <div><i class="bi bi-gear-fill"></i> Configuración</div>
+        </a>
+
+        <div class="shift-card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <span style="font-size:0.82rem; font-weight:700; color:#fff;">Turno de hoy</span>
+                <span style="font-size:0.68rem; color:#34D399; font-weight:700;"><i class="bi bi-circle-fill" style="font-size:0.35rem; vertical-align: middle; margin-right:3px;"></i>Activo</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#94A3B8; margin-bottom:8px; font-weight:600;">
+                <span>08:00 — 17:00</span>
+                <span>72%</span>
+            </div>
+            <div class="shift-bar-track">
+                <div class="shift-bar-fill" style="width: 72%;"></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ==================== MAIN ==================== -->
+    <main class="main-content">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+                <div class="page-label">— MI OPERACIÓN · MARTES 05 AGOSTO 2026</div>
+                <h1 class="page-title" id="pageTitle">Bandeja del asesor</h1>
+                <p class="page-desc" id="pageDesc">Gestión unificada de Pre-Ventas y Órdenes bajo tu custodia.</p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center; flex-shrink:0;">
+                <button class="btn-ghost" onclick="switchView(null, 'view-new-preventa'); document.querySelectorAll('.nav-link-item').forEach(n => n.classList.remove('active'));"><i class="bi bi-funnel me-2"></i>Nueva Pre-Venta</button>
+                <button class="btn-accent" onclick="switchView(null, 'view-new-order'); document.querySelectorAll('.nav-link-item').forEach(n => n.classList.remove('active'));"><i class="bi bi-plus-lg me-2"></i>Nueva Orden</button>
+                <div style="width:1px; height:28px; background:var(--border); margin:0 4px;"></div>
+                <button class="btn-ghost btn-icon" onclick="showToast('Exportando a Excel…')"><i class="bi bi-download"></i></button>
+                <button class="btn-accent btn-icon" onclick="refreshData()" id="refreshBtn"><i class="bi bi-arrow-clockwise" id="refreshIcon"></i></button>
+                <!-- Theme Toggle -->
+                <button class="theme-toggle" onclick="toggleTheme()" id="themeToggleBtn" title="Cambiar modo claro/oscuro">
+                    <i class="bi bi-moon-stars-fill icon-moon"></i>
+                    <i class="bi bi-sun-fill icon-sun"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- VIEWS CONTAINER -->
+        <div id="view-bandeja" class="view-section                                  
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card kpi-card--hero" id="cardGalaxy" onclick="showToast('Filtrando: Todas las órdenes activas')">
+                <div class="kpi-label" style="position:relative; z-index:2;">ÓRDENES EN OPERACIÓN</div>
+                <div style="display:flex; align-items:baseline; position:relative; z-index:2;">
+                    <span class="kpi-value">18</span>
+                    <span class="kpi-unit">activas hoy</span>
+                </div>
+                <div class="kpi-detail" style="position:relative; z-index:2;"><i class="bi bi-activity me-1"></i>4 con actividad reciente</div>
+            </div>
+            <div class="kpi-card" onclick="showToast('Filtrando: Requieren revisión')">
+                <div class="kpi-label">REQUIEREN REVISIÓN</div>
+                <div style="display:flex; align-items:baseline;">
+                    <span class="kpi-value">07</span>
+                    <span class="kpi-unit">órdenes</span>
+                </div>
+                <div class="kpi-detail">+2 desde las 14:00</div>
+                <div class="kpi-bar" style="background: var(--accent);"></div>
+            </div>
+            <div class="kpi-card" onclick="showToast('Filtrando: En proceso')">
+                <div class="kpi-label">EN PROCESO</div>
+                <div style="display:flex; align-items:baseline;">
+                    <span class="kpi-value">05</span>
+                    <span class="kpi-unit">órdenes</span>
+                </div>
+                <div class="kpi-detail">Promedio etapa 4.6 / 10</div>
+                <div class="kpi-bar" style="background: var(--indigo);"></div>
+            </div>
+            <div class="kpi-card" onclick="showToast('Filtrando: Aprobadas')">
+                <div class="kpi-label">VENTAS APROBADAS</div>
+                <div style="display:flex; align-items:baseline;">
+                    <span class="kpi-value">06</span>
+                    <span class="kpi-unit">este mes</span>
+                </div>
+                <div class="kpi-detail" style="color: var(--success); font-weight:700;"><i class="bi bi-graph-up-arrow me-1"></i>+12.4% vs. julio</div>
+                <div class="kpi-bar" style="background: var(--success);"></div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab(this, 'ventas')"><i class="bi bi-cart-check me-2"></i>Mis Órdenes de Venta (18)</button>
+            <button class="tab-btn" onclick="switchTab(this, 'preventas')"><i class="bi bi-funnel me-2"></i>Mis Pre-Ventas (7)</button>
+        </div>
+
+        <!-- Table Card -->
+        <div class="table-container" id="tableCard">
+            <div class="table-toolbar">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <h5 style="margin:0; font-size:1rem; font-weight:800;" id="tableTitle">Órdenes recientes</h5>
+                    <span class="visible-count">4 visibles</span>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <div class="search-wrap">
+                        <i class="bi bi-search"></i>
+                        <input class="search-field" placeholder="Buscar orden o cliente…" onkeyup="if(event.key==='Enter')showToast('Buscando: '+this.value)">
+                    </div>
+                    <select class="filter-select" onchange="showToast('Filtro de estado aplicado')">
+                        <option>Todos los estados</option>
+                        <option>Borrador</option>
+                        <option>En revisión</option>
+                        <option>Aprobada</option>
+                        <option>Incidencia</option>
+                    </select>
+                    <select class="filter-select" onchange="showToast('Filtro de perfil aplicado')">
+                        <option>Todos los perfiles</option>
+                        <option>Estándar</option>
+                        <option>Alterno</option>
+                    </select>
+                </div>
+            </div>
+
+            <table class="order-table" id="orderTableBody">
+                <thead>
+                    <tr>
+                        <th>N° Orden</th>
+                        <th>Productos</th>
+                        <th>Ficha Alterna</th>
+                        <th>Estado Proceso</th>
+                        <th>Línea de Tiempo</th>
+                        <th style="text-align:center;">Ficha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Row 1: White -->
+                    <tr class="row-white" onclick="showToast('Navegando a Ficha #ORD-1024…')">
+                        <td>
+                            <div class="order-id">#ORD-1024</div>
+                            <div class="order-date">05 ago 2026 · 14:52</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-box me-1"></i>Ver 1 producto</button></td>
+                        <td><span class="profile-badge profile-standard">Perfil Estándar</span></td>
+                        <td><span class="status-badge status-draft"><i class="bi bi-circle-fill" style="font-size:0.35rem;"></i>BORRADOR</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Datos validados', 2)">
+                            <div class="tl-header">
+                                <span class="tl-name">Datos validados</span>
+                                <span class="tl-counter">2/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot done"></div><div class="tl-dot current"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="switchView(null, 'view-ficha'); document.querySelectorAll('.nav-link-item').forEach(n => n.classList.remove('active'));"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+
+                    <!-- Row 2: Slate -->
+                    <tr class="row-slate" onclick="showToast('Navegando a Ficha #ORD-1023…')">
+                        <td>
+                            <div class="order-id">#ORD-1023</div>
+                            <div class="order-date">05 ago 2026 · 14:50</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-boxes me-1"></i>Ver 2 productos</button></td>
+                        <td><span class="profile-badge profile-alternate">Perfil Alterno</span></td>
+                        <td><span class="status-badge status-review"><i class="bi bi-search" style="font-size:0.55rem;"></i>EN REVISIÓN SUPERVISOR</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Cumplimiento', 5)">
+                            <div class="tl-header">
+                                <span class="tl-name">Cumplimiento</span>
+                                <span class="tl-counter">5/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot current"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="showToast('Abriendo Ficha #ORD-1023…')"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+
+                    <!-- Row 3: White -->
+                    <tr class="row-white" onclick="showToast('Navegando a Ficha #ORD-1018…')">
+                        <td>
+                            <div class="order-id">#ORD-1018</div>
+                            <div class="order-date">05 ago 2026 · 14:42</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-box me-1"></i>Ver 1 producto</button></td>
+                        <td><span class="profile-badge profile-standard">Perfil Estándar</span></td>
+                        <td><span class="status-badge status-approved"><i class="bi bi-check-circle-fill" style="font-size:0.55rem;"></i>APROBADA</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Postventa', 10)">
+                            <div class="tl-header">
+                                <span class="tl-name">Postventa</span>
+                                <span class="tl-counter">10/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot complete-final"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="showToast('Abriendo Ficha #ORD-1018…')"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+
+                    <!-- Row 4: Slate -->
+                    <tr class="row-slate" onclick="showToast('Navegando a Ficha #ORD-1015…')">
+                        <td>
+                            <div class="order-id">#ORD-1015</div>
+                            <div class="order-date">05 ago 2026 · 13:58</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-boxes me-1"></i>Ver 3 productos</button></td>
+                        <td><span class="profile-badge profile-alternate">Perfil Alterno</span></td>
+                        <td><span class="status-badge status-incident"><i class="bi bi-exclamation-triangle-fill" style="font-size:0.55rem;"></i>EN CORRECCIÓN</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Documentación', 4)">
+                            <div class="tl-header">
+                                <span class="tl-name">Documentación</span>
+                                <span class="tl-counter">4/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot blocked"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="switchView(null, 'view-ficha'); document.querySelectorAll('.nav-link-item').forEach(n => n.classList.remove('active'));"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        </div> <!-- End view-bandeja -->
+
+        <!-- View: Mis Pre-Ventas -->
+        <div id="view-preventas" class="view-section">
+            <div class="table-container">
+                <div class="table-toolbar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <h5 style="margin:0; font-size:1rem; font-weight:800;">Mis Pre-Ventas</h5>
+                        <span class="visible-count">Leads activos</span>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <input class="search-field" placeholder="Filtrar por Operador (Ej. Movistar)">
+                        <select class="filter-select">
+                            <option>Estado de Cobertura: Todos</option>
+                            <option>Pendiente</option>
+                            <option>Aprobado</option>
+                        </select>
+                        <button class="btn-ghost" style="padding: 7px 15px;">Buscar</button>
+                    </div>
+                </div>
+                <table class="order-table">
+                    <thead>
+                        <tr>
+                            <th>N° Pre-Venta</th>
+                            <th>Cliente</th>
+                            <th>Teléfono</th>
+                            <th>Operador / Notas</th>
+                            <th>Cobertura</th>
+                            <th style="text-align:right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="row-white">
+                            <td>
+                                <div class="order-id">#11</div>
+                                <div class="order-date">Referido de: patricia <br> 05/08/2026</div>
+                            </td>
+                            <td style="font-weight:600;">Maria Perez</td>
+                            <td style="font-weight:600;">987654321</td>
+                            <td>
+                                <span class="profile-badge profile-standard" style="display:inline-block; margin-bottom:4px;">Movistar</span>
+                                <div style="font-size:0.75rem; color:var(--text-secondary);">Transferencia de prueba</div>
+                            </td>
+                            <td><span class="status-badge" style="background:#E2E8F0; color:#64748B;">Pendiente</span></td>
+                            <td style="text-align:right;">
+                                <button class="btn-ghost" style="padding:6px 12px; font-size:0.75rem; margin-right:5px;"><i class="bi bi-telephone-fill me-1"></i>Llamada</button>
+                                <button class="btn-ghost" style="padding:6px 12px; font-size:0.75rem; margin-right:5px;"><i class="bi bi-person-lines-fill me-1"></i>Derivar</button>
+                                <button class="btn-accent" style="padding:6px 12px; font-size:0.75rem;"><i class="bi bi-cart-plus-fill me-1"></i>Convertir a Venta</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- View: Nueva Orden -->
+        <div id="view-new-order" class="view-section">
+            <div class="ficha-panel" style="max-width: 800px; margin: 0 auto;">
+                <h4 style="margin-bottom: 2rem; font-weight:800; display:flex; align-items:center; gap:10px;">
+                    <i class="bi bi-cart-plus" style="color:var(--accent);"></i> Generar Nueva Orden
+                </h4>
+                
+                <h6 style="font-weight:700; margin-bottom: 1.5rem; color:var(--text-primary);">1. Selección de Cliente y Campaña</h6>
+                <div class="ficha-form-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="ficha-form-group">
+                        <label class="ficha-label">Cliente (Lead)</label>
+                        <select class="ficha-input">
+                            <option>-- Selecciona un cliente --</option>
+                            <option>Maria Perez (987654321)</option>
+                        </select>
+                    </div>
+                    <div class="ficha-form-group">
+                        <label class="ficha-label">Campaña</label>
+                        <select class="ficha-input">
+                            <option>-- Selecciona una campaña --</option>
+                            <option>Captación Outbound</option>
+                            <option>Portabilidad Especial</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="text-align: right; margin-top: 2rem;">
+                    <button class="btn-ghost" style="margin-right:10px;" onclick="switchView(document.querySelector('[data-target=\'view-bandeja\']'))">Cancelar</button>
+                    <button class="btn-accent">Continuar al Paso 2 <i class="bi bi-arrow-right ms-2"></i></button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- View: Nueva Pre-Venta Placeholder -->
+        <div id="view-new-preventa" class="view-section">
+            <div class="ficha-panel" style="max-width: 800px; margin: 0 auto;">
+                <h4 style="margin-bottom: 2rem; font-weight:800; display:flex; align-items:center; gap:10px;">
+                    <i class="bi bi-funnel" style="color:var(--accent);"></i> Generar Nueva Pre-Venta
+                </h4>
+                <p style="color:var(--text-secondary);">Formulario de registro rápido de leads.</p>
+                <div style="text-align: right; margin-top: 2rem;">
+                    <button class="btn-ghost" onclick="switchView(document.querySelector('[data-target=\'view-bandeja\']'))">Volver</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View: Configuración (404) -->
+        <div id="view-settings" class="view-section">
+            <div class="ficha-panel" style="max-width: 600px; margin: 4rem auto; text-align: center; padding: 4rem 2rem;">
+                <h1 style="color: var(--danger); font-size: 4rem; font-weight: 900; margin-bottom: 0;">404</h1>
+                <h3 style="font-weight: 800; margin-bottom: 1rem; color:var(--text-primary);">Página no encontrada</h3>
+                <p style="color:var(--text-secondary); margin-bottom: 2.5rem;">Lo sentimos, no pudimos encontrar la página que buscas o no tienes acceso a ella por tu rol de Asesor.</p>
+                <button class="btn-ghost" onclick="switchView(document.querySelector('[data-target=\'view-bandeja\']'))" style="border-radius: 20px; padding: 10px 24px; font-weight:700;">Volver al inicio</button>
+            </div>
+        </div>
+
+
+        <!-- View: Resumen -->
+        <div id="view-resumen" class="view-section">
+            <h4 style="margin-bottom: 1.5rem; font-weight:800;">Métricas de Rendimiento</h4>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div class="kpi-card" style="min-height: 250px; display:flex; align-items:center; justify-content:center; flex-direction:column; color: var(--text-secondary);">
+                    <i class="bi bi-bar-chart" style="font-size:3rem; margin-bottom:1rem; opacity:0.5;"></i>
+                    <p style="font-weight:700;">Gráfico de Ventas Mensuales</p>
+                </div>
+                <div class="kpi-card" style="min-height: 250px; display:flex; align-items:center; justify-content:center; flex-direction:column; color: var(--text-secondary);">
+                    <i class="bi bi-pie-chart" style="font-size:3rem; margin-bottom:1rem; opacity:0.5;"></i>
+                    <p style="font-weight:700;">Distribución por Productos</p>
+                </div>
+                <div class="kpi-card" style="grid-column: span 2; min-height: 200px; display:flex; align-items:center; justify-content:center; flex-direction:column; color: var(--text-secondary);">
+                    <i class="bi bi-activity" style="font-size:3rem; margin-bottom:1rem; opacity:0.5;"></i>
+                    <p style="font-weight:700;">Rendimiento del Asesor</p>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- View: Mis órdenes -->
+        <div id="view-orders" class="view-section">
+            <div class="table-container">
+                <div class="table-toolbar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <h5 style="margin:0; font-size:1rem; font-weight:800;">Todas mis Órdenes</h5>
+                        <span class="visible-count">7 activas</span>
+                    </div>
+                </div>
+                <table class="order-table" id="orderTableBody2">
+                <thead>
+                    <tr>
+                        <th>N° Orden</th>
+                        <th>Productos</th>
+                        <th>Ficha Alterna</th>
+                        <th>Estado Proceso</th>
+                        <th>Línea de Tiempo</th>
+                        <th style="text-align:center;">Ficha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Row 1: White -->
+                    <tr class="row-white" onclick="showToast('Navegando a Ficha #ORD-1024…')">
+                        <td>
+                            <div class="order-id">#ORD-1024</div>
+                            <div class="order-date">05 ago 2026 · 14:52</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-box me-1"></i>Ver 1 producto</button></td>
+                        <td><span class="profile-badge profile-standard">Perfil Estándar</span></td>
+                        <td><span class="status-badge status-draft"><i class="bi bi-circle-fill" style="font-size:0.35rem;"></i>BORRADOR</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Datos validados', 2)">
+                            <div class="tl-header">
+                                <span class="tl-name">Datos validados</span>
+                                <span class="tl-counter">2/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot done"></div><div class="tl-dot current"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="switchView(null, 'view-ficha'); document.querySelectorAll('.nav-link-item').forEach(n => n.classList.remove('active'));"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+
+                    <!-- Row 2: Slate -->
+                    <tr class="row-slate" onclick="showToast('Navegando a Ficha #ORD-1023…')">
+                        <td>
+                            <div class="order-id">#ORD-1023</div>
+                            <div class="order-date">05 ago 2026 · 14:50</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-boxes me-1"></i>Ver 2 productos</button></td>
+                        <td><span class="profile-badge profile-alternate">Perfil Alterno</span></td>
+                        <td><span class="status-badge status-review"><i class="bi bi-search" style="font-size:0.55rem;"></i>EN REVISIÓN SUPERVISOR</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Cumplimiento', 5)">
+                            <div class="tl-header">
+                                <span class="tl-name">Cumplimiento</span>
+                                <span class="tl-counter">5/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot current"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="showToast('Abriendo Ficha #ORD-1023…')"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+
+                    <!-- Row 3: White -->
+                    <tr class="row-white" onclick="showToast('Navegando a Ficha #ORD-1018…')">
+                        <td>
+                            <div class="order-id">#ORD-1018</div>
+                            <div class="order-date">05 ago 2026 · 14:42</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-box me-1"></i>Ver 1 producto</button></td>
+                        <td><span class="profile-badge profile-standard">Perfil Estándar</span></td>
+                        <td><span class="status-badge status-approved"><i class="bi bi-check-circle-fill" style="font-size:0.55rem;"></i>APROBADA</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Postventa', 10)">
+                            <div class="tl-header">
+                                <span class="tl-name">Postventa</span>
+                                <span class="tl-counter">10/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot complete-final"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="showToast('Abriendo Ficha #ORD-1018…')"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+
+                    <!-- Row 4: Slate -->
+                    <tr class="row-slate" onclick="showToast('Navegando a Ficha #ORD-1015…')">
+                        <td>
+                            <div class="order-id">#ORD-1015</div>
+                            <div class="order-date">05 ago 2026 · 13:58</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-boxes me-1"></i>Ver 3 productos</button></td>
+                        <td><span class="profile-badge profile-alternate">Perfil Alterno</span></td>
+                        <td><span class="status-badge status-incident"><i class="bi bi-exclamation-triangle-fill" style="font-size:0.55rem;"></i>EN CORRECCIÓN</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Documentación', 4)">
+                            <div class="tl-header">
+                                <span class="tl-name">Documentación</span>
+                                <span class="tl-counter">4/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot done"></div><div class="tl-dot blocked"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="switchView(null, 'view-ficha'); document.querySelectorAll('.nav-link-item').forEach(n => n.classList.remove('active'));"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <!-- View: Archivadas -->
+        <div id="view-archived" class="view-section">
+            <div class="table-container">
+                <div class="table-toolbar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <h5 style="margin:0; font-size:1rem; font-weight:800;">Órdenes Archivadas</h5>
+                        <span class="visible-count" style="background:#F1F5F9; color:#64748B;">Histórico</span>
+                    </div>
+                </div>
+                <table class="order-table" id="orderTableBody3">
+                <thead>
+                    <tr>
+                        <th>N° Orden</th>
+                        <th>Productos</th>
+                        <th>Ficha Alterna</th>
+                        <th>Estado Proceso</th>
+                        <th>Línea de Tiempo</th>
+                        <th style="text-align:center;">Ficha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Row 1: White -->
+                    <tr class="row-white" onclick="showToast('Navegando a Ficha #ORD-1024…')">
+                        <td>
+                            <div class="order-id">#ORD-1024</div>
+                            <div class="order-date">05 ago 2026 · 14:52</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-box me-1"></i>Ver 1 producto</button></td>
+                        <td><span class="profile-badge profile-standard">Perfil Estándar</span></td>
+                        <td><span class="status-badge" style="background:#E2E8F0; color:#64748B;"><i class="bi bi-archive-fill"></i> ARCHIVADA</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Datos validados', 2)">
+                            <div class="tl-header">
+                                <span class="tl-name">Datos validados</span>
+                                <span class="tl-counter">2/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="switchView(null, 'view-ficha'); document.querySelectorAll('.nav-link-item').forEach(n => n.classList.remove('active'));"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+
+                    <!-- Row 2: Slate -->
+                    <tr class="row-slate" onclick="showToast('Navegando a Ficha #ORD-1023…')">
+                        <td>
+                            <div class="order-id">#ORD-1023</div>
+                            <div class="order-date">05 ago 2026 · 14:50</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-boxes me-1"></i>Ver 2 productos</button></td>
+                        <td><span class="profile-badge profile-alternate">Perfil Alterno</span></td>
+                        <td><span class="status-badge" style="background:#E2E8F0; color:#64748B;"><i class="bi bi-archive-fill"></i> ARCHIVADA</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Cumplimiento', 5)">
+                            <div class="tl-header">
+                                <span class="tl-name">Cumplimiento</span>
+                                <span class="tl-counter">5/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="showToast('Abriendo Ficha #ORD-1023…')"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+
+                    <!-- Row 3: White -->
+                    <tr class="row-white" onclick="showToast('Navegando a Ficha #ORD-1018…')">
+                        <td>
+                            <div class="order-id">#ORD-1018</div>
+                            <div class="order-date">05 ago 2026 · 14:42</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-box me-1"></i>Ver 1 producto</button></td>
+                        <td><span class="profile-badge profile-standard">Perfil Estándar</span></td>
+                        <td><span class="status-badge" style="background:#E2E8F0; color:#64748B;"><i class="bi bi-archive-fill"></i> ARCHIVADA</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Postventa', 10)">
+                            <div class="tl-header">
+                                <span class="tl-name">Postventa</span>
+                                <span class="tl-counter">10/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="showToast('Abriendo Ficha #ORD-1018…')"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+
+                    <!-- Row 4: Slate -->
+                    <tr class="row-slate" onclick="showToast('Navegando a Ficha #ORD-1015…')">
+                        <td>
+                            <div class="order-id">#ORD-1015</div>
+                            <div class="order-date">05 ago 2026 · 13:58</div>
+                        </td>
+                        <td onclick="event.stopPropagation()"><button class="product-pill" onclick="openProductsModal()"><i class="bi bi-boxes me-1"></i>Ver 3 productos</button></td>
+                        <td><span class="profile-badge profile-alternate">Perfil Alterno</span></td>
+                        <td><span class="status-badge" style="background:#E2E8F0; color:#64748B;"><i class="bi bi-archive-fill"></i> DEVUELTA</span></td>
+                        <td class="timeline-mini" onclick="event.stopPropagation(); openTimelineModal('Documentación', 4)">
+                            <div class="tl-header">
+                                <span class="tl-name">Documentación</span>
+                                <span class="tl-counter">4/10</span>
+                            </div>
+                            <div class="tl-track">
+                                <div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot blocked"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;" onclick="event.stopPropagation()"><button class="ficha-btn" onclick="switchView(null, 'view-ficha'); document.querySelectorAll('.nav-link-item').forEach(n => n.classList.remove('active'));"><i class="bi bi-file-earmark-text-fill"></i></button></td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <!-- View: Ficha -->
+        <div id="view-ficha" class="view-section">
+            <button class="btn-ghost" style="margin-bottom: 1.5rem;" onclick="switchView(document.querySelector('[data-target=\'view-resumen\']'))"><i class="bi bi-arrow-left me-2"></i>Volver a la bandeja</button>
+            
+            <div class="ficha-header">
+                <div>
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom: 5px;">
+                        <h2 style="margin:0; font-weight:800; font-size: 1.4rem;">Orden #ORD-1024</h2>
+                        <span class="status-badge status-review"><i class="bi bi-search"></i> En revisión</span>
+                    </div>
+                    <div style="color: var(--text-secondary); font-size: 0.8rem;">Registrada el 05/08/2026 14:30 | Última actualización: 05/08/2026 16:15</div>
+                </div>
+                <div style="display:flex; gap: 10px;">
+                    <button class="btn-ghost" onclick="document.getElementById('timelineModal').classList.add('open')"><i class="bi bi-clock-history me-2"></i>Línea de Tiempo</button>
+                    <button class="btn-accent" onclick="showToast('Borrador guardado exitosamente.')">Guardar Ficha</button>
+                </div>
+            </div>
+
+            <!-- Ficha Panel: Formulario -->
+            <div class="ficha-panel">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem;">
+                    <h5 style="margin:0; font-weight:800;">Detalle de la Ficha de Venta</h5>
+                    <span style="color: var(--success); font-size: 0.8rem; font-weight: 700;"><i class="bi bi-pencil-square me-1"></i>Modo Edición</span>
+                </div>
+
+                <div class="ficha-form-grid">
+                    <div class="ficha-form-group">
+                        <label class="ficha-label">Nombre del Titular <span style="color: var(--danger);">*</span></label>
+                        <input type="text" class="ficha-input" value="Carlos Mendoza" />
+                    </div>
+                    <div class="ficha-form-group">
+                        <label class="ficha-label">DNI / NIE <span style="color: var(--danger);">*</span></label>
+                        <input type="text" class="ficha-input" value="X1234567Y" />
+                    </div>
+                    <div class="ficha-form-group">
+                        <label class="ficha-label">Teléfono <span style="color: var(--danger);">*</span></label>
+                        <input type="text" class="ficha-input" value="600123456" />
+                    </div>
+                    <div class="ficha-form-group">
+                        <label class="ficha-label">Dirección de Instalación</label>
+                        <input type="text" class="ficha-input" value="Av. Siempre Viva 742, Madrid" />
+                    </div>
+                    <div class="ficha-form-group">
+                        <label class="ficha-label">Campaña / Origen</label>
+                        <select class="ficha-input">
+                            <option>Inbound Ventas 01</option>
+                            <option selected>Outbound Captación</option>
+                        </select>
+                    </div>
+                    <div class="ficha-form-group">
+                        <label class="ficha-label">Notas Adicionales</label>
+                        <input type="text" class="ficha-input" value="El cliente solicita portabilidad." />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ficha Panel: Alternate -->
+            <div class="ficha-panel">
+                <div style="display:flex; align-items:center; gap: 15px; margin-bottom: 1rem;">
+                    <input type="checkbox" style="width:16px; height:16px; accent-color: var(--accent);" id="altToggle" checked />
+                    <h6 style="margin:0; font-weight:800;">Habilitar Ficha Alterna (Datos del Titular / Instalación)</h6>
+                </div>
+                <div class="ficha-form-grid" style="margin-bottom:0;">
+                    <div class="ficha-form-group">
+                        <label class="ficha-label">Titular Alterno</label>
+                        <input type="text" class="ficha-input" value="María Sánchez" />
+                    </div>
+                    <div class="ficha-form-group">
+                        <label class="ficha-label">Razón del perfil alterno</label>
+                        <input type="text" class="ficha-input" value="Instalación en segunda residencia" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ==================== TOAST ==================== -->
+    <div class="toast-bar" id="toastEl"><i class="bi bi-check-circle-fill"></i><span id="toastText"></span></div>
+
+    <!-- ==================== MODAL: TIMELINE ==================== -->
+    <div class="modal-overlay" id="timelineModal">
+        <div class="modal-card">
+            <div class="modal-header-custom">
+                <div>
+                    <span class="modal-badge">Progreso de la Orden</span>
+                    <h4 style="font-weight:800; color:var(--text-primary); margin:0;" id="modalTimelineTitle">Orden #ORD-1024</h4>
+                </div>
+                <button class="modal-close" onclick="closeModal('timelineModal')"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body-custom">
+                <p style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:20px;">Visualización del progreso a través de las etapas del proceso comercial.</p>
+                <div class="stage-strip-container">
+                    <div class="stage-strip" id="stageStrip"></div>
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button class="btn-ghost" onclick="closeModal('timelineModal')">Cerrar</button>
+                <button class="btn-accent" onclick="closeModal('timelineModal'); switchView(null, 'view-ficha');"><i class="bi bi-file-earmark-text me-2"></i>Ir a la Ficha Completa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: PRODUCTS ==================== -->
+    <div class="modal-overlay" id="productsModal">
+        <div class="modal-card" style="width:520px;">
+            <div class="modal-header-custom">
+                <div>
+                    <span class="modal-badge">Desglose de Productos</span>
+                    <h4 style="font-weight:800; color:var(--text-primary); margin:0;">Orden #ORD-1024</h4>
+                </div>
+                <button class="modal-close" onclick="closeModal('productsModal')"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body-custom">
+                <p style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:16px;">Servicios y productos contratados en esta venta:</p>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <div class="prod-item">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div class="prod-icon prod-icon-blue"><i class="bi bi-wifi"></i></div>
+                            <div>
+                                <div style="font-weight:700; font-size:0.88rem;">Internet Fibra 300Mbps</div>
+                                <div style="font-size:0.72rem; color:var(--text-secondary);">Tipo: Conectividad</div>
+                            </div>
+                        </div>
+                        <span class="prod-qty">1 Unidad</span>
+                    </div>
+                    <div class="prod-item">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div class="prod-icon prod-icon-green"><i class="bi bi-tv"></i></div>
+                            <div>
+                                <div style="font-weight:700; font-size:0.88rem;">TV Premium HD</div>
+                                <div style="font-size:0.72rem; color:var(--text-secondary);">Tipo: Entretenimiento</div>
+                            </div>
+                        </div>
+                        <span class="prod-qty">1 Unidad</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button class="btn-ghost" onclick="closeModal('productsModal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SCRIPTS ==================== -->
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+        // Stars in sidebar and hero card
+        const genStars = (el, n) => {
+            if (!el) return;
+            for (let i = 0; i < n; i++) {
+                const s = document.createElement('div');
+                s.className = 'star';
+                const size = Math.random() * 2.5 + 0.5;
+                s.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;opacity:${Math.random()};--dur:${Math.random()*3+2}s`;
+                el.appendChild(s);
+            }
+        };
+        genStars(document.getElementById('sidebarGalaxy'), 55);
+        genStars(document.getElementById('cardGalaxy'), 18);
+
+        // Ambient particles for dark mode background
+        const ambientEl = document.getElementById('ambientParticles');
+        for (let i = 0; i < 40; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'ambient-dot';
+            dot.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;--dur:${Math.random()*4+2}s;opacity:${Math.random()*0.4+0.1}`;
+            ambientEl.appendChild(dot);
+        }
+
+        // Ripple on buttons
+        document.querySelectorAll('.btn-ghost, .btn-accent, .ficha-btn, .product-pill').forEach(b => {
+            b.addEventListener('click', function(e) {
+                const r = document.createElement('span');
+                r.className = 'ripple';
+                const rect = this.getBoundingClientRect();
+                const sz = Math.max(rect.width, rect.height);
+                r.style.cssText = `width:${sz}px;height:${sz}px;left:${e.clientX-rect.left-sz/2}px;top:${e.clientY-rect.top-sz/2}px`;
+                this.style.position = 'relative'; this.style.overflow = 'hidden';
+                this.appendChild(r);
+                setTimeout(() => r.remove(), 500);
+            });
+        });
+    });
+
+    // ===================== THEME TOGGLE =====================
+    let isTransitioning = false;
+
+    function toggleTheme() {
+        if (isTransitioning) return;
+        isTransitioning = true;
+
+        const html = document.documentElement;
+        const isDark = html.getAttribute('data-theme') === 'dark';
+        const goingDark = !isDark;
+
+        if (goingDark) {
+            // Create shooting star
+            const starOverlay = document.createElement('div');
+            starOverlay.className = 'shooting-star-overlay';
+            const star = document.createElement('div');
+            star.className = 'shooting-star';
+            starOverlay.appendChild(star);
+            document.body.appendChild(starOverlay);
+
+            // Create spark particles along the path
+            const sparkCount = 12;
+            for (let i = 0; i < sparkCount; i++) {
+                setTimeout(() => {
+                    const spark = document.createElement('div');
+                    spark.className = 'spark-particle';
+                    spark.style.left = `${90 - (i / sparkCount) * 80}%`;
+                    spark.style.top = `${15 + (i / sparkCount) * 50}%`;
+                    starOverlay.appendChild(spark);
+                }, 50 + i * 40);
+            }
+
+            // Wind effect
+            for (let i = 0; i < 15; i++) {
+                setTimeout(() => {
+                    const wind = document.createElement('div');
+                    wind.className = 'wind-line';
+                    wind.style.top = `${Math.random() * 100}%`;
+                    wind.style.width = `${100 + Math.random() * 300}px`;
+                    document.body.appendChild(wind);
+                    setTimeout(() => wind.remove(), 600);
+                }, Math.random() * 300);
+            }
+
+            // Create transition curtain 
+            const curtain = document.createElement('div');
+            curtain.className = 'transition-curtain to-dark';
+            
+            setTimeout(() => {
+                document.body.appendChild(curtain);
+            }, 100);
+
+            // Apply theme change mid-animation
+            setTimeout(() => {
+                html.setAttribute('data-theme', 'dark');
+            }, 300);
+
+            // Clean up after animation
+            setTimeout(() => {
+                curtain.style.opacity = '0';
+                curtain.style.transition = 'opacity 0.2s ease';
+            }, 500);
+
+            setTimeout(() => {
+                starOverlay.remove();
+                curtain.remove();
+                isTransitioning = false;
+            }, 750);
+        } else {
+            // Light mode shape transition
+            const shape = document.createElement('div');
+            shape.className = 'transition-curtain to-light-shape';
+            document.body.appendChild(shape);
+
+            setTimeout(() => {
+                html.removeAttribute('data-theme');
+            }, 300);
+
+            setTimeout(() => {
+                shape.style.opacity = '0';
+                shape.style.transition = 'opacity 0.2s ease';
+            }, 500);
+
+            setTimeout(() => {
+                shape.remove();
+                isTransitioning = false;
+            }, 750);
+        }
+
+        // Toast feedback
+        setTimeout(() => {
+            showToast(goingDark ? '🌙 Modo oscuro activado' : '☀️ Modo claro activado');
+        }, 400);
+    }
+
+    // Toast
+    let _tt;
+    function showToast(msg) {
+        const el = document.getElementById('toastEl');
+        document.getElementById('toastText').innerText = msg;
+        el.classList.add('visible');
+        clearTimeout(_tt);
+        _tt = setTimeout(() => el.classList.remove('visible'), 2800);
+    }
+
+    // Sidebar nav
+    
+    // View Switcher
+    function switchView(navEl, targetId) {
+        if (navEl) {
+            document.querySelectorAll('.nav-link-item').forEach(n => n.classList.remove('active'));
+            navEl.classList.add('active');
+            targetId = navEl.getAttribute('data-target');
+        }
+
+        document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+        document.getElementById(targetId).classList.add('active');
+
+        // Update Page Title dynamically based on view
+        const titleEl = document.getElementById('pageTitle');
+        const descEl = document.getElementById('pageDesc');
+        if (targetId === 'view-bandeja') {
+            titleEl.innerText = 'Bandeja del asesor';
+            descEl.innerText = 'Gestión unificada de Pre-Ventas y Órdenes bajo tu custodia.';
+            if (navEl) showToast('Navegando a la Bandeja…');
+        } else if (targetId === 'view-resumen') {
+            titleEl.innerText = 'Resumen Operativo';
+            descEl.innerText = 'Métricas y gráficos de rendimiento de tu operación.';
+            if (navEl) showToast('Navegando a Resumen…');
+} else if (targetId === 'view-preventas') {
+            titleEl.innerText = 'Mis Pre-Ventas';
+            descEl.innerText = 'Gestiona y haz seguimiento a tus pre-ventas y leads.';
+            if (navEl) showToast('Navegando a Pre-Ventas…');
+        } else if (targetId === 'view-settings') {
+            titleEl.innerText = 'Configuración';
+            descEl.innerText = 'Ajustes de cuenta.';
+            if (navEl) showToast('Accediendo a Configuración…');
+        } else if (targetId === 'view-new-order') {
+            titleEl.innerText = 'Nueva Orden';
+            descEl.innerText = 'Inicia el proceso de registro de una nueva venta.';
+            showToast('Abriendo Asistente de Orden…');
+        } else if (targetId === 'view-new-preventa') {
+            titleEl.innerText = 'Nueva Pre-Venta';
+            descEl.innerText = 'Registra un lead o potencial venta en el sistema.';
+            showToast('Abriendo Asistente de Pre-Venta…');
+        } else if (targetId === 'view-orders') {
+            titleEl.innerText = 'Mis órdenes';
+            descEl.innerText = 'Explora y filtra todo tu historial de ventas activas.';
+            if (navEl) showToast('Navegando a Mis órdenes…');
+        } else if (targetId === 'view-archived') {
+            titleEl.innerText = 'Órdenes Archivadas';
+            descEl.innerText = 'Consulta de operaciones cerradas, finalizadas o devueltas.';
+            if (navEl) showToast('Navegando a Archivadas…');
+        } else if (targetId === 'view-ficha') {
+            titleEl.innerText = 'Ficha de Venta';
+            descEl.innerText = 'Revisión y edición de datos detallados de la orden seleccionada.';
+            showToast('Abriendo Ficha Completa…');
+        }
+    }
+
+
+    // Tabs
+    function switchTab(btn, tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const card = document.getElementById('tableCard');
+        const title = document.getElementById('tableTitle');
+        card.style.animation = 'none'; void card.offsetWidth;
+        card.style.animation = 'fadeSlideUp 0.4s ease';
+        title.innerText = tab === 'preventas' ? 'Pre-Ventas recientes' : 'Órdenes recientes';
+        showToast(tab === 'preventas' ? 'Mostrando Pre-Ventas…' : 'Mostrando Órdenes de Venta…');
+    }
+
+    // Refresh
+    function refreshData() {
+        const icon = document.getElementById('refreshIcon');
+        icon.style.animation = 'spin 0.8s linear infinite';
+        showToast('Sincronizando datos…');
+        setTimeout(() => { icon.style.animation = 'none'; showToast('✓ Datos actualizados'); }, 1200);
+    }
+
+    // Stages for timeline modal
+    const STAGES = [
+        'Registro', 'Datos Validados', 'Documentación', 'Cumplimiento',
+        'Rev. Supervisor', 'Rev. Gerente', 'Activación', 'Instalación',
+        'Calidad', 'Postventa'
+    ];
+
+    // Timeline Modal
+    function openTimelineModal(stageName, current) {
+        const strip = document.getElementById('stageStrip');
+        strip.innerHTML = '';
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        STAGES.forEach((name, i) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'stage-wrap';
+            const isDone = i < current - 1;
+            const isCurr = i === current - 1;
+            const defaultLineColor = isDark ? 'rgba(255,255,255,0.1)' : '#E2E8F0';
+            wrap.innerHTML = `
+                <div class="stage-line" style="background:${isDone || isCurr ? 'var(--accent)' : defaultLineColor}"></div>
+                <div class="stage-circle ${isDone ? 'done' : ''} ${isCurr ? 'current' : ''}"></div>
+                <div class="stage-name ${isCurr ? 'current' : ''}">${name}</div>
+            `;
+            strip.appendChild(wrap);
+        });
+        document.getElementById('modalTimelineTitle').innerText = 'Progreso: ' + stageName;
+        document.getElementById('timelineModal').classList.add('open');
+    }
+
+    // Products Modal
+    function openProductsModal() {
+        document.getElementById('productsModal').classList.add('open');
+    }
+
+    // Close modal
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('open');
+    }
+
+    // Close on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+        m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('open'); });
+    });
+    </script>
+</body>
+</html>

@@ -580,8 +580,16 @@ body.theme-tritanopia .text-info {
 
 /* 3. Alto Contraste Neutro / Heterocromía (Anti-Fatiga Visual) */
 body.theme-high-contrast {
-    background-color: #0F172A !important;
-    color: #F8FAFC !important;
+    --bg-app: #0F172A;
+    --surface: #1E293B;
+    --border-color: #334155;
+    --text-main: #F8FAFC;
+    --text-muted: #94A3B8;
+    --sidebar-bg: #1E293B;
+    --sidebar-color: #F8FAFC;
+    
+    background-color: var(--bg-app) !important;
+    color: var(--text-main) !important;
 }
 
 body.theme-high-contrast .custom-sidebar,
@@ -589,17 +597,148 @@ body.theme-high-contrast .card,
 body.theme-high-contrast .panel,
 body.theme-high-contrast .mod-card,
 body.theme-high-contrast .stat-card,
-body.theme-high-contrast .modal-content {
-    background-color: #1E293B !important;
-    color: #F8FAFC !important;
-    border: 1px solid #334155 !important;
+body.theme-high-contrast .modal-content,
+body.theme-high-contrast .profile-header-card,
+body.theme-high-contrast .theme-card,
+body.theme-high-contrast .search-panel,
+body.theme-high-contrast .kanban-column,
+body.theme-high-contrast .timeline-compact-pill,
+body.theme-high-contrast .timeline-preview-card,
+body.theme-high-contrast .asesor-kpi-card,
+body.theme-high-contrast .table-card,
+body.theme-high-contrast .bg-white {
+    background-color: var(--surface) !important;
+    color: var(--text-main) !important;
+    border-color: var(--border-color) !important;
+}
+
+body.theme-high-contrast .theme-card:hover {
+    border-color: #38BDF8 !important;
+}
+
+body.theme-high-contrast .theme-card.active {
+    background-color: #003B5C !important;
+    border-color: #38BDF8 !important;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25) !important;
+}
+
+body.theme-high-contrast .bg-light {
+    background-color: #334155 !important;
+}
+
+body.theme-high-contrast .text-dark {
+    color: var(--text-main) !important;
 }
 
 body.theme-high-contrast .text-muted {
-    color: #94A3B8 !important;
+    color: var(--text-muted) !important;
 }
 
 body.theme-high-contrast a,
 body.theme-high-contrast .nav-link {
     color: #38BDF8 !important;
+}
+
+/* Fix for buttons in dark mode so text is readable */
+body.theme-high-contrast .btn-secondary, 
+body.theme-high-contrast .btn-light,
+[data-theme="dark"] .btn-secondary,
+[data-theme="dark"] .btn-light {
+    background-color: #1E293B !important;
+    border-color: #334155 !important;
+    color: #F8FAFC !important;
+}
+
+body.theme-high-contrast .btn-secondary:hover, 
+body.theme-high-contrast .btn-light:hover,
+[data-theme="dark"] .btn-secondary:hover,
+[data-theme="dark"] .btn-light:hover {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+    color: #F8FAFC !important;
+}
+
+body.theme-high-contrast .btn-primary,
+[data-theme="dark"] .btn-primary {
+    background-color: #0F172A !important;
+    border-color: #1E293B !important;
+    color: #F8FAFC !important;
+}
+
+body.theme-high-contrast .btn-primary:hover,
+[data-theme="dark"] .btn-primary:hover {
+    background-color: #1E293B !important;
+    border-color: #334155 !important;
+    color: #ffffff !important;
+}
+
+/* Fix outline buttons and other colored buttons in dark mode */
+body.theme-high-contrast .btn-outline-primary,
+body.theme-high-contrast .btn-outline-secondary,
+body.theme-high-contrast .btn-outline-warning,
+body.theme-high-contrast .btn-outline-danger,
+body.theme-high-contrast .btn-outline-info,
+body.theme-high-contrast .btn-outline-success,
+[data-theme="dark"] .btn-outline-primary,
+[data-theme="dark"] .btn-outline-secondary,
+[data-theme="dark"] .btn-outline-warning,
+[data-theme="dark"] .btn-outline-danger,
+[data-theme="dark"] .btn-outline-info,
+[data-theme="dark"] .btn-outline-success {
+    background-color: #0F172A !important;
+    color: #F8FAFC !important;
+    border-color: #334155 !important;
+}
+
+body.theme-high-contrast .btn-outline-primary:hover,
+body.theme-high-contrast .btn-outline-secondary:hover,
+body.theme-high-contrast .btn-outline-warning:hover,
+body.theme-high-contrast .btn-outline-danger:hover,
+body.theme-high-contrast .btn-outline-info:hover,
+body.theme-high-contrast .btn-outline-success:hover,
+[data-theme="dark"] .btn-outline-primary:hover,
+[data-theme="dark"] .btn-outline-secondary:hover,
+[data-theme="dark"] .btn-outline-warning:hover,
+[data-theme="dark"] .btn-outline-danger:hover,
+[data-theme="dark"] .btn-outline-info:hover,
+[data-theme="dark"] .btn-outline-success:hover {
+    background-color: #1E293B !important;
+    color: #F8FAFC !important;
+    border-color: #475569 !important;
+}
+
+body.theme-high-contrast .btn-success { background-color: #064E3B !important; border-color: #064E3B !important; color: #F8FAFC !important; }
+body.theme-high-contrast .btn-success:hover { background-color: #047857 !important; border-color: #047857 !important; }
+body.theme-high-contrast .btn-warning { background-color: #78350F !important; border-color: #78350F !important; color: #F8FAFC !important; }
+body.theme-high-contrast .btn-warning:hover { background-color: #92400E !important; border-color: #92400E !important; }
+body.theme-high-contrast .btn-danger { background-color: #7F1D1D !important; border-color: #7F1D1D !important; color: #F8FAFC !important; }
+body.theme-high-contrast .btn-danger:hover { background-color: #991B1B !important; border-color: #991B1B !important; }
+
+/* Notifications dark mode fixes */
+body.theme-high-contrast .notification-panel {
+    background: var(--surface) !important;
+    border-color: var(--border-color) !important;
+}
+body.theme-high-contrast .notification-panel-header {
+    background: var(--bg-app) !important;
+    border-color: var(--border-color) !important;
+}
+body.theme-high-contrast .notification-item.read {
+    background-color: var(--surface) !important;
+    border-color: var(--border-color) !important;
+}
+body.theme-high-contrast .notification-item.unread {
+    background-color: #0F172A !important;
+    border-color: var(--border-color) !important;
+}
+body.theme-high-contrast .notification-item:hover {
+    background-color: #334155 !important;
+}
+body.theme-high-contrast .notification-icon {
+    background-color: #334155 !important;
+    color: var(--text-main) !important;
+}
+body.theme-high-contrast .notification-item h6,
+body.theme-high-contrast .notification-item .text-dark {
+    color: var(--text-main) !important;
 }

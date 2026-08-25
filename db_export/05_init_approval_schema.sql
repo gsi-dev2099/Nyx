@@ -1,5 +1,5 @@
 -- ========================================================
--- Nyx Approval Engine — Database Schema (nyx_approval)
+-- Nyx Approval Engine â€” Database Schema (nyx_approval)
 -- ISO 9001:2015 & ISO 27001:2022 Compliant Approval Engine
 -- ========================================================
 
@@ -124,8 +124,8 @@ CREATE INDEX IF NOT EXISTS idx_appr_del_users ON delegation(delegator_id, delega
 -- Default Policy Seed
 INSERT INTO policy (code, name, description, scope_type)
 VALUES 
-    ('APPROVAL_HIGH_DISCOUNT', 'Aprobación de Descuentos Mayores a 15%', 'Requiere visto bueno de Supervisor y Gerencia Financiera', 'GLOBAL'),
-    ('APPROVAL_ORDER_CANCELLATION', 'Aprobación de Anulación de Pedidos', 'Requiere aprobación de Operaciones', 'GLOBAL')
+    ('APPROVAL_HIGH_DISCOUNT', 'AprobaciÃ³n de Descuentos Mayores a 15%', 'Requiere visto bueno de Supervisor y Gerencia Financiera', 'GLOBAL'),
+    ('APPROVAL_ORDER_CANCELLATION', 'AprobaciÃ³n de AnulaciÃ³n de Pedidos', 'Requiere aprobaciÃ³n de Operaciones', 'GLOBAL')
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO chain (id_policy, chain_mode, max_sla_hours)

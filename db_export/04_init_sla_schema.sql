@@ -1,5 +1,5 @@
 -- ========================================================
--- Nyx SLA Engine — Database Schema (nyx_sla)
+-- Nyx SLA Engine â€” Database Schema (nyx_sla)
 -- Autonomous SLA Engine for Multi-Department Tracking
 -- ========================================================
 
@@ -110,7 +110,7 @@ CREATE INDEX IF NOT EXISTS idx_sla_alert_meas ON sla_alert(id_measurement);
 
 -- Default Work Calendar Seed Data
 INSERT INTO work_calendar (code, name, timezone, is_default)
-VALUES ('DEFAULT_PE', 'Horario Estándar Perú', 'America/Lima', true)
+VALUES ('DEFAULT_PE', 'Horario EstÃ¡ndar PerÃº', 'America/Lima', true)
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO work_schedule (id_calendar, day_of_week, start_time, end_time)
@@ -126,6 +126,6 @@ ON CONFLICT (id_calendar, day_of_week) DO NOTHING;
 -- Default Policy Seed
 INSERT INTO sla_policy (code, name, description, scope_type, target_minutes, warning_pct, critical_pct, applies_to)
 VALUES 
-    ('SLA_INCIDENT_CRITICAL', 'SLA Incidencias Críticas', 'Resolución de incidencias críticas en menos de 2 horas', 'GLOBAL', 120, 75, 100, 'INCIDENT'),
-    ('SLA_SALES_VALIDATION', 'SLA Validación Interna de Ventas', 'Validación por backoffice en menos de 24 horas hábiles', 'GLOBAL', 1440, 80, 100, 'ORDER')
+    ('SLA_INCIDENT_CRITICAL', 'SLA Incidencias CrÃ­ticas', 'ResoluciÃ³n de incidencias crÃ­ticas en menos de 2 horas', 'GLOBAL', 120, 75, 100, 'INCIDENT'),
+    ('SLA_SALES_VALIDATION', 'SLA ValidaciÃ³n Interna de Ventas', 'ValidaciÃ³n por backoffice en menos de 24 horas hÃ¡biles', 'GLOBAL', 1440, 80, 100, 'ORDER')
 ON CONFLICT (code) DO NOTHING;

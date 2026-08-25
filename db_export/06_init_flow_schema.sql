@@ -1,5 +1,5 @@
 -- ========================================================
--- Nyx Flow Engine — Database Schema (nyx_flow)
+-- Nyx Flow Engine â€” Database Schema (nyx_flow)
 -- Autonomous Lifecycle Stages & Checkpoint Governance Engine
 -- ========================================================
 
@@ -104,7 +104,7 @@ INSERT INTO flow_campaign_mapping (id_cmpg, flow_code, description) VALUES
     (1, 'PIPELINE_TELECOM', 'Vodafone'),
     (2, 'PIPELINE_TELECOM', 'Lowi'),
     (3, 'PIPELINE_TELECOM', 'Yoigo'),
-    (4, 'PIPELINE_TELECOM', 'MásMóvil'),
+    (4, 'PIPELINE_TELECOM', 'MÃ¡sMÃ³vil'),
     (5, 'PIPELINE_TELECOM', 'Orange')
 ON CONFLICT (id_cmpg) DO UPDATE SET flow_code = EXCLUDED.flow_code, description = EXCLUDED.description;
 
@@ -169,20 +169,20 @@ CREATE INDEX IF NOT EXISTS idx_cp_inst_status ON checkpoint_instance(status);
 -- Seed Data: Sample Alarmas & Telecom Flows & Stages
 INSERT INTO flow_definition (code, name, description, scope_type)
 VALUES 
-    ('PIPELINE_ALARMAS', 'Pipeline Estándar de Alarmas', 'Flujo de venta de 10 etapas con checkpoints de calidad y proveedor', 'CAMPAIGN'),
-    ('PIPELINE_TELECOM', 'Pipeline Estándar Telecom', 'Flujo Telecom — comparte etapas con Alarmas', 'CAMPAIGN')
+    ('PIPELINE_ALARMAS', 'Pipeline EstÃ¡ndar de Alarmas', 'Flujo de venta de 10 etapas con checkpoints de calidad y proveedor', 'CAMPAIGN'),
+    ('PIPELINE_TELECOM', 'Pipeline EstÃ¡ndar Telecom', 'Flujo Telecom â€” comparte etapas con Alarmas', 'CAMPAIGN')
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO stage (id_flow, stage_code, name, order_index, is_terminal, portfolio, campaign) VALUES
     (1, 'PREVENTA', 'Preventa', 1, false, 'GENERAL', 'GENERAL'),
     (1, 'VENTA_CREADA', 'Venta Creada', 2, false, 'GENERAL', 'GENERAL'),
-    (1, 'GESTION_INICIAL', 'Gestión Inicial', 3, false, 'GENERAL', 'GENERAL'),
-    (1, 'VALIDACION_INTERNA', 'Validación Interna', 4, false, 'GENERAL', 'GENERAL'),
-    (1, 'ENVIO_PROVEEDOR', 'Envío Proveedor', 5, false, 'GENERAL', 'GENERAL'),
-    (1, 'VALIDACION_EXTERNA', 'Validación Externa', 6, false, 'GENERAL', 'GENERAL'),
+    (1, 'GESTION_INICIAL', 'GestiÃ³n Inicial', 3, false, 'GENERAL', 'GENERAL'),
+    (1, 'VALIDACION_INTERNA', 'ValidaciÃ³n Interna', 4, false, 'GENERAL', 'GENERAL'),
+    (1, 'ENVIO_PROVEEDOR', 'EnvÃ­o Proveedor', 5, false, 'GENERAL', 'GENERAL'),
+    (1, 'VALIDACION_EXTERNA', 'ValidaciÃ³n Externa', 6, false, 'GENERAL', 'GENERAL'),
     (1, 'FIRMA', 'Firma', 7, false, 'GENERAL', 'GENERAL'),
-    (1, 'TRAMITACION', 'Tramitación', 8, false, 'GENERAL', 'GENERAL'),
-    (1, 'ACTIVACION', 'Activación', 9, false, 'GENERAL', 'GENERAL'),
+    (1, 'TRAMITACION', 'TramitaciÃ³n', 8, false, 'GENERAL', 'GENERAL'),
+    (1, 'ACTIVACION', 'ActivaciÃ³n', 9, false, 'GENERAL', 'GENERAL'),
     (1, 'POSTVENTA', 'Postventa', 10, false, 'GENERAL', 'GENERAL'),
     (1, 'CERRADA', 'Cerrada', 11, true, 'GENERAL', 'GENERAL')
 ON CONFLICT (id_flow, stage_code) DO NOTHING;
@@ -205,24 +205,24 @@ CREATE TABLE IF NOT EXISTS status_stage_mapping (
 
 INSERT INTO status_stage_mapping (id_status, id_stage) VALUES
     (1, 1),   -- Borrador -> Preventa
-    (2, 2),   -- En revisión supervisor -> Venta Creada
-    (3, 4),   -- En BackOffice -> Validación Interna
-    (4, 3),   -- En gestión -> Gestión Inicial
-    (5, 5),   -- Enviado al proveedor -> Envío Proveedor
-    (6, 6),   -- Validado por proveedor -> Validación Externa
+    (2, 2),   -- En revisiÃ³n supervisor -> Venta Creada
+    (3, 4),   -- En BackOffice -> ValidaciÃ³n Interna
+    (4, 3),   -- En gestiÃ³n -> GestiÃ³n Inicial
+    (5, 5),   -- Enviado al proveedor -> EnvÃ­o Proveedor
+    (6, 6),   -- Validado por proveedor -> ValidaciÃ³n Externa
     (7, 7),   -- Contrato enviado -> Firma
     (8, 7),   -- Contrato firmado -> Firma
-    (9, 9),   -- Activado -> Activación
-    (10, 4),  -- Enviado KO -> Validación Interna (rollback)
-    (11, 4),  -- En incidencia -> Validación Interna
-    (15, 9)   -- Reportado -> Activación
+    (9, 9),   -- Activado -> ActivaciÃ³n
+    (10, 4),  -- Enviado KO -> ValidaciÃ³n Interna (rollback)
+    (11, 4),  -- En incidencia -> ValidaciÃ³n Interna
+    (15, 9)   -- Reportado -> ActivaciÃ³n
 ON CONFLICT (id_status) DO UPDATE SET id_stage = EXCLUDED.id_stage;
 
 -- Seed Checkpoints in Catalog (Layer 1)
 INSERT INTO checkpoint_catalog (code, name, description, id_flow, trigger_stage_id, origin, scope, blocks, blocks_advance, owner_dept, approval_status) VALUES
-    ('CP_AUDIO_AUDIT', 'Auditoría de audio', 'Revisión y edición de tramos de audio de sustento de oferta', 1, 9, 'INTERNAL', 'ENTITY', ARRAY['COMMISSION','SERVICE_ACTIVATION'], false, 'Finanzas', 'ACTIVE'),
-    ('CP_SUPERVISOR_REV', 'Revisión de supervisor', 'Visto bueno del supervisor en gestión inicial', 1, 3, 'INTERNAL', 'ENTITY', ARRAY[]::text[], true, 'Operaciones', 'ACTIVE'),
-    ('CP_CONTRACT_SIGN', 'Confirmación de firma de contrato', 'Verificación de firma digital del proveedor', 1, 7, 'EXTERNAL', 'ENTITY', ARRAY['LIQUIDATION','COMMISSION'], true, 'Backoffice', 'ACTIVE')
+    ('CP_AUDIO_AUDIT', 'AuditorÃ­a de audio', 'RevisiÃ³n y ediciÃ³n de tramos de audio de sustento de oferta', 1, 9, 'INTERNAL', 'ENTITY', ARRAY['COMMISSION','SERVICE_ACTIVATION'], false, 'Finanzas', 'ACTIVE'),
+    ('CP_SUPERVISOR_REV', 'RevisiÃ³n de supervisor', 'Visto bueno del supervisor en gestiÃ³n inicial', 1, 3, 'INTERNAL', 'ENTITY', ARRAY[]::text[], true, 'Operaciones', 'ACTIVE'),
+    ('CP_CONTRACT_SIGN', 'ConfirmaciÃ³n de firma de contrato', 'VerificaciÃ³n de firma digital del proveedor', 1, 7, 'EXTERNAL', 'ENTITY', ARRAY['LIQUIDATION','COMMISSION'], true, 'Backoffice', 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
 
 -- Reasignar todos los checkpoints Telecom al flow 2 con sus etapas correspondientes (12-22)

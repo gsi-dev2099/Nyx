@@ -14,23 +14,28 @@
 
 <style>
     .asesor-hero-card {
-        background: #ffffff;
+        background: transparent;
         border-radius: 24px;
         padding: 24px 28px;
-        box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
         border: none;
     }
     
+    .text-hero-galaxy { color: var(--text-primary-galaxy) !important; }
+    .text-muted-galaxy { color: var(--text-secondary-galaxy) !important; }
+    
     .asesor-kpi-card {
-        background: rgba(244, 245, 247, 0.85);
+        background: var(--bg-card-galaxy);
+        border: 1px solid var(--border-hover-galaxy);
         border-radius: 20px;
         padding: 20px;
-        border: none;
-        box-shadow: 0 4px 12px -2px rgba(29, 38, 57, 0.03);
         display: flex;
         align-items: center;
         justify-content: space-between;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    [data-theme="dark"] .asesor-kpi-card {
+        background: var(--bg-card-galaxy) !important;
+        border-color: rgba(255,255,255,0.15) !important;
     }
     
     .asesor-kpi-card:hover {
@@ -42,13 +47,17 @@
         width: 44px;
         height: 44px;
         border-radius: 16px;
-        background: #ffffff;
+        background: var(--bg-card-alt-galaxy);
         display: flex;
         align-items: center;
         justify-content: center;
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        color: #1D2639;
+        color: var(--text-primary-galaxy);
         flex-shrink: 0;
+    }
+    [data-theme="dark"] .kpi-icon-wrapper {
+        background: rgba(255,255,255,0.05) !important;
+        color: var(--text-primary-galaxy) !important;
     }
 
     .asesor-cta-btn {
@@ -75,22 +84,37 @@
     }
 
     .table-card {
-        background: #ffffff;
+        background: var(--bg-card-galaxy) !important;
         border-radius: 24px;
-        border: none;
+        border: 1px solid var(--border-hover-galaxy) !important;
         box-shadow: 0 10px 30px -5px rgba(29, 38, 57, 0.05);
         overflow: hidden;
     }
+    [data-theme="dark"] .table-card {
+        background: var(--bg-card-galaxy) !important;
+        border-color: rgba(255,255,255,0.15) !important;
+    }
+    .table-card .table-responsive {
+        /* User requested static box without internal scroll */
+    }
 
     .table-modern thead th {
-        background: #F8FAFC;
-        color: #64748B;
+        background: var(--bg-card-alt-galaxy) !important;
+        color: var(--text-secondary-galaxy) !important;
         font-size: 0.75rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        padding: 14px 18px;
-        border-bottom: 1px solid #E2E8F0;
+        padding: 8px 10px;
+        border-bottom: 2px solid var(--border-galaxy) !important;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    [data-theme="dark"] .table-modern thead th {
+        background: var(--bg-card-alt-galaxy) !important;
+        color: var(--text-secondary-galaxy) !important;
+        border-bottom-color: rgba(255,255,255,0.06) !important;
     }
 
     .table-modern tbody tr {
@@ -98,15 +122,25 @@
     }
 
     .table-modern tbody tr:hover {
-        background-color: #F1F5F9;
+        background-color: var(--bg-card-alt-galaxy) !important;
+        filter: brightness(0.97);
+    }
+    [data-theme="dark"] .table-modern tbody tr:hover {
+        filter: brightness(1.1);
     }
 
     .table-modern tbody td {
-        padding: 14px 18px;
-        font-size: 0.88rem;
-        color: #1E293B;
+        background: var(--bg-card-galaxy) !important;
+        color: var(--text-primary-galaxy) !important;
+        padding: 8px 10px;
+        font-size: 0.85rem;
         vertical-align: middle;
-        border-bottom: 1px solid #F1F5F9;
+        border-bottom: 1px solid var(--border-galaxy) !important;
+    }
+    [data-theme="dark"] .table-modern tbody td {
+        background: var(--bg-card-galaxy) !important;
+        color: var(--text-primary-galaxy) !important;
+        border-bottom-color: rgba(255,255,255,0.05) !important;
     }
 
     .badge-status {
@@ -138,7 +172,7 @@
     }
 
     .nav-tabs-custom .nav-link {
-        color: #64748B;
+        color: var(--text-secondary-galaxy);
         font-weight: 700;
         font-size: 0.9rem;
         border: none;
@@ -147,50 +181,68 @@
         padding: 12px 22px;
         cursor: pointer;
     }
+    [data-theme="dark"] .nav-tabs-custom .nav-link {
+        color: var(--text-secondary-galaxy) !important;
+    }
 
     .nav-tabs-custom .nav-link.active {
-        color: #1D2639;
-        border-bottom-color: #1D2639;
+        color: var(--text-primary-galaxy);
+        border-bottom-color: var(--text-primary-galaxy);
         background: transparent;
+    }
+    [data-theme="dark"] .nav-tabs-custom .nav-link.active {
+        color: var(--text-primary-galaxy) !important;
+        border-bottom-color: var(--text-primary-galaxy) !important;
     }
 
     .product-pill {
-        background: #F8FAFC;
-        border: 1px solid #E2E8F0;
+        background: var(--bg-card-alt-galaxy);
+        border: 1px solid var(--border-galaxy);
         border-radius: 12px;
         padding: 6px 12px;
         font-size: 0.8rem;
         font-weight: 600;
-        color: #334155;
+        color: var(--text-primary-galaxy);
         display: inline-flex;
         align-items: center;
         gap: 6px;
     }
+    [data-theme="dark"] .product-pill {
+        background: rgba(255,255,255,0.05) !important;
+        border-color: rgba(255,255,255,0.1) !important;
+        color: var(--text-primary-galaxy) !important;
+    }
 
     .timeline-preview-card {
         padding: 10px 14px;
-        background: #ffffff;
-        border: 1px solid #E2E8F0;
+        background: var(--bg-card-galaxy);
+        border: 1px solid var(--border-galaxy);
         border-radius: 12px;
-        cursor: pointer;
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         min-width: 145px;
     }
+    [data-theme="dark"] .timeline-preview-card {
+        background: var(--bg-card-galaxy) !important;
+        border-color: rgba(255,255,255,0.15) !important;
+    }
 
     .timeline-preview-card:hover {
-        background: #F8FAFC;
-        border-color: #CBD5E1;
+        background: var(--bg-card-alt-galaxy);
+        border-color: var(--border-hover-galaxy);
         transform: translateY(-1px);
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     
     .timeline-stage-title {
         font-size: 0.72rem;
         font-weight: 700;
-        color: #1E293B;
+        color: var(--text-primary-galaxy);
         letter-spacing: -0.2px;
         display: block;
         margin-bottom: 8px;
+    }
+    [data-theme="dark"] .timeline-stage-title {
+        color: var(--text-primary-galaxy) !important;
     }
 
     /* Animated Mini Dots for Preview */
@@ -263,11 +315,11 @@
     <div class="asesor-hero-card">
         <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
             <div>
-                <h1 class="h3 font-extrabold text-dark tracking-tight mb-1" style="color: #1D2639;">Bandeja del Asesor</h1>
-                <p class="text-muted small mb-0 font-medium">Gestión unificada e interactiva de Pre-Ventas y Órdenes bajo tu custodia en un solo lugar.</p>
+                <h1 class="h3 font-extrabold text-hero-galaxy tracking-tight mb-1">Bandeja del Asesor</h1>
+                <p class="text-muted-galaxy small mb-0 font-medium">Gestión unificada e interactiva de Pre-Ventas y Órdenes bajo tu custodia en un solo lugar.</p>
             </div>
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-dark rounded-pill px-3 font-semibold" @onclick="OpenNewPreSaleModal">
+                <button type="button" class="btn btn-outline-dark rounded-pill px-3 font-semibold text-hero-galaxy" style="border-color: var(--border-hover-galaxy);" @onclick="OpenNewPreSaleModal">
                     <i class="bi bi-funnel me-1"></i> + Nueva Pre-Venta
                 </button>
                 <a href="/asesor/orders/new" class="asesor-cta-btn">
@@ -282,8 +334,8 @@
             <div class="col-12 col-md-4">
                 <div class="asesor-kpi-card">
                     <div>
-                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Pre-Ventas Activas</span>
-                        <span class="fs-3 fw-bold" style="color: #1D2639;">@_preSalesList.Count</span>
+                        <span class="d-block text-muted-galaxy text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Pre-Ventas Activas</span>
+                        <span class="fs-3 fw-bold text-hero-galaxy">@_preSalesList.Count</span>
                     </div>
                     <div class="kpi-icon-wrapper">
                         <i class="bi bi-telephone-inbound fs-5" style="color: #2563EB;"></i>
@@ -293,8 +345,8 @@
             <div class="col-12 col-md-4">
                 <div class="asesor-kpi-card">
                     <div>
-                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Órdenes en Custodia</span>
-                        <span class="fs-3 fw-bold" style="color: #1D2639;">@_orders.Count</span>
+                        <span class="d-block text-muted-galaxy text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Órdenes en Custodia</span>
+                        <span class="fs-3 fw-bold text-hero-galaxy">@_orders.Count</span>
                     </div>
                     <div class="kpi-icon-wrapper">
                         <i class="bi bi-box-seam fs-5"></i>
@@ -304,8 +356,8 @@
             <div class="col-12 col-md-4">
                 <div class="asesor-kpi-card">
                     <div>
-                        <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Ventas Aprobadas</span>
-                        <span class="fs-3 fw-bold" style="color: #1D2639;">@_orders.Count(o => o.Status == "APPROVED")</span>
+                        <span class="d-block text-muted-galaxy text-uppercase fw-bold" style="font-size: 0.72rem; letter-spacing: 0.5px;">Ventas Aprobadas</span>
+                        <span class="fs-3 fw-bold text-hero-galaxy">@_orders.Count(o => o.Status == "APPROVED")</span>
                     </div>
                     <div class="kpi-icon-wrapper">
                         <i class="bi bi-check-circle fs-5" style="color: #10B981;"></i>
@@ -478,7 +530,7 @@
                             {
                                 @foreach (var order in _orders)
                                 {
-                                    <tr style="cursor: pointer;" @onclick="() => NavigateToDetail(order.IdOrder)">
+                                    <tr>
                                         <td class="ps-4 fw-bold" style="color: #2563EB;">#@order.IdOrder</td>
                                         <td>
                                             <code class="text-dark fw-bold" style="font-size: 0.82rem;">@(string.IsNullOrWhiteSpace(order.CustomerDni) ? "12345678Z" : order.CustomerDni)</code>
