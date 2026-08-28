@@ -30,8 +30,9 @@ public class SlaRepository : ISlaRepository
 
     public SlaRepository(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? throw new InvalidOperationException("DefaultConnection configuration is missing.");
+        _connectionString = configuration.GetConnectionString("SlaConnection")
+            ?? configuration.GetConnectionString("DefaultConnection") 
+            ?? throw new InvalidOperationException("SlaConnection or DefaultConnection configuration is missing.");
     }
 
     private IDbConnection CreateConnection() => new NpgsqlConnection(_connectionString);

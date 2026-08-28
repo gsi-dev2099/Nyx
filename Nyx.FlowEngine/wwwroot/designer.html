@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diseñador Visual de Ciclos — Nyx Cycle Studio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --bg-card: #111827;
+            --bg-card-hover: #1b2333;
+            --border-color: #2b3548;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.3);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --cyan: #06b6d4;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+
+        header {
+            background: rgba(17, 24, 39, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand { display: flex; align-items: center; gap: 0.85rem; }
+        .brand-icon {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.3rem; color: #fff;
+        }
+        .brand-title { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.5px; }
+
+        nav.top-nav { display: flex; gap: 0.5rem; }
+        .nav-btn {
+            background: transparent; border: 1px solid transparent; color: var(--text-muted);
+            padding: 0.5rem 1rem; border-radius: 10px; font-size: 0.88rem; font-weight: 500;
+            text-decoration: none; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s;
+        }
+        .nav-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .nav-btn.active { color: #fff; background: var(--bg-card-hover); border-color: var(--border-color); }
+
+        .layout { display: grid; grid-template-columns: 320px 1fr; gap: 1.5rem; max-width: 1550px; margin: 1.5rem auto; padding: 0 1.5rem; width: 100%; flex-grow: 1; }
+
+        .sidebar-cycles { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; padding: 1.5rem; height: calc(100vh - 120px); overflow-y: auto; }
+        .cycle-item { background: #161f30; border: 1px solid var(--border-color); border-radius: 14px; padding: 1rem; margin-bottom: 0.75rem; cursor: pointer; transition: all 0.2s; position: relative; }
+        .cycle-item:hover { border-color: var(--primary); }
+        .cycle-item.active { border-color: var(--primary); background: rgba(99,102,241,0.15); box-shadow: 0 0 20px var(--primary-glow); }
+        .cycle-item.inactive { opacity: 0.5; filter: grayscale(0.8); }
+
+        .canvas-workspace { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; padding: 2rem; overflow-y: auto; height: calc(100vh - 120px); }
+
+        .toolbar-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 1rem; }
+
+        .stage-box { background: #182234; border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; position: relative; }
+        .stage-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem; }
+
+        .checkpoint-card { background: #111827; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+        .checkpoint-card:hover { border-color: var(--cyan); background: #161f30; }
+        .checkpoint-card.inactive { opacity: 0.5; border-style: dashed; }
+
+        .badge { padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.72rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; }
+        .badge-block { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+        .badge-optional { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .badge-final { background: rgba(239, 68, 68, 0.3); color: #fca5a5; border: 1px solid var(--danger); }
+        .badge-chain { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; }
+        .badge-cyan { background: rgba(6, 182, 212, 0.15); color: var(--cyan); }
+        .badge-policy { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+        .badge-inactive { background: rgba(156, 163, 175, 0.2); color: var(--text-muted); }
+        .badge-steps { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+        .btn { padding: 0.5rem 1rem; border-radius: 10px; border: none; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; transition: all 0.2s; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: #fff; }
+        .btn-outline:hover { background: rgba(255,255,255,0.05); }
+
+        /* Step Builder */
+        .step-row { display: flex; align-items: center; gap: 0.6rem; background: #161f30; padding: 0.6rem 0.85rem; border-radius: 10px; margin-bottom: 0.5rem; border: 1px solid var(--border-color); }
+        .step-row:hover { border-color: var(--primary); }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 300; }
+        .modal-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; width: 720px; max-width: 95%; max-height: 90vh; overflow-y: auto; padding: 2rem; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+        .form-group { margin-bottom: 1.15rem; }
+        .form-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.4rem; }
+        .form-control { width: 100%; background: #161f30; border: 1px solid var(--border-color); border-radius: 10px; padding: 0.65rem 0.85rem; color: #fff; font-size: 0.88rem; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <div class="brand-icon">Ω</div>
+            <div>
+                <div class="brand-title">NYX CYCLE STUDIO — DISEÑADOR</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Creación 1 a 1 de Pasos, Roles & Carteras Dinámicas y Disparo KO Visual</div>
+            </div>
+        </div>
+        <nav class="top-nav">
+            <a href="index.html" class="nav-btn"><i class="bi bi-grid-fill"></i> Hub</a>
+            <a href="designer.html" class="nav-btn active"><i class="bi bi-diagram-3-fill"></i> Diseñador</a>
+            <a href="policies.html" class="nav-btn"><i class="bi bi-shield-lock-fill"></i> Políticas</a>
+            <a href="test_flow_simulator.html" class="nav-btn"><i class="bi bi-play-circle-fill"></i> Simulador</a>
+            <a href="/swagger" target="_blank" class="nav-btn"><i class="bi bi-code-slash"></i> Swagger</a>
+        </nav>
+    </header>
+
+    <div class="layout">
+        <!-- Sidebar Ciclos -->
+        <div class="sidebar-cycles">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h4 style="font-size: 1rem; font-weight: 700;">Ciclos de Negocio</h4>
+                <button class="btn btn-primary" onclick="openNewCycleModal()" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+                    <i class="bi bi-plus-lg"></i> + Crear Ciclo
+                </button>
+            </div>
+            <div id="cyclesSidebarList">
+                <div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 2rem 0;">Cargando ciclos...</div>
+            </div>
+        </div>
+
+        <!-- Canvas Principal -->
+        <div class="canvas-workspace">
+            <div class="toolbar-top">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                        <h2 id="activeCycleTitle" style="font-size: 1.4rem; font-weight: 800;">Selecciona un Ciclo</h2>
+                        <button class="btn btn-outline" id="btnEditActiveCycle" onclick="openEditCycleModal()" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; display: none;">
+                            <i class="bi bi-pencil"></i> Editar Ciclo
+                        </button>
+                        <button class="btn btn-outline" id="btnDeleteActiveCycle" onclick="softDeleteActiveCycle()" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; color: var(--danger); border-color: var(--danger); display: none;">
+                            <i class="bi bi-trash"></i> Desactivar
+                        </button>
+                    </div>
+                    <p id="activeCycleDesc" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Jerarquía: CICLOS ➔ ETAPAS ➔ CHECKPOINTS (con Pasos 1 a 1)</p>
+                </div>
+                <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+                    <button class="btn btn-outline" onclick="openCatalogsModal()"><i class="bi bi-sliders"></i> Catálogos & Roles</button>
+                    <label style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                        <input type="checkbox" id="chkShowInactive" onchange="toggleShowInactive()"> Mostrar Inactivos
+                    </label>
+                    <button class="btn btn-outline" onclick="openImportModal()"><i class="bi bi-upload"></i> Importar GSI</button>
+                    <button class="btn btn-outline" onclick="exportJson()"><i class="bi bi-download"></i> Exportar</button>
+                    <button class="btn btn-primary" onclick="openNewStageModal()"><i class="bi bi-plus-circle"></i> + Nueva Etapa</button>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div id="cycleStatsBar" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="background: #161f30; padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Total Etapas</div>
+                    <div id="statStages" style="font-size: 1.4rem; font-weight: 700; color: var(--primary);">0</div>
+                </div>
+                <div style="background: #161f30; padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Total Checkpoints</div>
+                    <div id="statCheckpoints" style="font-size: 1.4rem; font-weight: 700; color: var(--cyan);">0</div>
+                </div>
+                <div style="background: #161f30; padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Checkpoints Bloqueantes</div>
+                    <div id="statBlocking" style="font-size: 1.4rem; font-weight: 700; color: var(--danger);">0</div>
+                </div>
+                <div style="background: #161f30; padding: 1rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Cierres KO (⛔)</div>
+                    <div id="statFinalize" style="font-size: 1.4rem; font-weight: 700; color: var(--warning);">0</div>
+                </div>
+            </div>
+
+            <!-- Contenedor de Etapas y Checkpoints -->
+            <div id="stagesContainer">
+                <div style="text-align: center; color: var(--text-muted); padding: 4rem 0;">Cargando etapas del ciclo...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ciclo (Crear / Editar) -->
+    <div class="modal-overlay" id="cycleModal">
+        <div class="modal-card" style="width: 550px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 id="modalCycleTitle" style="font-size: 1.2rem; font-weight: 700;">Crear Nuevo Ciclo</h3>
+                <button onclick="closeModal('cycleModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="cycleForm" onsubmit="saveCycle(event)">
+                <input type="hidden" id="cycleId">
+                <div class="form-group">
+                    <label class="form-label">Código Único del Ciclo (ej. CYCLE_ALARMAS)</label>
+                    <input type="text" id="cycleCode" class="form-control" required placeholder="CYCLE_SALES_TELECOM">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre del Ciclo</label>
+                    <input type="text" id="cycleName" class="form-control" required placeholder="Ciclo de Ventas Telecomunicaciones">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="cycleDesc" class="form-control" rows="2" placeholder="Flujo de venta, verificación y contratación..."></textarea>
+                </div>
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                        <label class="form-label" style="margin-bottom:0;">Ámbito / Cartera (Scope)</label>
+                        <a href="javascript:void(0)" onclick="quickCreatePortfolio()" style="font-size:0.75rem; color:var(--cyan); text-decoration:none;">+ Nueva Cartera</a>
+                    </div>
+                    <select id="cycleScope" class="form-control"></select>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('cycleModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar Ciclo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Etapa (Crear / Editar) -->
+    <div class="modal-overlay" id="stageModal">
+        <div class="modal-card" style="width: 580px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 id="modalStageTitle" style="font-size: 1.2rem; font-weight: 700;">Nueva Etapa</h3>
+                <button onclick="closeModal('stageModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="stageForm" onsubmit="saveStage(event)">
+                <input type="hidden" id="stageId">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Código de la Etapa (ej. STAGE_SCORING)</label>
+                        <input type="text" id="stageCode" class="form-control" required placeholder="STAGE_QUALIFICATION">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">SLA en Horas</label>
+                        <input type="number" id="stageSla" class="form-control" value="24" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre de la Etapa</label>
+                    <input type="text" id="stageName" class="form-control" required placeholder="1. Cualificación y Scoring">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Descripción</label>
+                    <textarea id="stageDesc" class="form-control" rows="2" placeholder="Propósito de esta etapa..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">¿Es Etapa Terminal / Cierre?</label>
+                    <select id="stageIsTerminal" class="form-control">
+                        <option value="false">No (Etapa intermedia)</option>
+                        <option value="true">Sí (Etapa final del ciclo)</option>
+                    </select>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('stageModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar Etapa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Checkpoint con Pasos 1 a 1, Roles, Carteras y Disparo KO en Combo -->
+    <div class="modal-overlay" id="checkpointModal">
+        <div class="modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 id="modalCpTitle" style="font-size: 1.2rem; font-weight: 700;">Editar Checkpoint</h3>
+                <button onclick="closeModal('checkpointModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="cpForm" onsubmit="saveCheckpoint(event)">
+                <input type="hidden" id="cpId">
+                <input type="hidden" id="cpStageId">
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Código Único (ej. CP_TEL_012)</label>
+                        <input type="text" id="cpCode" class="form-control" required placeholder="CP_TEL_012">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nombre del Checkpoint</label>
+                        <input type="text" id="cpName" class="form-control" required placeholder="Preventa — 1ª Llamada">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Descripción General / Propósito</label>
+                    <textarea id="cpDesc" class="form-control" rows="2" placeholder="Instrucción general del hito..."></textarea>
+                </div>
+
+                <!-- SECCIÓN: PASOS DE ACTUACIÓN 1 A 1 -->
+                <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 14px; padding: 1.2rem; margin: 1.25rem 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--success); display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="bi bi-list-check"></i> Pasos de Actuación (Creados 1 a 1 para evitar errores)
+                        </h4>
+                        <button type="button" class="btn btn-outline" style="padding: 0.25rem 0.65rem; font-size: 0.75rem; color: var(--success); border-color: var(--success);" onclick="addStepRow()">
+                            <i class="bi bi-plus-lg"></i> + Añadir Paso
+                        </button>
+                    </div>
+                    <div id="stepsContainer">
+                        <!-- Filas de pasos dinámicas -->
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label class="form-label" style="margin-bottom:0;">Rol / Dueño Responsable</label>
+                            <a href="javascript:void(0)" onclick="quickCreateRole()" style="font-size:0.75rem; color:var(--primary); text-decoration:none;">+ Nuevo Rol</a>
+                        </div>
+                        <select id="cpOwner" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label class="form-label" style="margin-bottom:0;">Ámbito / Cartera</label>
+                            <a href="javascript:void(0)" onclick="quickCreatePortfolio()" style="font-size:0.75rem; color:var(--cyan); text-decoration:none;">+ Nueva Cartera</a>
+                        </div>
+                        <select id="cpScope" class="form-control"></select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Bloquea Avance de Etapa</label>
+                        <select id="cpBlocks" class="form-control">
+                            <option value="true">Sí (Bloquea si no está Aprobado)</option>
+                            <option value="false">No (Informativo / Opcional)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">⛔ Si sale KO, Finaliza Ciclo</label>
+                        <select id="cpFinalizes" class="form-control">
+                            <option value="false">No (Permite reintentos o saltos)</option>
+                            <option value="true">Sí (Cierre irreversible del expediente)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- SELECTOR COMBO DISPARO KO (EN VEZ DE ID MANUAL) -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">🔗 Disparar si sale KO de este Checkpoint:</label>
+                        <select id="cpTriggeredByKo" class="form-control">
+                            <option value="">No aplica (Sin contingencia KO previa)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">⏪ Si sale KO, Retrocede a Etapa:</label>
+                        <select id="cpRollbackStage" class="form-control">
+                            <option value="">No aplica (Sin retroceso)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Tipo de Activación Temporal</label>
+                        <select id="cpTriggerType" class="form-control">
+                            <option value="IMMEDIATE">Inmediata al entrar a la etapa</option>
+                            <option value="DELAYED_DAYS">Diferido en Días (D+X)</option>
+                            <option value="SCHEDULED_DATE">Fecha de Calendario Fija</option>
+                            <option value="RECURRENT">Recurrente Periódico</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Retardo en Días (ej. 30 para D+30)</label>
+                        <input type="number" id="cpDelayDays" class="form-control" placeholder="30">
+                    </div>
+                </div>
+
+                <!-- POLÍTICAS DEL CHECKPOINT (100% Opcionales y Desactivadas por Defecto) -->
+                <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 14px; padding: 1.2rem; margin: 1.25rem 0;">
+                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #818cf8; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="bi bi-shield-check"></i> Políticas y Gobernanza de este Checkpoint (100% Opcionales)
+                    </h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">📞 Permitir Handshake / Derivación CTI</label>
+                            <select id="polEnableHandshake" class="form-control" onchange="toggleHandshakeSubOptions()">
+                                <option value="false">No (Gestión individual estándar)</option>
+                                <option value="true">Sí (Habilita derivación y transferencia CTI)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">👔 Requiere Validación de Supervisor</label>
+                            <select id="polReqSupervisor" class="form-control">
+                                <option value="false">No (Asesor completa directo)</option>
+                                <option value="true">Sí (Escala para visto bueno de Supervisor)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Sub-opciones de Handshake (sólo visibles cuando Handshake = Sí) -->
+                    <div id="handshakeSubOptions" style="display: none; background: rgba(0,0,0,0.2); border-radius: 10px; padding: 0.85rem; margin-bottom: 1rem; border: 1px dashed rgba(99,102,241,0.3);">
+                        <div class="form-grid">
+                            <div class="form-group" style="margin-bottom:0.6rem;">
+                                <label class="form-label">🚫 ¿Titular puede cancelar antes de aceptación?</label>
+                                <select id="polAllowCancel" class="form-control">
+                                    <option value="false">No (Espera respuesta obligatoria)</option>
+                                    <option value="true">Sí (Puede anular antes de que el otro acepte)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom:0.6rem;">
+                                <label class="form-label">↩️ ¿Receptor puede devolver si aceptó por error?</label>
+                                <select id="polAllowRevert" class="form-control">
+                                    <option value="false">No (Custodia permanente)</option>
+                                    <option value="true">Sí (Puede devolver al titular si fue por error)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">⏱️ Timeout de Derivación (Solo en ciertos puntos)</label>
+                            <select id="polTimeoutSelect" class="form-control">
+                                <option value="none">Sin timeout (Ilimitado / Sin límite de tiempo)</option>
+                                <option value="5">5 minutos</option>
+                                <option value="10">10 minutos</option>
+                                <option value="15">15 minutos (Estándar)</option>
+                                <option value="30">30 minutos</option>
+                                <option value="60">60 minutos (1 hora)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">⚡ Auto-Avanzar Etapa al Aprobar</label>
+                        <select id="polAutoAdvance" class="form-control">
+                            <option value="false">No (Espera confirmación manual del asesor)</option>
+                            <option value="true">Sí (Avanza automáticamente si no hay bloqueos)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('checkpointModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar Checkpoint</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Catálogos y Conciliación de Roles & Carteras -->
+    <div class="modal-overlay" id="catalogsModal">
+        <div class="modal-card" style="width: 780px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.25rem; font-weight: 700;"><i class="bi bi-sliders text-primary me-2"></i> Gestión & Conciliación de Catálogos</h3>
+                <button onclick="closeModal('catalogsModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer;">&times;</button>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.2rem;">
+                Administra los Roles y Carteras disponibles en el motor, con sus códigos de homologación externa para conciliar con sistemas CRM / ERP si aplica.
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <!-- Roles -->
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                        <h4 style="font-size:0.95rem; font-weight:700; color:var(--primary);"><i class="bi bi-person-badge me-1"></i> Roles</h4>
+                        <button class="btn btn-primary" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="quickCreateRole()">+ Rol</button>
+                    </div>
+                    <div id="rolesListTable" style="max-height: 250px; overflow-y: auto; background: #161f30; border-radius: 10px; padding: 0.5rem;"></div>
+                </div>
+
+                <!-- Carteras -->
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                        <h4 style="font-size:0.95rem; font-weight:700; color:var(--cyan);"><i class="bi bi-briefcase me-1"></i> Carteras</h4>
+                        <button class="btn btn-primary" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="quickCreatePortfolio()">+ Cartera</button>
+                    </div>
+                    <div id="portfoliosListTable" style="max-height: 250px; overflow-y: auto; background: #161f30; border-radius: 10px; padding: 0.5rem;"></div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline" onclick="closeModal('catalogsModal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Rápido: Crear Rol -->
+    <div class="modal-overlay" id="quickRoleModal">
+        <div class="modal-card" style="width: 480px; z-index: 350;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1.2rem;">Crear Nuevo Rol</h3>
+            <form onsubmit="saveQuickRole(event)">
+                <div class="form-group">
+                    <label class="form-label">Código del Rol (ej. MesaFraude, Backoffice2)</label>
+                    <input type="text" id="newRoleCode" class="form-control" required placeholder="MesaFraude">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre del Rol</label>
+                    <input type="text" id="newRoleName" class="form-control" required placeholder="Mesa de Detección de Fraude">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Código Conciliación Sistema Externo (Opcional)</label>
+                    <input type="text" id="newRoleExtCode" class="form-control" placeholder="CRM_ROLE_FRAUD_01">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('quickRoleModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar Rol</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Rápido: Crear Cartera -->
+    <div class="modal-overlay" id="quickPortfolioModal">
+        <div class="modal-card" style="width: 480px; z-index: 350;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1.2rem;">Crear Nueva Cartera / Ámbito</h3>
+            <form onsubmit="saveQuickPortfolio(event)">
+                <div class="form-group">
+                    <label class="form-label">Código de la Cartera (ej. Solar, Hipotecas)</label>
+                    <input type="text" id="newPortCode" class="form-control" required placeholder="Solar">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre de la Cartera</label>
+                    <input type="text" id="newPortName" class="form-control" required placeholder="Autoconsumo Solar y Baterías">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Código Conciliación Sistema Externo (Opcional)</label>
+                    <input type="text" id="newPortExtCode" class="form-control" placeholder="ERP_PORTFOLIO_SOLAR">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('quickPortfolioModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar Cartera</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Import GSI JSON -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.2rem; font-weight: 700;"><i class="bi bi-file-earmark-code text-primary me-2"></i> Importar GSI Backup JSON</h3>
+                <button onclick="closeModal('importModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer;">&times;</button>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+                Selecciona tu archivo <code>GSI_backup.json</code> o pega el contenido JSON para importar y configurar automáticamente todos los checkpoints y reglas en PostgreSQL.
+            </p>
+            <div class="form-group">
+                <input type="file" id="jsonFileInput" class="form-control" accept=".json" onchange="handleFileSelect(event)">
+            </div>
+            <div class="form-group">
+                <label class="form-label">O pega el JSON directo:</label>
+                <textarea id="jsonPasteInput" class="form-control" rows="8" placeholder='{ "checkpoints": [ ... ] }'></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.8rem;">
+                <button type="button" class="btn btn-outline" onclick="closeModal('importModal')">Cancelar</button>
+                <button type="submit" class="btn btn-success" onclick="processImport()"><i class="bi bi-cloud-upload"></i> Importar al Ciclo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentCycleId = 1;
+        let currentCycleData = null;
+        let showInactive = false;
+        let cachedRoles = [];
+        let cachedPortfolios = [];
+
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        function toggleHandshakeSubOptions() {
+            const enabled = document.getElementById('polEnableHandshake').value === 'true';
+            const subOptions = document.getElementById('handshakeSubOptions');
+            if (subOptions) subOptions.style.display = enabled ? 'block' : 'none';
+        }
+
+        function toggleShowInactive() {
+            showInactive = document.getElementById('chkShowInactive').checked;
+            loadCyclesSidebar();
+            loadCycleDetail(currentCycleId);
+        }
+
+        // ==========================================
+        // CATÁLOGOS DINÁMICOS: ROLES Y CARTERAS
+        // ==========================================
+        async function loadMetaCatalogs() {
+            try {
+                const [rolesRes, portsRes] = await Promise.all([
+                    fetch('/api/cycles/meta/roles'),
+                    fetch('/api/cycles/meta/portfolios')
+                ]);
+                cachedRoles = await rolesRes.json();
+                cachedPortfolios = await portsRes.json();
+
+                populateSelectOptions();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function populateSelectOptions() {
+            // Populate cpOwner
+            const ownerSelect = document.getElementById('cpOwner');
+            ownerSelect.innerHTML = cachedRoles.map(r => `
+                <option value="${r.roleCode}">${r.name} (${r.roleCode})</option>
+            `).join('');
+
+            // Populate cpScope & cycleScope
+            const scopeSelect = document.getElementById('cpScope');
+            const cycleScopeSelect = document.getElementById('cycleScope');
+            const portOptions = cachedPortfolios.map(p => `
+                <option value="${p.portfolioCode}">${p.name} (${p.portfolioCode})</option>
+            `).join('');
+
+            scopeSelect.innerHTML = portOptions;
+            cycleScopeSelect.innerHTML = portOptions;
+        }
+
+        function quickCreateRole() {
+            document.getElementById('newRoleCode').value = '';
+            document.getElementById('newRoleName').value = '';
+            document.getElementById('newRoleExtCode').value = '';
+            openModal('quickRoleModal');
+        }
+
+        async function saveQuickRole(e) {
+            e.preventDefault();
+            const payload = {
+                roleCode: document.getElementById('newRoleCode').value.trim(),
+                name: document.getElementById('newRoleName').value.trim(),
+                externalSystemCode: document.getElementById('newRoleExtCode').value.trim() || null,
+                isActive: true
+            };
+            try {
+                const res = await fetch('/api/cycles/meta/roles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    closeModal('quickRoleModal');
+                    await loadMetaCatalogs();
+                    document.getElementById('cpOwner').value = payload.roleCode;
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        function quickCreatePortfolio() {
+            document.getElementById('newPortCode').value = '';
+            document.getElementById('newPortName').value = '';
+            document.getElementById('newPortExtCode').value = '';
+            openModal('quickPortfolioModal');
+        }
+
+        async function saveQuickPortfolio(e) {
+            e.preventDefault();
+            const payload = {
+                portfolioCode: document.getElementById('newPortCode').value.trim(),
+                name: document.getElementById('newPortName').value.trim(),
+                externalSystemCode: document.getElementById('newPortExtCode').value.trim() || null,
+                isActive: true
+            };
+            try {
+                const res = await fetch('/api/cycles/meta/portfolios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    closeModal('quickPortfolioModal');
+                    await loadMetaCatalogs();
+                    document.getElementById('cpScope').value = payload.portfolioCode;
+                    document.getElementById('cycleScope').value = payload.portfolioCode;
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        function openCatalogsModal() {
+            renderCatalogsTables();
+            openModal('catalogsModal');
+        }
+
+        function renderCatalogsTables() {
+            document.getElementById('rolesListTable').innerHTML = cachedRoles.map(r => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.8rem;">
+                    <div>
+                        <strong style="color:#fff;">${r.name}</strong> <code>${r.roleCode}</code>
+                        ${r.externalSystemCode ? `<div style="font-size:0.7rem; color:#818cf8;">🔗 Sistema Ext: ${r.externalSystemCode}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('portfoliosListTable').innerHTML = cachedPortfolios.map(p => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.8rem;">
+                    <div>
+                        <strong style="color:#fff;">${p.name}</strong> <code>${p.portfolioCode}</code>
+                        ${p.externalSystemCode ? `<div style="font-size:0.7rem; color:var(--cyan);">🔗 Sistema Ext: ${p.externalSystemCode}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==========================================
+        // GESTIÓN DE PASOS (STEPS) 1 A 1
+        // ==========================================
+        function addStepRow(name = '', isRequired = true) {
+            const container = document.getElementById('stepsContainer');
+            const rowId = `step_row_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+            const stepNum = container.children.length + 1;
+
+            const div = document.createElement('div');
+            div.className = 'step-row';
+            div.id = rowId;
+            div.innerHTML = `
+                <span class="badge badge-cyan" style="font-size:0.72rem;">#${stepNum}</span>
+                <input type="text" class="form-control step-name-input" value="${name}" placeholder="Instrucción de este paso..." style="flex-grow:1; padding:0.45rem 0.75rem;" required>
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:var(--text-muted); white-space:nowrap; cursor:pointer;">
+                    <input type="checkbox" class="step-req-check" ${isRequired ? 'checked' : ''}> Obligatorio
+                </label>
+                <button type="button" class="btn btn-outline" style="padding:0.3rem 0.5rem; font-size:0.75rem; color:var(--danger); border-color:transparent;" onclick="removeStepRow('${rowId}')" title="Quitar paso">
+                    <i class="bi bi-trash"></i>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeStepRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+            renumberSteps();
+        }
+
+        function renumberSteps() {
+            const container = document.getElementById('stepsContainer');
+            Array.from(container.children).forEach((row, idx) => {
+                const badge = row.querySelector('.badge-cyan');
+                if (badge) badge.innerText = `#${idx + 1}`;
+            });
+        }
+
+        function getStepsData() {
+            const container = document.getElementById('stepsContainer');
+            const rows = Array.from(container.children);
+            return rows.map((r, idx) => ({
+                stepOrder: idx + 1,
+                name: r.querySelector('.step-name-input').value.trim(),
+                isRequired: r.querySelector('.step-req-check').checked
+            })).filter(s => s.name.length > 0);
+        }
+
+        // ==========================================
+        // CARGA DE CICLOS Y DETALLE
+        // ==========================================
+        async function loadCyclesSidebar() {
+            try {
+                const res = await fetch(`/api/cycles?includeInactive=${showInactive}`);
+                const cycles = await res.json();
+                const container = document.getElementById('cyclesSidebarList');
+                if (!cycles || !cycles.length) {
+                    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:2rem 0;">No hay ciclos creados.<br><button class="btn btn-primary" style="margin-top:0.8rem;" onclick="openNewCycleModal()">+ Crear Primer Ciclo</button></div>';
+                    return;
+                }
+                container.innerHTML = cycles.map(c => `
+                    <div class="cycle-item ${c.idCycle === currentCycleId ? 'active' : ''} ${!c.isActive ? 'inactive' : ''}" onclick="selectCycle(${c.idCycle})">
+                        <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem;">
+                            ${c.name} ${!c.isActive ? '<span class="badge badge-inactive" style="font-size:0.65rem;">INACTIVO</span>' : ''}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted);">
+                            <span><code>${c.cycleCode}</code></span>
+                            <span class="badge badge-cyan">${c.scopeType}</span>
+                        </div>
+                    </div>
+                `).join('');
+
+                if (!cycles.some(c => c.idCycle === currentCycleId)) {
+                    currentCycleId = cycles[0].idCycle;
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function selectCycle(id) {
+            currentCycleId = id;
+            await loadCyclesSidebar();
+            await loadCycleDetail(id);
+        }
+
+        async function loadCycleDetail(id) {
+            try {
+                const res = await fetch(`/api/cycles/${id}?includeInactive=${showInactive}`);
+                if (!res.ok) return;
+                currentCycleData = await res.json();
+
+                document.getElementById('activeCycleTitle').innerText = currentCycleData.name + (!currentCycleData.isActive ? ' (INACTIVO)' : '');
+                document.getElementById('activeCycleDesc').innerText = currentCycleData.description || `Código: ${currentCycleData.cycleCode}`;
+                document.getElementById('btnEditActiveCycle').style.display = 'inline-flex';
+                document.getElementById('btnDeleteActiveCycle').style.display = currentCycleData.isActive ? 'inline-flex' : 'none';
+
+                // Stats
+                const stages = currentCycleData.stages || [];
+                const checkpoints = currentCycleData.checkpoints || [];
+                document.getElementById('statStages').innerText = stages.length;
+                document.getElementById('statCheckpoints').innerText = checkpoints.length;
+                document.getElementById('statBlocking').innerText = checkpoints.filter(c => c.blocksAdvance && c.isActive).length;
+                document.getElementById('statFinalize').innerText = checkpoints.filter(c => c.finalizesCycle && c.isActive).length;
+
+                renderStages(stages, checkpoints);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderStages(stages, checkpoints) {
+            const container = document.getElementById('stagesContainer');
+            if (!stages || !stages.length) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:4rem 1rem; color:var(--text-muted);">
+                        <i class="bi bi-diagram-3" style="font-size:2.5rem; color:#475569; display:block; margin-bottom:0.8rem;"></i>
+                        <h4 style="color:#fff; font-size:1.1rem; margin-bottom:0.4rem;">Este ciclo no tiene etapas</h4>
+                        <p style="font-size:0.85rem; margin-bottom:1.2rem;">Crea la primera etapa para estructurar los checkpoints y transiciones.</p>
+                        <button class="btn btn-primary" onclick="openNewStageModal()"><i class="bi bi-plus-circle"></i> + Crear Primera Etapa</button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = stages.map((s, idx) => {
+                const stageCps = checkpoints.filter(c => c.triggerStageId === s.idStage);
+                const isFirst = idx === 0;
+                const isLast = idx === stages.length - 1;
+
+                return `
+                    <div class="stage-box">
+                        <div class="stage-header">
+                            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                                <span class="badge badge-cyan">Orden #${s.orderIndex}</span>
+                                <strong style="font-size: 1.1rem;">${s.name}</strong>
+                                <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;"><i class="bi bi-clock me-1"></i>SLA: ${s.slaHours || 24}h</span>
+                                ${s.isTerminal ? '<span class="badge badge-final">Etapa Terminal</span>' : ''}
+                            </div>
+                            <div style="display:flex; gap:0.4rem; align-items:center;">
+                                <button class="btn btn-outline" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="moveStage(${s.idStage}, -1)" ${isFirst ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} title="Subir orden">
+                                    <i class="bi bi-arrow-up"></i>
+                                </button>
+                                <button class="btn btn-outline" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="moveStage(${s.idStage}, 1)" ${isLast ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} title="Bajar orden">
+                                    <i class="bi bi-arrow-down"></i>
+                                </button>
+                                <button class="btn btn-outline" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="openEditStageModal(${s.idStage})">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </button>
+                                <button class="btn btn-outline" style="padding:0.3rem 0.6rem; font-size:0.75rem; color:var(--danger); border-color:var(--danger);" onclick="deleteStage(${s.idStage}, '${s.name}')" title="Eliminar Etapa">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                <button class="btn btn-primary" style="padding:0.35rem 0.75rem; font-size:0.78rem;" onclick="openNewCheckpointModal(${s.idStage})">
+                                    <i class="bi bi-plus-lg"></i> + Checkpoint
+                                </button>
+                            </div>
+                        </div>
+                        <div class="checkpoints-list">
+                            ${stageCps.length ? stageCps.map(cp => {
+                                let pol = {};
+                                try { pol = typeof cp.policiesJson === 'string' ? JSON.parse(cp.policiesJson) : cp.policiesJson || {}; } catch(e){}
+                                const steps = cp.steps || [];
+                                const koTriggerCp = cp.triggeredByKo ? checkpoints.find(c => c.idCheckpoint === cp.triggeredByKo) : null;
+                                return `
+                                <div class="checkpoint-card ${!cp.isActive ? 'inactive' : ''}">
+                                    <div style="flex-grow:1; margin-right:1rem;">
+                                        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem; flex-wrap:wrap;">
+                                            <span style="font-family:'JetBrains Mono'; font-weight:700; color:var(--cyan); font-size:0.82rem;">${cp.code}</span>
+                                            <strong style="font-size:0.92rem;">${cp.name}</strong>
+                                            ${!cp.isActive ? '<span class="badge badge-inactive">INACTIVO</span>' : ''}
+                                            ${cp.finalizesCycle ? '<span class="badge badge-final">⛔ Cierre KO</span>' : ''}
+                                            ${cp.blocksAdvance ? '<span class="badge badge-block">Bloqueante</span>' : '<span class="badge badge-optional">Opcional</span>'}
+                                            ${koTriggerCp ? `<span class="badge badge-chain">⚡ KO de ${koTriggerCp.code}</span>` : ''}
+                                            ${pol.requiresSupervisorApproval ? '<span class="badge badge-policy">👔 Req. Supervisor</span>' : ''}
+                                            ${pol.autoAdvanceOnApproval ? '<span class="badge badge-policy">⚡ Auto-Avanza</span>' : ''}
+                                            ${pol.handshakeTimeoutMinutes ? `<span class="badge badge-cyan"><i class="bi bi-stopwatch"></i> ${pol.handshakeTimeoutMinutes}m</span>` : ''}
+                                            <span class="badge badge-steps"><i class="bi bi-list-check me-1"></i>${steps.length} pasos</span>
+                                        </div>
+                                        <div style="font-size:0.8rem; color:var(--text-muted);">${cp.description || 'Sin descripción.'}</div>
+                                        <div style="font-size:0.75rem; color:#818cf8; margin-top:0.3rem;">
+                                            <i class="bi bi-person-badge me-1"></i>Dueño: <strong>${cp.ownerDept}</strong> | Cartera: <strong>${cp.scope}</strong> | CTI Handshake: ${pol.enableHandshake !== false ? 'Habilitado' : 'Desactivado'}
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; gap:0.35rem;">
+                                        <button class="btn btn-outline" style="padding:0.35rem 0.7rem; font-size:0.75rem;" onclick="editCheckpoint(${cp.idCheckpoint})">
+                                            <i class="bi bi-pencil"></i> Editar
+                                        </button>
+                                        <button class="btn btn-outline" style="padding:0.35rem 0.6rem; font-size:0.75rem; color:${cp.isActive ? 'var(--danger)' : 'var(--success)'}; border-color:${cp.isActive ? 'var(--danger)' : 'var(--success)'};" onclick="toggleCheckpointActive(${cp.idCheckpoint}, ${cp.isActive})" title="${cp.isActive ? 'Desactivar (Soft-Delete)' : 'Reactivar'}">
+                                            <i class="bi bi-${cp.isActive ? 'trash' : 'arrow-clockwise'}"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;}).join('') : '<div style="color:var(--text-muted); font-size:0.82rem; padding:0.5rem 0;">No hay checkpoints en esta etapa.</div>'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==========================================
+        // CRUD CICLOS
+        // ==========================================
+        function openNewCycleModal() {
+            document.getElementById('cycleId').value = '';
+            document.getElementById('cycleCode').value = `CYCLE_${Math.floor(100 + Math.random() * 900)}`;
+            document.getElementById('cycleName').value = '';
+            document.getElementById('cycleDesc').value = '';
+            if (cachedPortfolios.length) document.getElementById('cycleScope').value = cachedPortfolios[0].portfolioCode;
+            document.getElementById('modalCycleTitle').innerText = 'Crear Nuevo Ciclo';
+            openModal('cycleModal');
+        }
+
+        function openEditCycleModal() {
+            if (!currentCycleData) return;
+            document.getElementById('cycleId').value = currentCycleData.idCycle;
+            document.getElementById('cycleCode').value = currentCycleData.cycleCode;
+            document.getElementById('cycleName').value = currentCycleData.name;
+            document.getElementById('cycleDesc').value = currentCycleData.description || '';
+            document.getElementById('cycleScope').value = currentCycleData.scopeType || 'Telecom';
+            document.getElementById('modalCycleTitle').innerText = 'Editar Ciclo';
+            openModal('cycleModal');
+        }
+
+        async function saveCycle(e) {
+            e.preventDefault();
+            const id = document.getElementById('cycleId').value;
+            const payload = {
+                cycleCode: document.getElementById('cycleCode').value.trim(),
+                name: document.getElementById('cycleName').value.trim(),
+                description: document.getElementById('cycleDesc').value.trim(),
+                scopeType: document.getElementById('cycleScope').value,
+                isActive: true,
+                currentVersion: 1,
+                createdBy: 1,
+                entryPolicyJson: "{}",
+                exitPolicyJson: "{}"
+            };
+
+            const url = id ? `/api/cycles/${id}` : '/api/cycles';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    closeModal('cycleModal');
+                    if (!id && data.idCycle) currentCycleId = data.idCycle;
+                    await loadCyclesSidebar();
+                    await loadCycleDetail(currentCycleId);
+                } else {
+                    const err = await res.json();
+                    alert(`Error al guardar ciclo: ${err.error || err.title || 'Error desconocido'}`);
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        async function softDeleteActiveCycle() {
+            if (!confirm(`¿Estás seguro de desactivar el ciclo "${currentCycleData.name}"? Los datos no se borrarán (Soft-Delete).`)) return;
+            try {
+                const res = await fetch(`/api/cycles/${currentCycleId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    await loadCyclesSidebar();
+                    await loadCycleDetail(currentCycleId);
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        // ==========================================
+        // CRUD ETAPAS
+        // ==========================================
+        function openNewStageModal() {
+            if (!currentCycleId) {
+                alert('Selecciona o crea un ciclo primero.');
+                return;
+            }
+            document.getElementById('stageId').value = '';
+            document.getElementById('stageCode').value = `STAGE_${Math.floor(100 + Math.random() * 900)}`;
+            document.getElementById('stageName').value = '';
+            document.getElementById('stageDesc').value = '';
+            document.getElementById('stageSla').value = '24';
+            document.getElementById('stageIsTerminal').value = 'false';
+            document.getElementById('modalStageTitle').innerText = 'Nueva Etapa';
+            openModal('stageModal');
+        }
+
+        async function openEditStageModal(stageId) {
+            const stages = currentCycleData?.stages || [];
+            const stage = stages.find(s => s.idStage === stageId);
+            if (!stage) return;
+
+            document.getElementById('stageId').value = stage.idStage;
+            document.getElementById('stageCode').value = stage.stageCode;
+            document.getElementById('stageName').value = stage.name;
+            document.getElementById('stageDesc').value = stage.description || '';
+            document.getElementById('stageSla').value = stage.slaHours || 24;
+            document.getElementById('stageIsTerminal').value = stage.isTerminal ? 'true' : 'false';
+            document.getElementById('modalStageTitle').innerText = 'Editar Etapa';
+            openModal('stageModal');
+        }
+
+        async function saveStage(e) {
+            e.preventDefault();
+            const stageId = document.getElementById('stageId').value;
+            const payload = {
+                idCycle: currentCycleId,
+                stageCode: document.getElementById('stageCode').value.trim(),
+                name: document.getElementById('stageName').value.trim(),
+                description: document.getElementById('stageDesc').value.trim(),
+                slaHours: parseInt(document.getElementById('stageSla').value) || 24,
+                isTerminal: document.getElementById('stageIsTerminal').value === 'true',
+                policiesJson: "{}"
+            };
+
+            const url = stageId ? `/api/cycles/stages/${stageId}` : `/api/cycles/${currentCycleId}/stages`;
+            const method = stageId ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    closeModal('stageModal');
+                    await loadCycleDetail(currentCycleId);
+                } else {
+                    const err = await res.json();
+                    alert(`Error al guardar etapa: ${err.error || err.title || 'Error desconocido'}`);
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        async function deleteStage(stageId, stageName) {
+            if (!confirm(`¿Eliminar la etapa "${stageName}"? Sus checkpoints quedarán desasociados.`)) return;
+            try {
+                const res = await fetch(`/api/cycles/stages/${stageId}`, { method: 'DELETE' });
+                if (res.ok) await loadCycleDetail(currentCycleId);
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        async function moveStage(stageId, direction) {
+            const stages = [...(currentCycleData?.stages || [])].sort((a,b) => a.orderIndex - b.orderIndex);
+            const idx = stages.findIndex(s => s.idStage === stageId);
+            if (idx < 0) return;
+
+            const targetIdx = idx + direction;
+            if (targetIdx < 0 || targetIdx >= stages.length) return;
+
+            const temp = stages[idx];
+            stages[idx] = stages[targetIdx];
+            stages[targetIdx] = temp;
+
+            const newOrderIds = stages.map(s => s.idStage);
+            try {
+                await fetch(`/api/cycles/${currentCycleId}/stages/reorder`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newOrderIds)
+                });
+                await loadCycleDetail(currentCycleId);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // ==========================================
+        // CRUD CHECKPOINTS (Pasos 1 a 1, Roles & Disparo KO Combo)
+        // ==========================================
+        function populateKoTriggerOptions(currentCpId, selectedKoId) {
+            const select = document.getElementById('cpTriggeredByKo');
+            const allCps = currentCycleData?.checkpoints || [];
+            const availableCps = allCps.filter(c => c.idCheckpoint !== currentCpId);
+
+            select.innerHTML = '<option value="">No aplica (Sin contingencia KO previa)</option>' + availableCps.map(c => `
+                <option value="${c.idCheckpoint}" ${c.idCheckpoint === selectedKoId ? 'selected' : ''}>[${c.code}] ${c.name}</option>
+            `).join('');
+        }
+
+        function openNewCheckpointModal(stageId) {
+            document.getElementById('cpId').value = '';
+            document.getElementById('cpStageId').value = stageId;
+            document.getElementById('cpCode').value = `CP_TEL_${Math.floor(100 + Math.random() * 900)}`;
+            document.getElementById('cpName').value = '';
+            document.getElementById('cpDesc').value = '';
+            document.getElementById('cpBlocks').value = 'true';
+            document.getElementById('cpFinalizes').value = 'false';
+            
+            // Steps 1 a 1 (Inicializa con 1 paso por defecto)
+            document.getElementById('stepsContainer').innerHTML = '';
+            addStepRow('Validación y registro de actuación', true);
+
+            // Políticas por defecto: 100% Opcionales y Desactivadas
+            document.getElementById('polEnableHandshake').value = 'false';
+            document.getElementById('polAllowCancel').value = 'false';
+            document.getElementById('polAllowReceptorRevert').value = 'false';
+            document.getElementById('polReqSupervisor').value = 'false';
+            document.getElementById('polAutoAdvance').value = 'false';
+            document.getElementById('polTimeoutSelect').value = 'none';
+            toggleHandshakeSubOptions();
+
+            populateKoTriggerOptions(null, null);
+            populateRollbackStages();
+            openModal('checkpointModal');
+        }
+
+        async function editCheckpoint(cpId) {
+            try {
+                const res = await fetch(`/api/cycles/checkpoints/${cpId}`);
+                if (!res.ok) return;
+                const cp = await res.json();
+
+                document.getElementById('cpId').value = cp.idCheckpoint;
+                document.getElementById('cpStageId').value = cp.triggerStageId || '';
+                document.getElementById('cpCode').value = cp.code;
+                document.getElementById('cpName').value = cp.name;
+                document.getElementById('cpDesc').value = cp.description || '';
+                document.getElementById('cpOwner').value = cp.ownerDept || 'Asesor';
+                document.getElementById('cpScope').value = cp.scope || 'Telecom';
+                document.getElementById('cpBlocks').value = cp.blocksAdvance ? 'true' : 'false';
+                document.getElementById('cpFinalizes').value = cp.finalizesCycle ? 'true' : 'false';
+                document.getElementById('cpTriggerType').value = cp.activationTrigger || 'IMMEDIATE';
+                document.getElementById('cpDelayDays').value = cp.delayDays || '';
+
+                // Pasos 1 a 1
+                document.getElementById('stepsContainer').innerHTML = '';
+                const steps = cp.steps || [];
+                if (steps.length) {
+                    steps.forEach(s => addStepRow(s.name, s.isRequired));
+                } else {
+                    addStepRow('Paso 1 de verificación', true);
+                }
+
+                // Disparo KO en Combo
+                populateKoTriggerOptions(cp.idCheckpoint, cp.triggeredByKo);
+
+                // Políticas
+                let pol = {};
+                try { pol = typeof cp.policiesJson === 'string' ? JSON.parse(cp.policiesJson) : cp.policiesJson || {}; } catch(e){}
+                document.getElementById('polEnableHandshake').value = pol.enableHandshake ? 'true' : 'false';
+                document.getElementById('polAllowCancel').value = pol.allowOwnerCancelBeforeAccept ? 'true' : 'false';
+                document.getElementById('polAllowReceptorRevert').value = (pol.allowReceptorRevertIfError || pol.onlyReceptorCanRevert) ? 'true' : 'false';
+                document.getElementById('polReqSupervisor').value = pol.requiresSupervisorApproval ? 'true' : 'false';
+                document.getElementById('polAutoAdvance').value = pol.autoAdvanceOnApproval ? 'true' : 'false';
+                document.getElementById('polTimeoutSelect').value = pol.handshakeTimeoutMinutes ? pol.handshakeTimeoutMinutes.toString() : 'none';
+                toggleHandshakeSubOptions();
+
+                populateRollbackStages(cp.rollbackToStage);
+                openModal('checkpointModal');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function populateRollbackStages(selectedId) {
+            const select = document.getElementById('cpRollbackStage');
+            const stages = currentCycleData?.stages || [];
+            select.innerHTML = '<option value="">No aplica (Sin retroceso)</option>' + stages.map(s => `
+                <option value="${s.idStage}" ${s.idStage === selectedId ? 'selected' : ''}>${s.name}</option>
+            `).join('');
+        }
+
+        async function saveCheckpoint(e) {
+            e.preventDefault();
+            const id = document.getElementById('cpId').value;
+            const enableHs = document.getElementById('polEnableHandshake').value === 'true';
+            const timeoutVal = document.getElementById('polTimeoutSelect').value;
+            const triggeredByKoVal = document.getElementById('cpTriggeredByKo').value;
+            const stepsData = getStepsData();
+
+            const policiesObj = {
+                enableHandshake: enableHs,
+                allowOwnerCancelBeforeAccept: enableHs && document.getElementById('polAllowCancel').value === 'true',
+                allowReceptorRevertIfError: enableHs && document.getElementById('polAllowReceptorRevert').value === 'true',
+                onlyReceptorCanRevert: enableHs && document.getElementById('polAllowReceptorRevert').value === 'true',
+                requiresSupervisorApproval: document.getElementById('polReqSupervisor').value === 'true',
+                autoAdvanceOnApproval: document.getElementById('polAutoAdvance').value === 'true',
+                handshakeTimeoutMinutes: (enableHs && timeoutVal !== 'none') ? parseInt(timeoutVal) : null
+            };
+
+            const payload = {
+                idCycle: currentCycleId,
+                triggerStageId: parseInt(document.getElementById('cpStageId').value) || null,
+                code: document.getElementById('cpCode').value.trim(),
+                name: document.getElementById('cpName').value.trim(),
+                description: document.getElementById('cpDesc').value.trim(),
+                ownerDept: document.getElementById('cpOwner').value,
+                scope: document.getElementById('cpScope').value,
+                blocksAdvance: document.getElementById('cpBlocks').value === 'true',
+                finalizesCycle: document.getElementById('cpFinalizes').value === 'true',
+                triggeredByKo: triggeredByKoVal ? parseInt(triggeredByKoVal) : null,
+                rollbackToStage: parseInt(document.getElementById('cpRollbackStage').value) || null,
+                activationTrigger: document.getElementById('cpTriggerType').value,
+                delayDays: parseInt(document.getElementById('cpDelayDays').value) || null,
+                policiesJson: JSON.stringify(policiesObj),
+                isActive: true,
+                steps: stepsData
+            };
+
+            const url = id ? `/api/cycles/checkpoints/${id}` : `/api/cycles/${currentCycleId}/checkpoints`;
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    closeModal('checkpointModal');
+                    await loadCycleDetail(currentCycleId);
+                } else {
+                    const err = await res.json();
+                    alert(`Error al guardar checkpoint: ${err.error || err.title || 'Error desconocido'}`);
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        async function toggleCheckpointActive(cpId, currentlyActive) {
+            const actionText = currentlyActive ? 'desactivar (Soft-Delete)' : 'reactivar';
+            if (!confirm(`¿Estás seguro de ${actionText} este checkpoint?`)) return;
+            try {
+                const res = await fetch(`/api/cycles/checkpoints/${cpId}/toggle-active`, { method: 'PATCH' });
+                if (res.ok) await loadCycleDetail(currentCycleId);
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        // ==========================================
+        // IMPORT / EXPORT JSON
+        // ==========================================
+        function openImportModal() { openModal('importModal'); }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                document.getElementById('jsonPasteInput').value = event.target.result;
+            };
+            reader.readAsText(file);
+        }
+
+        async function processImport() {
+            const jsonText = document.getElementById('jsonPasteInput').value.trim();
+            if (!jsonText) {
+                alert('Pega o selecciona un archivo JSON válido.');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/cycles/${currentCycleId}/import-gsi`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ jsonContent: jsonText })
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    alert(`✅ ${result.message}`);
+                    closeModal('importModal');
+                    await loadCycleDetail(currentCycleId);
+                } else {
+                    alert(`❌ Error: ${result.error || result.message}`);
+                }
+            } catch (err) {
+                alert(`Error al importar: ${err.message}`);
+            }
+        }
+
+        async function exportJson() {
+            window.open(`/api/cycles/${currentCycleId}/export-gsi`, '_blank');
+        }
+
+        // Inicialización
+        Promise.all([loadMetaCatalogs(), loadCyclesSidebar()]).then(() => loadCycleDetail(currentCycleId));
+    </script>
+</body>
+</html>

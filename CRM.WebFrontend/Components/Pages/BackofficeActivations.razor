@@ -1,11 +1,13 @@
 @page "/backoffice/activations"
 @rendermode InteractiveServer
-@attribute [Authorize(Roles = "BACKOFFICE,SUPERVISOR,ADMIN_CRM")]
+@attribute [Authorize(Roles = "BACKOFFICE,SUPERVISOR,ADMIN_CRM,ADMINISTRADOR")]
 @using CRM.WebFrontend.Services
+@using System.Net.Http.Json
 @inject IActivationService ActivationService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
+@inject HttpClient Http
 
 <PageTitle>Panel Visual de Activaciones | BackOffice Nyx CRM</PageTitle>
 
@@ -59,12 +61,13 @@
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(9, 9, 11, 0.4);
-        backdrop-filter: blur(4px);
+        background: rgba(9, 9, 11, 0.5);
+        backdrop-filter: blur(5px);
         z-index: 1050;
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: 16px;
     }
 
     .modal-container {
@@ -73,8 +76,43 @@
         border: 1px solid var(--border-color);
         box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         width: 100%;
-        max-width: 520px;
+        max-width: 540px;
         overflow: hidden;
+    }
+
+    .stepper-track {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 12px 4px;
+    }
+    .stepper-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        white-space: nowrap;
+        background: #f4f4f5;
+        color: #71717a;
+        border: 1px solid #e4e4e7;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .stepper-item:hover { background: #e4e4e7; }
+    .stepper-item.current {
+        background: #09090b;
+        color: #ffffff;
+        border-color: #09090b;
+        box-shadow: 0 4px 12px rgba(9, 9, 11, 0.25);
+    }
+    .stepper-item.completed {
+        background: #ecfdf5;
+        color: #047857;
+        border-color: #a7f3d0;
     }
 </style>
 
@@ -88,7 +126,7 @@
         
         <div class="d-flex align-items-center gap-2 bg-white p-1.5 rounded-pill border shadow-sm">
             <a href="/backoffice/dashboard" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
-                📄 Verificación DNI & OCR
+                📄 Verificación & Flujo
             </a>
             <a href="/backoffice/incidents" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
                 ⚠️ Gestión de Incidencias
@@ -97,7 +135,7 @@
                 ⚡ Panel de Activaciones
             </a>
             <a href="/engines/checkpoints" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
-                🛡️ Checkpoints & Aprobaciones
+                🛡️ Checkpoints Hub
             </a>
             <button class="btn btn-sm btn-outline-dark rounded-pill px-3 py-1.5 text-nowrap ms-2" style="font-size: 0.85rem;" @onclick="LoadActivations">
                 ↻ Actualizar
@@ -145,18 +183,16 @@
         </div>
     </div>
 
-    <!-- Barra Superior de Filtros (Sueltos sobre el fondo) -->
+    <!-- Barra Superior de Filtros -->
     <div class="row g-3 align-items-center mb-4">
         <div class="col-lg-5 col-md-6">
-            <div class="search-pill-container">
-                <input type="text" class="search-pill-input" placeholder="Buscar por cliente, producto u orden..." @bind="_searchFilter" @bind:event="oninput" />
-                <button class="search-icon-btn" title="Buscar">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                </button>
+            <div class="search-pill-container d-flex align-items-center bg-white rounded-pill px-3 py-1.5 border shadow-sm">
+                <input type="text" class="form-control border-0 shadow-none bg-transparent" placeholder="Buscar por cliente, producto u orden..." @bind="_searchFilter" @bind:event="oninput" />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             </div>
         </div>
         <div class="col-lg-3 col-md-6">
-            <select class="form-select filter-pill-select" @bind="_selectedStatus">
+            <select class="form-select rounded-pill shadow-sm" @bind="_selectedStatus">
                 <option value="TODOS">Todos los Estados</option>
                 <option value="PENDING">Pendientes</option>
                 <option value="IN_PROCESS">En Proceso</option>
@@ -166,7 +202,7 @@
             </select>
         </div>
         <div class="col-lg-3 col-md-6">
-            <select class="form-select filter-pill-select" @bind="_selectedProvider">
+            <select class="form-select rounded-pill shadow-sm" @bind="_selectedProvider">
                 <option value="0">Todos los Proveedores</option>
                 <option value="1">Telecom / Fibra (Movistar, Orange)</option>
                 <option value="2">Móvil (Vodafone, Yoigo)</option>
@@ -175,8 +211,8 @@
             </select>
         </div>
         <div class="col-lg-1 col-md-6 text-end">
-            <button class="search-icon-btn border-0 shadow-none position-static w-auto h-auto p-2" title="Limpiar Filtros" @onclick="ResetFilters">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+            <button class="btn btn-sm btn-outline-secondary rounded-pill" title="Limpiar Filtros" @onclick="ResetFilters">
+                Limpiar
             </button>
         </div>
     </div>
@@ -203,12 +239,12 @@
                         <tr>
                             <th class="section-title" style="width: 8%;">Orden</th>
                             <th class="section-title" style="width: 20%;">Cliente Titular</th>
-                            <th class="section-title" style="width: 20%;">Etapa Nyx Flow</th>
-                            <th class="section-title" style="width: 22%;">Producto / Servicio</th>
+                            <th class="section-title" style="width: 18%;">Etapa Nyx Flow</th>
+                            <th class="section-title" style="width: 20%;">Producto / Servicio</th>
                             <th class="section-title" style="width: 12%;">Proveedor</th>
-                            <th class="section-title" style="width: 8%;">Días</th>
+                            <th class="section-title" style="width: 7%;">Días</th>
                             <th class="section-title text-center" style="width: 10%;">Estado SLA</th>
-                            <th class="section-title text-end" style="width: 10%;">Acción</th>
+                            <th class="section-title text-end" style="width: 15%;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -236,10 +272,10 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <div class="fw-medium text-truncate" style="max-width: 260px;">@item.ProductName</div>
+                                        <div class="fw-medium text-truncate" style="max-width: 240px;">@item.ProductName</div>
                                         @if (!string.IsNullOrEmpty(item.Notes))
                                         {
-                                            <div class="text-muted text-truncate" style="font-size: 0.75rem; max-width: 260px;">📝 @item.Notes</div>
+                                            <div class="text-muted text-truncate" style="font-size: 0.75rem; max-width: 240px;">📝 @item.Notes</div>
                                         }
                                     </td>
                                     <td>
@@ -258,7 +294,10 @@
                                         </span>
                                     </td>
                                     <td class="text-end">
-                                        <button class="btn btn-sm btn-outline-dark rounded-pill px-3" @onclick="() => OpenUpdateModal(item)">
+                                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1 me-1" style="font-size: 0.75rem;" title="Ver Línea de Tiempo y Checkpoints" @onclick="() => OpenOrderTimeline(item.IdOrder, item.CustomerName)">
+                                            📈 Flujo
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-dark rounded-pill px-3 py-1" style="font-size: 0.75rem;" @onclick="() => OpenUpdateModal(item)">
                                             Gestionar
                                         </button>
                                     </td>
@@ -324,6 +363,144 @@
     </div>
 }
 
+<!-- MODAL DE LÍNEA DE TIEMPO Y CHECKPOINTS DESDE ACTIVACIONES -->
+@if (_showTimelineModal && _timelineOrderId > 0)
+{
+    <div class="modal-backdrop-blur">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 1050px; width: 100%;">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden bg-white">
+                <div class="modal-header bg-dark text-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="modal-title fw-bold fs-5 mb-0">
+                            📈 Línea de Tiempo & Checkpoints — Orden #@_timelineOrderId
+                        </h5>
+                        <small class="text-white text-opacity-75">Cliente: @_timelineCustomerName</small>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseTimelineModal"></button>
+                </div>
+                <div class="modal-body p-4" style="max-height: 75vh; overflow-y: auto;">
+                    <!-- Stepper visual -->
+                    @if (_stageObjects != null && _stageObjects.Any())
+                    {
+                        <div class="stepper-track bg-light rounded-4 p-3 border mb-4">
+                            @for (int i = 0; i < _stageObjects.Count; i++)
+                            {
+                                var stage = _stageObjects[i];
+                                var isCurrent = _currentTimelineStageIdx == i;
+                                var isSelected = _selectedTimelineStageIdx == i;
+
+                                var css = isCurrent ? "current" : (i < _currentTimelineStageIdx ? "completed" : "");
+                                if (isSelected && !isCurrent) css += " border-dark shadow-sm";
+
+                                int localIdx = i;
+                                <div class="stepper-item @css" @onclick="() => SelectTimelineStage(localIdx)">
+                                    <span>@(i + 1).</span>
+                                    <span>@stage.Name</span>
+                                    @if (isCurrent)
+                                    {
+                                        <span class="badge bg-white text-dark rounded-pill px-1.5 ms-1" style="font-size: 0.65rem;">ACTUAL</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <!-- Checkpoints y Pasos de la etapa seleccionada -->
+                    @{
+                        var activeCps = GetTimelineCheckpointsForStageIndex(_selectedTimelineStageIdx >= 0 ? _selectedTimelineStageIdx : _currentTimelineStageIdx);
+                    }
+
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h6 class="fw-bold m-0 text-dark">Checkpoints & Pasos Secuenciales</h6>
+                        <span class="badge bg-dark text-white">@activeCps.Count Checkpoint(s)</span>
+                    </div>
+
+                    @if (!activeCps.Any())
+                    {
+                        <div class="p-4 bg-light rounded-3 text-center text-muted small border">
+                            No hay checkpoints configurados para esta etapa.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-3">
+                            @foreach (var cp in activeCps)
+                            {
+                                var cpStatusClass = cp.Status == "APROBADO" ? "bg-success text-white" : (cp.Status == "RECHAZADO" ? "bg-danger text-white" : "bg-secondary bg-opacity-10 text-dark");
+                                var cpStatusText = cp.Status == "APROBADO" ? "✔ Aprobado" : (cp.Status == "RECHAZADO" ? "❌ Rechazado" : "⏳ Pendiente");
+
+                                <div class="border rounded-3 p-3 bg-white shadow-sm">
+                                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                        <div>
+                                            <span class="badge bg-secondary rounded-pill me-2">@cp.Code</span>
+                                            <strong class="text-dark">@cp.Name</strong>
+                                        </div>
+                                        <span class="badge rounded-pill px-3 py-1 @cpStatusClass">@cpStatusText</span>
+                                    </div>
+
+                                    @if (cp.Steps != null && cp.Steps.Any())
+                                    {
+                                        <div class="mb-3">
+                                            <div class="text-muted small fw-bold mb-2">📋 Pasos Secuenciales:</div>
+                                            <div class="d-flex flex-column gap-2">
+                                                @foreach (var step in cp.Steps)
+                                                {
+                                                    <div class="d-flex align-items-center justify-content-between p-2 rounded border @(step.IsCompleted ? "bg-success bg-opacity-10 border-success border-opacity-25" : "bg-light")">
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <input type="checkbox" class="form-check-input mt-0" checked="@step.IsCompleted" @onchange="e => ToggleStepProgress(cp, step, (bool)(e.Value ?? false))" />
+                                                            <span class="@(step.IsCompleted ? "text-decoration-line-through text-success fw-medium" : "text-dark fw-semibold")">
+                                                                <strong>Paso @step.StepOrder:</strong> @step.Instruction
+                                                            </span>
+                                                        </div>
+                                                        @if (step.IsRequired)
+                                                        {
+                                                            <span class="badge @(step.IsCompleted ? "bg-success text-white" : "bg-danger bg-opacity-10 text-danger") rounded-pill px-2" style="font-size: 0.65rem;">
+                                                                @(step.IsCompleted ? "Completado" : "Obligatorio")
+                                                            </span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+
+                                    @{
+                                        bool canApproveBoCp = cp.Steps == null || !cp.Steps.Any() || cp.Steps.Where(s => s.IsRequired).All(s => s.IsCompleted);
+                                        int pendingReqStepsBo = cp.Steps?.Count(s => s.IsRequired && !s.IsCompleted) ?? 0;
+                                    }
+                                    <div class="d-flex align-items-center justify-content-end gap-2 pt-2 border-top">
+                                        @if (!canApproveBoCp)
+                                        {
+                                            <span class="text-warning small me-auto d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                                                <i class="bi bi-lock-fill"></i> @pendingReqStepsBo paso(s) obligatorio(s) pendiente(s)
+                                            </span>
+                                        }
+                                        <button class="btn btn-sm btn-outline-danger rounded-pill px-3" @onclick="() => ResolveCheckpoint(cp, false)">
+                                            Rechazar / KO
+                                        </button>
+                                        <button class="btn btn-sm @(cp.Status == "APROBADO" ? "btn-success text-white" : canApproveBoCp ? "btn-outline-success" : "btn-light text-muted border opacity-50") rounded-pill px-3" 
+                                                disabled="@(!canApproveBoCp)" 
+                                                title="@(canApproveBoCp ? "Aprobar Checkpoint" : "Completa todos los pasos obligatorios para habilitar la aprobación")"
+                                                @onclick="() => ResolveCheckpoint(cp, true)">
+                                            Aprobar Checkpoint
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer bg-light border-top p-3 d-flex justify-content-between">
+                    <a href="/orders/@_timelineOrderId" class="btn btn-outline-dark rounded-pill px-4 text-decoration-none">
+                        Ir a Ficha 360° →
+                    </a>
+                    <button class="btn btn-secondary rounded-pill px-4" @onclick="CloseTimelineModal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<ProductActivationViewModel> _allActivations = new();
     private bool _isLoading = true;
@@ -341,6 +518,15 @@
     private DateTime _modalActualDate = DateTime.Today;
     private string _modalNotes = string.Empty;
 
+    // Timeline modal state
+    private bool _showTimelineModal = false;
+    private long _timelineOrderId = 0;
+    private string _timelineCustomerName = "";
+    private List<StageDto> _stageObjects = new();
+    private List<StageCheckpointVm> _cachedCheckpoints = new();
+    private int _currentTimelineStageIdx = 0;
+    private int _selectedTimelineStageIdx = -1;
+
     private List<ProductActivationViewModel> FilteredActivations
     {
         get
@@ -350,7 +536,7 @@
                  a.CustomerName.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase) ||
                  a.ProductName.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase) ||
                  a.IdOrder.ToString().Contains(_searchFilter)) &&
-                (_selectedStatus == "TODOS" || a.Status.Equals(_selectedStatus, StringComparison.OrdinalIgnoreCase) || (_selectedStatus == "DELAYED" && a.IsDelayed)) &&
+                (_selectedStatus == "TODOS" || a.Status == _selectedStatus || (_selectedStatus == "DELAYED" && a.IsDelayed)) &&
                 (_selectedProvider == 0 || a.IdProvider == _selectedProvider)
             ).ToList();
         }
@@ -358,7 +544,47 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadStagesAndCatalog();
         await LoadActivations();
+    }
+
+    private async Task LoadStagesAndCatalog()
+    {
+        try
+        {
+            var stages = await Http.GetFromJsonAsync<List<StageDto>>("/api/engines/flow/stages");
+            if (stages != null && stages.Any())
+            {
+                _stageObjects = stages.OrderBy(s => s.OrderIndex).ToList();
+            }
+
+            var fullCatalog = await Http.GetFromJsonAsync<List<FullCatalogItemDto>>("/api/engines/flow/catalogs/full");
+            if (fullCatalog != null)
+            {
+                _cachedCheckpoints = fullCatalog.Select(c => new StageCheckpointVm
+                {
+                    IdCheckpoint = c.IdCheckpoint,
+                    Code = c.Code,
+                    Name = c.Name,
+                    TriggerStageId = c.TriggerStageId,
+                    BlocksAdvance = c.BlocksAdvance,
+                    RollbackToStage = c.RollbackToStage,
+                    Steps = (c.Steps ?? new List<CheckpointStepItemDto>()).Select(s => new CheckpointStepItemVm
+                    {
+                        IdStep = s.IdStep,
+                        IdCheckpoint = s.IdCheckpoint,
+                        StepOrder = s.StepOrder,
+                        Instruction = !string.IsNullOrWhiteSpace(s.Instruction) ? s.Instruction : s.Name,
+                        IsRequired = s.IsRequired,
+                        IsCompleted = false
+                    }).ToList()
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[BackofficeActivations] Error loading catalog: {ex.Message}");
+        }
     }
 
     private async Task LoadActivations()
@@ -366,7 +592,7 @@
         _isLoading = true;
         try
         {
-            _allActivations = await ActivationService.GetPendingActivationsAsync(_selectedProvider);
+            _allActivations = await ActivationService.GetPendingActivationsAsync(0);
         }
         catch (Exception ex)
         {
@@ -376,6 +602,122 @@
         {
             _isLoading = false;
         }
+    }
+
+    private async Task OpenOrderTimeline(long idOrder, string customerName)
+    {
+        _timelineOrderId = idOrder;
+        _timelineCustomerName = customerName;
+        _selectedTimelineStageIdx = -1;
+        _currentTimelineStageIdx = 0;
+
+        try
+        {
+            var flowInstance = await Http.GetFromJsonAsync<FlowInstanceWithCheckpointsDto>($"/api/engines/flow/instances/by-entity/order/{idOrder}");
+            if (flowInstance != null && _stageObjects.Any())
+            {
+                var idx = _stageObjects.FindIndex(s => s.IdStage == flowInstance.CurrentStageId);
+                _currentTimelineStageIdx = idx >= 0 ? idx : 0;
+                _selectedTimelineStageIdx = _currentTimelineStageIdx;
+
+                if (flowInstance.Checkpoints != null && flowInstance.Checkpoints.Any())
+                {
+                    foreach (var cpInst in flowInstance.Checkpoints)
+                    {
+                        var match = _cachedCheckpoints.FirstOrDefault(c => c.IdCheckpoint == cpInst.IdCheckpoint || c.Code == cpInst.CheckpointCode);
+                        if (match != null)
+                        {
+                            match.IdCpInstance = cpInst.IdCpInstance;
+                            match.Status = cpInst.Status;
+
+                            try
+                            {
+                                var stepsProgress = await Http.GetFromJsonAsync<List<StepProgressDto>>($"/api/engines/flow/checkpoints/instances/{cpInst.IdCpInstance}/steps");
+                                if (stepsProgress != null)
+                                {
+                                    foreach (var sp in stepsProgress)
+                                    {
+                                        var sMatch = match.Steps.FirstOrDefault(s => s.IdStep == sp.IdStep);
+                                        if (sMatch != null) sMatch.IsCompleted = sp.IsCompleted;
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[BackofficeActivations] Error opening order flow: {ex.Message}");
+        }
+
+        _showTimelineModal = true;
+    }
+
+    private void SelectTimelineStage(int idx)
+    {
+        _selectedTimelineStageIdx = idx;
+    }
+
+    private List<StageCheckpointVm> GetTimelineCheckpointsForStageIndex(int stageIdx)
+    {
+        if (stageIdx < 0 || stageIdx >= _stageObjects.Count) return new();
+        long stageId = _stageObjects[stageIdx].IdStage;
+        int orderIdx = _stageObjects[stageIdx].OrderIndex > 0 ? _stageObjects[stageIdx].OrderIndex : (stageIdx + 1);
+
+        return _cachedCheckpoints.Where(c => 
+            c.TriggerStageId == stageId || 
+            (stageId > 11 && c.TriggerStageId == (stageId - 11)) ||
+            (stageId <= 11 && c.TriggerStageId == (stageId + 11)) ||
+            (c.TriggerStageId == orderIdx)
+        ).GroupBy(c => c.Code).Select(g => g.First()).ToList();
+    }
+
+    private async Task ToggleStepProgress(StageCheckpointVm cp, CheckpointStepItemVm step, bool isCompleted)
+    {
+        step.IsCompleted = isCompleted;
+        StateHasChanged();
+
+        if (cp.IdCpInstance > 0)
+        {
+            try
+            {
+                var payload = new { isCompleted, actorId = 1 };
+                await Http.PostAsJsonAsync($"/api/engines/flow/checkpoints/instances/{cp.IdCpInstance}/steps/{step.IdStep}/toggle", payload);
+                Snackbar.Add($"Paso #{step.StepOrder} actualizado.", Severity.Info);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error toggling step: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ResolveCheckpoint(StageCheckpointVm cp, bool approve)
+    {
+        cp.Status = approve ? "APROBADO" : "RECHAZADO";
+        StateHasChanged();
+
+        if (cp.IdCpInstance > 0)
+        {
+            try
+            {
+                var payload = new { status = cp.Status, actorId = 1 };
+                await Http.PostAsJsonAsync($"/api/engines/flow/checkpoints/instances/{cp.IdCpInstance}/resolve", payload);
+                Snackbar.Add(approve ? $"✓ Checkpoint '{cp.Code}' aprobado." : $"Checkpoint '{cp.Code}' rechazado.", approve ? Severity.Success : Severity.Warning);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error resolving checkpoint: {ex.Message}");
+            }
+        }
+    }
+
+    private void CloseTimelineModal()
+    {
+        _showTimelineModal = false;
     }
 
     private void ResetFilters()
@@ -456,5 +798,80 @@
         {
             _isSaving = false;
         }
+    }
+
+    public class StageDto
+    {
+        public long IdStage { get; set; }
+        public string StageCode { get; set; } = "";
+        public string Name { get; set; } = "";
+        public short OrderIndex { get; set; }
+    }
+
+    public class FlowInstanceWithCheckpointsDto
+    {
+        public long IdInstance { get; set; }
+        public long CurrentStageId { get; set; }
+        public int DayCounter { get; set; }
+        public string Status { get; set; } = "ACTIVE";
+        public List<CheckpointInstanceItemDto>? Checkpoints { get; set; }
+    }
+
+    public class CheckpointInstanceItemDto
+    {
+        public long IdCpInstance { get; set; }
+        public long IdCheckpoint { get; set; }
+        public string CheckpointCode { get; set; } = "";
+        public string Status { get; set; } = "PENDING";
+    }
+
+    public class FullCatalogItemDto
+    {
+        public long IdCheckpoint { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public long? TriggerStageId { get; set; }
+        public bool BlocksAdvance { get; set; }
+        public string? RollbackToStage { get; set; }
+        public List<CheckpointStepItemDto>? Steps { get; set; }
+    }
+
+    public class CheckpointStepItemDto
+    {
+        public long IdStep { get; set; }
+        public long IdCheckpoint { get; set; }
+        public short StepOrder { get; set; }
+        public string Name { get; set; } = "";
+        public string Instruction { get; set; } = "";
+        public bool IsRequired { get; set; }
+    }
+
+    public class StageCheckpointVm
+    {
+        public long IdCheckpoint { get; set; }
+        public long IdCpInstance { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public long? TriggerStageId { get; set; }
+        public bool BlocksAdvance { get; set; }
+        public string? RollbackToStage { get; set; }
+        public string Status { get; set; } = "PENDING";
+        public List<CheckpointStepItemVm> Steps { get; set; } = new();
+    }
+
+    public class CheckpointStepItemVm
+    {
+        public long IdStep { get; set; }
+        public long IdCheckpoint { get; set; }
+        public short StepOrder { get; set; }
+        public string Instruction { get; set; } = "";
+        public bool IsRequired { get; set; }
+        public bool IsCompleted { get; set; }
+    }
+
+    public class StepProgressDto
+    {
+        public long IdStep { get; set; }
+        public bool IsCompleted { get; set; }
     }
 }

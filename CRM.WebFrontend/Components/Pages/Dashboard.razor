@@ -1,20 +1,24 @@
 @page "/backoffice/dashboard"
 @rendermode InteractiveServer
-@attribute [Authorize(Roles = "BACKOFFICE")]
+@attribute [Authorize(Roles = "BACKOFFICE,SUPERVISOR,ADMIN_CRM,ADMINISTRADOR")]
 @using CRM.WebFrontend.Models
 @using CRM.WebFrontend.Services
 @inject IBackofficeService BackofficeService
 @using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Configuration
+@using System.Net.Http.Json
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IConfiguration Config
 @inject IJSRuntime JSRuntime
 @inject ISnackbar Snackbar
+@inject HttpClient Http
 @implements IAsyncDisposable
+
+<PageTitle>BackOffice — Verificación & Línea de Tiempo | Nyx CRM</PageTitle>
+
 <style>
-    /* Tipografía nativa y colores premium */
     :root {
         --bg-app: #f4f4f5; /* zinc-100 */
         --surface: #ffffff;
@@ -33,7 +37,6 @@
         color: var(--text-main);
     }
 
-    /* Paneles de precisión */
     .premium-panel {
         background: var(--surface);
         border-radius: var(--radius-lg);
@@ -41,7 +44,6 @@
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05), 0 2px 6px rgba(0, 0, 0, 0.02);
     }
 
-    /* Tipografía refinada */
     .section-title {
         font-size: 0.85rem;
         font-weight: 600;
@@ -63,7 +65,6 @@
         color: var(--text-main);
     }
 
-    /* Lista de cola (Queue) */
     .queue-item {
         background: var(--surface);
         border: none;
@@ -85,7 +86,6 @@
         box-shadow: 0 6px 18px rgba(0, 0, 0, 0.09);
     }
 
-    /* Badges minimalistas */
     .badge-soft {
         padding: 4px 10px;
         border-radius: 20px;
@@ -96,7 +96,6 @@
     .badge-medium { background: #fef3c7; color: #92400e; }
     .badge-low { background: #f4f4f5; color: #3f3f46; }
 
-    /* Visor de DNI */
     .doc-viewer {
         background: #f8fafc;
         border: none;
@@ -117,7 +116,6 @@
         padding: 16px;
     }
 
-    /* Inputs y Botones */
     .premium-input {
         background: #fafafa;
         border: 1px solid var(--border-color);
@@ -153,11 +151,61 @@
     .btn-danger-soft { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .btn-danger-soft:hover { background: #fee2e2; }
 
-    /* Panel de alertas */
     .alert-panel {
         background: #fffbeb;
         border: 1px solid #fde68a;
         border-radius: var(--radius-md);
+        padding: 16px;
+    }
+
+    /* Timeline Stepper Component */
+    .stepper-track {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 12px 4px;
+    }
+    .stepper-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        white-space: nowrap;
+        background: #f4f4f5;
+        color: #71717a;
+        border: 1px solid #e4e4e7;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .stepper-item:hover {
+        background: #e4e4e7;
+    }
+    .stepper-item.current {
+        background: #09090b;
+        color: #ffffff;
+        border-color: #09090b;
+        box-shadow: 0 4px 12px rgba(9, 9, 11, 0.25);
+    }
+    .stepper-item.completed {
+        background: #ecfdf5;
+        color: #047857;
+        border-color: #a7f3d0;
+    }
+
+    /* Modal Backdrop Blur */
+    .modal-backdrop-blur {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(9, 9, 11, 0.55);
+        backdrop-filter: blur(6px);
+        z-index: 1050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 16px;
     }
 </style>
@@ -168,12 +216,12 @@
         <div class="d-flex align-items-center gap-3">
             <h3 class="fw-bold mb-0" style="color: var(--accent); letter-spacing: -0.5px;">BackOffice</h3>
             <span class="text-muted fs-5">/</span>
-            <span class="text-secondary fw-semibold fs-5">Verificación de Documentos</span>
+            <span class="text-secondary fw-semibold fs-5">Verificación & Línea de Tiempo de Ventas</span>
         </div>
         
         <div class="d-flex align-items-center gap-2 bg-white p-1.5 rounded-pill border shadow-sm">
             <a href="/backoffice/dashboard" class="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-semibold shadow-sm">
-                📄 Verificación DNI & OCR
+                📄 Verificación & Flujo
             </a>
             <a href="/backoffice/incidents" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
                 ⚠️ Gestión de Incidencias
@@ -181,13 +229,16 @@
             <a href="/backoffice/activations" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
                 ⚡ Panel de Activaciones
             </a>
+            <a href="/engines/checkpoints" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold border-0">
+                🛡️ Checkpoints Hub
+            </a>
         </div>
     </div>
 
     @if (_isLoading)
     {
         <div class="d-flex justify-content-center py-5">
-            <span class="text-muted">Sincronizando bandeja...</span>
+            <span class="text-muted">Sincronizando bandeja de órdenes...</span>
         </div>
     }
     else
@@ -198,26 +249,33 @@
                     <h6 class="section-title mb-4">Bandeja de Entrada</h6>
                     
                     <div class="d-flex flex-column gap-2">
-                        @foreach (var item in _queue!)
+                        @if (_queue == null || !_queue.Any())
                         {
-                            var isSelected = _currentDoc?.IdOrder == item.IdOrder;
-                            var badgeClass = item.Priority == "Alta" ? "badge-high" : (item.Priority == "Media" ? "badge-medium" : "badge-low");
-                            
-                            <div class="queue-item @(isSelected ? "active" : "")" @onclick="() => SelectOrder(item.IdOrder)">
-                                <div class="d-flex justify-content-between align-items-start mb-1">
-                                    <h6 class="mb-0 fw-bold" style="font-size: 0.92rem;">@item.CustomerName</h6>
-                                    <span class="badge-soft @badgeClass">@item.Priority</span>
+                            <div class="text-muted small text-center py-4">No hay órdenes pendientes en la bandeja.</div>
+                        }
+                        else
+                        {
+                            @foreach (var item in _queue!)
+                            {
+                                var isSelected = _currentDoc?.IdOrder == item.IdOrder;
+                                var badgeClass = item.Priority == "Alta" ? "badge-high" : (item.Priority == "Media" ? "badge-medium" : "badge-low");
+                                
+                                <div class="queue-item @(isSelected ? "active" : "")" @onclick="() => SelectOrder(item.IdOrder)">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <h6 class="mb-0 fw-bold" style="font-size: 0.92rem;">@item.CustomerName</h6>
+                                        <span class="badge-soft @badgeClass">@item.Priority</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-muted" style="font-size: 0.78rem;">Ord. #@item.IdOrder</span>
+                                        <span class="text-muted" style="font-size: 0.78rem;">@item.SubmittedAt.ToString("HH:mm")</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1 mt-1.5 pt-1.5 border-top" style="border-color: rgba(228,228,231,0.6) !important;">
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-0.5 font-bold" style="font-size: 0.68rem;">
+                                            📍 Etapa: @(string.IsNullOrWhiteSpace(item.CurrentStage) ? "Validación Técnica" : item.CurrentStage)
+                                        </span>
+                                    </div>
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="text-muted" style="font-size: 0.78rem;">Ord. #@item.IdOrder</span>
-                                    <span class="text-muted" style="font-size: 0.78rem;">@item.SubmittedAt.ToString("HH:mm")</span>
-                                </div>
-                                <div class="d-flex align-items-center gap-1 mt-1.5 pt-1.5 border-top" style="border-color: rgba(228,228,231,0.6) !important;">
-                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-0.5 font-bold" style="font-size: 0.68rem;">
-                                        📍 Etapa: @(string.IsNullOrWhiteSpace(item.CurrentStage) ? "Validación Técnica" : item.CurrentStage)
-                                    </span>
-                                </div>
-                            </div>
+                            }
                         }
                     </div>
                 </div>
@@ -229,26 +287,190 @@
                     <div class="premium-panel d-flex flex-column align-items-center justify-content-center h-100 p-5 text-center">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--border-color); margin-bottom: 1rem;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         <h5 class="fw-bold text-dark">Ningún documento seleccionado</h5>
-                        <p class="text-muted">Selecciona un registro de la bandeja para iniciar la revisión.</p>
+                        <p class="text-muted">Selecciona un registro de la bandeja para iniciar la revisión y auditoría de flujo.</p>
                     </div>
                 }
                 else
                 {
                     <div class="d-flex flex-column gap-4">
+                        <!-- PANEL 1: LÍNEA DE TIEMPO DE LA VENTA (FLOW TIMELINE) -->
+                        <div class="premium-panel p-4">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
+                                <div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <h5 class="fw-bold m-0" style="letter-spacing: -0.5px;">📈 Línea de Tiempo de la Venta — Ord. #@_currentDoc.IdOrder</h5>
+                                        <span class="badge bg-dark text-white rounded-pill px-2.5 py-1 font-bold" style="font-size: 0.72rem;">
+                                            @(_flowInstance != null ? $"Día {_flowInstance.DayCounter}" : "En Curso")
+                                        </span>
+                                    </div>
+                                    <p class="text-muted small m-0 mt-1">Progreso y avance de etapas gobernadas por Nyx.FlowEngine.</p>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-sm btn-outline-dark rounded-pill px-3 fw-semibold d-flex align-items-center gap-1.5" @onclick="OpenTimelineModal">
+                                        🔍 Ver Modal 360°
+                                    </button>
+                                    <a href="/orders/@_currentDoc.IdOrder" class="btn btn-sm btn-dark rounded-pill px-3 fw-semibold text-decoration-none">
+                                        Ficha Completa →
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Stepper visual de etapas -->
+                            @if (_stageObjects != null && _stageObjects.Any())
+                            {
+                                <div class="stepper-track bg-light rounded-4 p-2.5 border mb-3">
+                                    @for (int i = 0; i < _stageObjects.Count; i++)
+                                    {
+                                        var stage = _stageObjects[i];
+                                        var isCurrent = _currentStageIndex == i;
+                                        var isPassed = i < _currentStageIndex;
+                                        var isSelected = _selectedStageIndex == i;
+                                        
+                                        var css = isCurrent ? "current" : (isPassed ? "completed" : "");
+                                        if (isSelected && !isCurrent) css += " border-dark shadow-sm";
+
+                                        int localIdx = i;
+                                        <div class="stepper-item @css" @onclick="() => SelectTimelineStage(localIdx)">
+                                            <span>@(i + 1).</span>
+                                            <span>@stage.Name</span>
+                                            @if (isCurrent)
+                                            {
+                                                <span class="badge bg-white text-dark rounded-pill px-1.5 ms-1" style="font-size: 0.65rem;">ACTUAL</span>
+                                            }
+                                            else if (isPassed)
+                                            {
+                                                <span>✓</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            <!-- CHECKPOINTS Y PASOS SECUENCIALES DE LA ETAPA SELECCIONADA -->
+                            @{
+                                var displayedCps = GetCheckpointsForStageIndex(_selectedStageIndex >= 0 ? _selectedStageIndex : _currentStageIndex);
+                                var stageName = (_selectedStageIndex >= 0 && _selectedStageIndex < _stageObjects.Count) 
+                                    ? _stageObjects[_selectedStageIndex].Name 
+                                    : (_currentStageIndex >= 0 && _currentStageIndex < _stageObjects.Count ? _stageObjects[_currentStageIndex].Name : "Etapa Actual");
+                            }
+
+                            <div class="bg-light p-3.5 rounded-3 border">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fw-bold text-dark" style="font-size: 0.9rem;">🛡️ Checkpoints & Pasos de la Etapa:</span>
+                                        <span class="badge bg-dark text-white rounded-pill px-2.5 py-1" style="font-size: 0.75rem;">@stageName</span>
+                                    </div>
+                                    <span class="text-muted small">@displayedCps.Count checkpoint(s) asignado(s)</span>
+                                </div>
+
+                                @if (!displayedCps.Any())
+                                {
+                                    <div class="p-3 bg-white rounded border text-muted small text-center">
+                                        No hay checkpoints configurados para esta etapa. El avance es automático al resolver la verificación.
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="d-flex flex-column gap-3">
+                                        @foreach (var cp in displayedCps)
+                                        {
+                                            var cpStatusClass = cp.Status == "APROBADO" ? "bg-success text-white" : (cp.Status == "RECHAZADO" ? "bg-danger text-white" : "bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25");
+                                            var cpStatusText = cp.Status == "APROBADO" ? "✔ Aprobado" : (cp.Status == "RECHAZADO" ? "❌ Rechazado" : "⏳ Pendiente");
+
+                                            <div class="bg-white p-3 rounded-3 border shadow-sm">
+                                                <div class="d-flex flex-wrap align-items-center justify-content-between mb-2 pb-2 border-bottom gap-2">
+                                                    <div>
+                                                        <span class="badge bg-secondary rounded-pill me-1.5" style="font-size: 0.7rem;">@cp.Code</span>
+                                                        <strong class="text-dark" style="font-size: 0.88rem;">@cp.Name</strong>
+                                                    </div>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="badge rounded-pill px-2.5 py-1 @cpStatusClass" style="font-size: 0.72rem;">@cpStatusText</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Pasos Secuenciales del Checkpoint -->
+                                                @if (cp.Steps != null && cp.Steps.Any())
+                                                {
+                                                    <div class="mb-3">
+                                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                                            <span class="text-muted fw-semibold small">📋 Pasos Secuenciales a Validar:</span>
+                                                            <span class="badge bg-light text-dark border rounded-pill" style="font-size: 0.68rem;">
+                                                                @cp.Steps.Count(s => s.IsCompleted) / @cp.Steps.Count Completados
+                                                            </span>
+                                                        </div>
+                                                        <div class="d-flex flex-column gap-1.5">
+                                                            @foreach (var step in cp.Steps)
+                                                            {
+                                                                <div class="d-flex align-items-center justify-content-between p-2 rounded border @(step.IsCompleted ? "bg-success bg-opacity-10 border-success border-opacity-25" : "bg-light border-secondary border-opacity-15")" style="font-size: 0.82rem;">
+                                                                    <div class="d-flex align-items-center gap-2">
+                                                                        <input type="checkbox" class="form-check-input mt-0 cursor-pointer" checked="@step.IsCompleted" @onchange="e => ToggleStepCompletion(cp, step, (bool)(e.Value ?? false))" />
+                                                                        <span class="@(step.IsCompleted ? "text-decoration-line-through text-success fw-medium" : "text-dark fw-semibold")">
+                                                                            <strong>Paso @step.StepOrder:</strong> @step.Instruction
+                                                                        </span>
+                                                                    </div>
+                                                                    @if (step.IsRequired)
+                                                                    {
+                                                                        <span class="badge @(step.IsCompleted ? "bg-success text-white" : "bg-danger bg-opacity-10 text-danger") rounded-pill px-2" style="font-size: 0.65rem;">
+                                                                            @(step.IsCompleted ? "Completado" : "Obligatorio")
+                                                                        </span>
+                                                                    }
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="text-muted small fst-italic mb-2" style="font-size: 0.75rem;">
+                                                        ℹ️ Checkpoint de validación directa (sin subtareas requeridas).
+                                                    </div>
+                                                }
+
+                                                <!-- Acciones directas del checkpoint -->
+                                                @{
+                                                    bool canApproveCp = cp.Steps == null || !cp.Steps.Any() || cp.Steps.Where(s => s.IsRequired).All(s => s.IsCompleted);
+                                                    int pendingReqSteps = cp.Steps?.Count(s => s.IsRequired && !s.IsCompleted) ?? 0;
+                                                }
+                                                <div class="d-flex align-items-center justify-content-end gap-2 pt-2 border-top">
+                                                    @if (!canApproveCp)
+                                                    {
+                                                        <span class="text-warning small me-auto d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                                                            <i class="bi bi-lock-fill"></i> @pendingReqSteps paso(s) obligatorio(s) pendiente(s)
+                                                        </span>
+                                                    }
+                                                    <button class="btn btn-xs btn-outline-danger rounded-pill px-3 py-1" style="font-size: 0.75rem;" @onclick="() => RejectCheckpoint(cp)">
+                                                        ❌ Rechazar Checkpoint
+                                                    </button>
+                                                    <button class="btn btn-xs @(cp.Status == "APROBADO" ? "btn-success text-white" : canApproveCp ? "btn-outline-success" : "btn-light text-muted border opacity-50") rounded-pill px-3 py-1" 
+                                                            style="font-size: 0.75rem;" 
+                                                            disabled="@(!canApproveCp)" 
+                                                            title="@(canApproveCp ? "Aprobar Checkpoint" : "Completa todos los pasos obligatorios para habilitar la aprobación")"
+                                                            @onclick="() => ApproveCheckpoint(cp)">
+                                                        ✔ Aprobar Checkpoint
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- PANEL 2: REVISIÓN DE IDENTIDAD, OCR & CHECKLIST -->
                         <div class="premium-panel p-4 p-xl-5">
                             <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 pb-3 border-bottom gap-2">
                                 <div>
                                     <h5 class="fw-bold m-0" style="letter-spacing: -0.5px;">Revisión de Identidad & Contraste — Ord. #@_currentDoc.IdOrder</h5>
                                     <div class="d-flex align-items-center gap-2 mt-1">
                                         <span class="badge bg-dark text-white rounded-pill px-3 py-1 font-bold" style="font-size: 0.75rem;">
-                                            📍 ETAPA NYX: @(string.IsNullOrWhiteSpace(_currentDoc.CurrentStage) ? "Validación Técnica (Backoffice)" : _currentDoc.CurrentStage)
+                                            📍 ETAPA: @(string.IsNullOrWhiteSpace(_currentDoc.CurrentStage) ? "Validación Técnica" : _currentDoc.CurrentStage)
                                         </span>
                                         <span class="text-muted small">• Campaña: @_currentDoc.Campaign</span>
                                     </div>
                                 </div>
                                 <a href="/backoffice/audit/@_currentDoc.IdOrder" class="btn btn-sm btn-outline-dark rounded-pill px-3 d-flex align-items-center gap-1" style="font-size: 0.775rem;">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-                                    🎙️ Auditar Grabación de Audio del Asesor
+                                    🎙️ Auditar Grabación de Audio
                                 </a>
                             </div>
                             
@@ -341,7 +563,6 @@
                                                         <span class="fw-semibold text-primary ms-1">@vField.SystemVerifiedValue</span>
                                                     </div>
 
-                                                    <!-- Botones de evaluación por campo -->
                                                     <div class="d-flex align-items-center justify-content-between pt-2 border-top gap-1">
                                                         <span class="text-muted small" style="font-size: 0.72rem;">Evaluar campo:</span>
                                                         <div class="btn-group btn-group-sm">
@@ -360,7 +581,7 @@
                                                     @if (vField.Status != "VALID")
                                                     {
                                                         <div class="mt-2">
-                                                            <input type="text" class="form-control form-control-sm" style="font-size: 0.75rem;" @bind="vField.RejectReason" placeholder="Motivo específico (ej: Sin cobertura de poste)" />
+                                                            <input type="text" class="form-control form-control-sm" style="font-size: 0.75rem;" @bind="vField.RejectReason" placeholder="Motivo específico" />
                                                         </div>
                                                     }
                                                 </div>
@@ -411,8 +632,8 @@
                             <div class="p-4" style="background: #fafafa; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
                                 <div class="row align-items-end g-3">
                                     <div class="col-xl-6">
-                                        <span class="data-label mb-2">Observaciones del agente (Opcional)</span>
-                                        <input type="text" class="premium-input" @bind="_observation" placeholder="Ej: Imagen borrosa, firma no coincide..." />
+                                        <span class="data-label mb-2">Observaciones de Validación (Opcional)</span>
+                                        <input type="text" class="premium-input" @bind="_observation" placeholder="Ej: Documentos cotejados conformes..." />
                                     </div>
                                     <div class="col-xl-6 d-flex gap-2 justify-content-xl-end">
                                         <button class="btn-premium btn-danger-soft" @onclick='() => SubmitDecision("No coincide")'>No Coincide</button>
@@ -453,47 +674,166 @@
     }
 </div>
 
-@code {
-    public class OcrFieldItem
-    {
-        public string FieldLabel { get; set; } = "";
-        public string DetectedText { get; set; } = "";
-        public int Confidence { get; set; }
-        public string BoxColor { get; set; } = "#6366f1";
-        public double X { get; set; }
-        public double Y { get; set; }
-        public double W { get; set; }
-        public double H { get; set; }
-    }
+<!-- MODAL COMPLETO DE LÍNEA DE TIEMPO & CHECKPOINTS 360° -->
+@if (_showTimelineModal && _currentDoc != null)
+{
+    <div class="modal-backdrop-blur">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 1100px; width: 100%;">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden bg-white">
+                <div class="modal-header bg-dark text-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="modal-title fw-bold fs-5 mb-0">
+                            🛡️ Auditoría de Flujo & Checkpoints — Orden #@_currentDoc.IdOrder
+                        </h5>
+                        <small class="text-white text-opacity-75">
+                            Cliente: @_currentDoc.FormFullName · Campaña: @_currentDoc.Campaign
+                        </small>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseTimelineModal"></button>
+                </div>
+                <div class="modal-body p-4" style="max-height: 75vh; overflow-y: auto;">
+                    <!-- Timeline horizontal modal -->
+                    <div class="stepper-track bg-light rounded-4 p-3 border mb-4">
+                        @for (int i = 0; i < _stageObjects.Count; i++)
+                        {
+                            var stage = _stageObjects[i];
+                            var isCurrent = _currentStageIndex == i;
+                            var isPassed = i < _currentStageIndex;
+                            var isSelected = _selectedStageIndex == i;
 
+                            var css = isCurrent ? "current" : (isPassed ? "completed" : "");
+                            if (isSelected && !isCurrent) css += " border-dark shadow-sm";
+
+                            int localIdx = i;
+                            <div class="stepper-item @css" @onclick="() => SelectTimelineStage(localIdx)">
+                                <span>@(i + 1).</span>
+                                <span>@stage.Name</span>
+                                @if (isCurrent)
+                                {
+                                    <span class="badge bg-white text-dark rounded-pill px-1.5 ms-1" style="font-size: 0.65rem;">ACTUAL</span>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Lista de Checkpoints y Pasos en el Modal -->
+                    @{
+                        var modalCps = GetCheckpointsForStageIndex(_selectedStageIndex >= 0 ? _selectedStageIndex : _currentStageIndex);
+                        var stName = (_selectedStageIndex >= 0 && _selectedStageIndex < _stageObjects.Count) 
+                            ? _stageObjects[_selectedStageIndex].Name 
+                            : (_currentStageIndex >= 0 && _currentStageIndex < _stageObjects.Count ? _stageObjects[_currentStageIndex].Name : "Etapa Actual");
+                    }
+
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h6 class="fw-bold m-0 text-dark">Checkpoints Activos para @stName</h6>
+                        <span class="badge bg-dark text-white">@modalCps.Count Checkpoint(s)</span>
+                    </div>
+
+                    <div class="d-flex flex-column gap-3">
+                        @foreach (var cp in modalCps)
+                        {
+                            var cpStatusClass = cp.Status == "APROBADO" ? "bg-success text-white" : (cp.Status == "RECHAZADO" ? "bg-danger text-white" : "bg-secondary bg-opacity-10 text-dark");
+                            var cpStatusText = cp.Status == "APROBADO" ? "✔ Aprobado" : (cp.Status == "RECHAZADO" ? "❌ Rechazado" : "⏳ Pendiente");
+
+                            <div class="border rounded-3 p-3 bg-white shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                    <div>
+                                        <span class="badge bg-secondary rounded-pill me-2">@cp.Code</span>
+                                        <strong class="text-dark">@cp.Name</strong>
+                                    </div>
+                                    <span class="badge rounded-pill px-3 py-1 @cpStatusClass">@cpStatusText</span>
+                                </div>
+
+                                @if (cp.Steps != null && cp.Steps.Any())
+                                {
+                                    <div class="mb-3">
+                                        <div class="text-muted small fw-bold mb-2">📋 Pasos Secuenciales:</div>
+                                        <div class="d-flex flex-column gap-2">
+                                            @foreach (var step in cp.Steps)
+                                            {
+                                                <div class="d-flex align-items-center justify-content-between p-2 rounded border @(step.IsCompleted ? "bg-success bg-opacity-10 border-success border-opacity-25" : "bg-light")">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <input type="checkbox" class="form-check-input mt-0" checked="@step.IsCompleted" @onchange="e => ToggleStepCompletion(cp, step, (bool)(e.Value ?? false))" />
+                                                        <span class="@(step.IsCompleted ? "text-decoration-line-through text-success fw-medium" : "text-dark fw-semibold")">
+                                                            <strong>Paso @step.StepOrder:</strong> @step.Instruction
+                                                        </span>
+                                                    </div>
+                                                    @if (step.IsRequired)
+                                                    {
+                                                        <span class="badge @(step.IsCompleted ? "bg-success text-white" : "bg-danger bg-opacity-10 text-danger") rounded-pill px-2" style="font-size: 0.65rem;">
+                                                            @(step.IsCompleted ? "Completado" : "Obligatorio")
+                                                        </span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+
+                                @{
+                                    bool canApproveTimelineCp = cp.Steps == null || !cp.Steps.Any() || cp.Steps.Where(s => s.IsRequired).All(s => s.IsCompleted);
+                                    int pendingReqStepsTimeline = cp.Steps?.Count(s => s.IsRequired && !s.IsCompleted) ?? 0;
+                                }
+                                <div class="d-flex align-items-center justify-content-end gap-2 pt-2 border-top">
+                                    @if (!canApproveTimelineCp)
+                                    {
+                                        <span class="text-warning small me-auto d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                                            <i class="bi bi-lock-fill"></i> @pendingReqStepsTimeline paso(s) obligatorio(s) pendiente(s)
+                                        </span>
+                                    }
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill px-3" @onclick="() => RejectCheckpoint(cp)">
+                                        Rechazar / KO
+                                    </button>
+                                    <button class="btn btn-sm @(cp.Status == "APROBADO" ? "btn-success text-white" : canApproveTimelineCp ? "btn-outline-success" : "btn-light text-muted border opacity-50") rounded-pill px-3" 
+                                            disabled="@(!canApproveTimelineCp)" 
+                                            title="@(canApproveTimelineCp ? "Aprobar Checkpoint" : "Completa todos los pasos obligatorios para habilitar la aprobación")"
+                                            @onclick="() => ApproveCheckpoint(cp)">
+                                        Aprobar Checkpoint
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top p-3 d-flex justify-content-end">
+                    <button class="btn btn-secondary rounded-pill px-4" @onclick="CloseTimelineModal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
     private IEnumerable<SalesQueueItem>? _queue;
     private DocumentVerificationData? _currentDoc;
     private IEnumerable<OpenIncidentItem>? _incidents;
-    private List<OcrFieldItem> _ocrFields = new();
-    
+    private string _observation = "";
     private bool _isLoading = true;
     private bool _isOcrScanning = false;
-    private string _observation = "";
-
-    private string GetDocImageUrl => string.IsNullOrEmpty(_currentDoc?.DocumentImageUrl) || _currentDoc?.DocumentImageUrl == "undefined"
-        ? "https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80"
-        : _currentDoc.DocumentImageUrl;
-
+    private List<OcrFieldItem> _ocrFields = new();
     private HubConnection? hubConnection;
+
+    // Timeline & Checkpoints Engine State
+    private List<StageDto> _stageObjects = new();
+    private FlowInstanceWithCheckpointsDto? _flowInstance;
+    private List<StageCheckpointVm> _cachedCheckpoints = new();
+    private int _currentStageIndex = 0;
+    private int _selectedStageIndex = -1;
+    private bool _showTimelineModal = false;
+
+    private string GetDocImageUrl => !string.IsNullOrEmpty(_currentDoc?.DocumentImageUrl) 
+        ? _currentDoc.DocumentImageUrl 
+        : "/images/sample_dni.png";
 
     protected override async Task OnInitializedAsync()
     {
+        _isLoading = true;
+        await LoadStagesCatalog();
         _queue = await BackofficeService.GetPendingQueueAsync();
-        _isLoading = false;
-
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var accessToken = authState.User.FindFirst("access_token")?.Value;
-
+        
+        var hubUrl = NavigationManager.ToAbsoluteUri("/notificationHub");
         hubConnection = new HubConnectionBuilder()
-            .WithUrl(NavigationManager.ToAbsoluteUri("/notificationHub"), options =>
-            {
-                options.AccessTokenProvider = () => Task.FromResult(accessToken);
-            })
+            .WithUrl(hubUrl)
             .WithAutomaticReconnect()
             .Build();
 
@@ -511,6 +851,8 @@
         {
             Console.WriteLine($"[SignalR] Connection error in Dashboard: {ex.Message}");
         }
+
+        _isLoading = false;
     }
 
     public async ValueTask DisposeAsync()
@@ -521,15 +863,205 @@
         }
     }
 
+    private async Task LoadStagesCatalog()
+    {
+        try
+        {
+            var stages = await Http.GetFromJsonAsync<List<StageDto>>("/api/engines/flow/stages");
+            if (stages != null && stages.Any())
+            {
+                _stageObjects = stages.OrderBy(s => s.OrderIndex).ToList();
+            }
+
+            var fullCatalog = await Http.GetFromJsonAsync<List<FullCatalogItemDto>>("/api/engines/flow/catalogs/full");
+            if (fullCatalog != null)
+            {
+                _cachedCheckpoints = fullCatalog.Select(c => new StageCheckpointVm
+                {
+                    IdCheckpoint = c.IdCheckpoint,
+                    Code = c.Code,
+                    Name = c.Name,
+                    TriggerStageId = c.TriggerStageId,
+                    BlocksAdvance = c.BlocksAdvance,
+                    RollbackToStage = c.RollbackToStage,
+                    Steps = (c.Steps ?? new List<CheckpointStepItemDto>()).Select(s => new CheckpointStepItemVm
+                    {
+                        IdStep = s.IdStep,
+                        IdCheckpoint = s.IdCheckpoint,
+                        StepOrder = s.StepOrder,
+                        Instruction = !string.IsNullOrWhiteSpace(s.Instruction) ? s.Instruction : s.Name,
+                        IsRequired = s.IsRequired,
+                        IsCompleted = false
+                    }).ToList()
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Dashboard] Error loading stages catalog: {ex.Message}");
+        }
+    }
+
     private async Task SelectOrder(long idOrder)
     {
         _currentDoc = null; 
         _incidents = null;
         _ocrFields.Clear();
+        _observation = "";
+        _flowInstance = null;
+        _selectedStageIndex = -1;
+        _currentStageIndex = 0;
         
         _currentDoc = await BackofficeService.GetVerificationDataAsync(idOrder);
         _incidents = await BackofficeService.GetOpenIncidentsAsync(idOrder);
-        _observation = ""; 
+
+        await LoadOrderFlowAsync(idOrder);
+    }
+
+    private async Task LoadOrderFlowAsync(long idOrder)
+    {
+        try
+        {
+            _flowInstance = await Http.GetFromJsonAsync<FlowInstanceWithCheckpointsDto>($"/api/engines/flow/instances/by-entity/order/{idOrder}");
+            if (_flowInstance != null && _stageObjects.Any())
+            {
+                var idx = _stageObjects.FindIndex(s => s.IdStage == _flowInstance.CurrentStageId);
+                _currentStageIndex = idx >= 0 ? idx : 0;
+                _selectedStageIndex = _currentStageIndex;
+
+                if (_flowInstance.Checkpoints != null && _flowInstance.Checkpoints.Any())
+                {
+                    foreach (var cpInst in _flowInstance.Checkpoints)
+                    {
+                        var matching = _cachedCheckpoints.FirstOrDefault(c => c.IdCheckpoint == cpInst.IdCheckpoint || c.Code == cpInst.CheckpointCode);
+                        if (matching != null)
+                        {
+                            matching.IdCpInstance = cpInst.IdCpInstance;
+                            matching.Status = cpInst.Status;
+
+                            try
+                            {
+                                var stepsProgress = await Http.GetFromJsonAsync<List<StepProgressDto>>($"/api/engines/flow/checkpoints/instances/{cpInst.IdCpInstance}/steps");
+                                if (stepsProgress != null && stepsProgress.Any())
+                                {
+                                    foreach (var sp in stepsProgress)
+                                    {
+                                        var stepMatch = matching.Steps.FirstOrDefault(s => s.IdStep == sp.IdStep);
+                                        if (stepMatch != null)
+                                        {
+                                            stepMatch.IsCompleted = sp.IsCompleted;
+                                        }
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Dashboard] Error loading order flow: {ex.Message}");
+        }
+    }
+
+    private void SelectTimelineStage(int index)
+    {
+        _selectedStageIndex = index;
+    }
+
+    private List<StageCheckpointVm> GetCheckpointsForStageIndex(int stageIdx)
+    {
+        if (stageIdx < 0 || stageIdx >= _stageObjects.Count) return new();
+        long stageId = _stageObjects[stageIdx].IdStage;
+        int orderIdx = _stageObjects[stageIdx].OrderIndex > 0 ? _stageObjects[stageIdx].OrderIndex : (stageIdx + 1);
+
+        var matches = _cachedCheckpoints.Where(c => 
+            c.TriggerStageId == stageId || 
+            (stageId > 11 && c.TriggerStageId == (stageId - 11)) ||
+            (stageId <= 11 && c.TriggerStageId == (stageId + 11)) ||
+            (c.TriggerStageId == orderIdx)
+        ).GroupBy(c => c.Code).Select(g => g.First()).ToList();
+
+        return matches;
+    }
+
+    private async Task ToggleStepCompletion(StageCheckpointVm cp, CheckpointStepItemVm step, bool isCompleted)
+    {
+        step.IsCompleted = isCompleted;
+        StateHasChanged();
+
+        if (cp.IdCpInstance > 0)
+        {
+            try
+            {
+                var payload = new { isCompleted, actorId = 1 };
+                var response = await Http.PostAsJsonAsync($"/api/engines/flow/checkpoints/instances/{cp.IdCpInstance}/steps/{step.IdStep}/toggle", payload);
+                if (response.IsSuccessStatusCode)
+                {
+                    Snackbar.Add($"Paso #{step.StepOrder} actualizado.", Severity.Info);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error toggling step progress: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ApproveCheckpoint(StageCheckpointVm cp)
+    {
+        cp.Status = "APROBADO";
+        StateHasChanged();
+
+        if (cp.IdCpInstance > 0)
+        {
+            try
+            {
+                var payload = new { status = "APROBADO", actorId = 1 };
+                await Http.PostAsJsonAsync($"/api/engines/flow/checkpoints/instances/{cp.IdCpInstance}/resolve", payload);
+                Snackbar.Add($"✓ Checkpoint '{cp.Code}' aprobado exitosamente.", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error approving checkpoint: {ex.Message}");
+            }
+        }
+        else
+        {
+            Snackbar.Add($"✓ Checkpoint '{cp.Code}' marcado como aprobado.", Severity.Success);
+        }
+    }
+
+    private async Task RejectCheckpoint(StageCheckpointVm cp)
+    {
+        cp.Status = "RECHAZADO";
+        StateHasChanged();
+
+        if (cp.IdCpInstance > 0)
+        {
+            try
+            {
+                var payload = new { status = "RECHAZADO", actorId = 1 };
+                await Http.PostAsJsonAsync($"/api/engines/flow/checkpoints/instances/{cp.IdCpInstance}/resolve", payload);
+                Snackbar.Add($"Checkpoint '{cp.Code}' rechazado.", Severity.Warning);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error rejecting checkpoint: {ex.Message}");
+            }
+        }
+    }
+
+    private void OpenTimelineModal()
+    {
+        _showTimelineModal = true;
+    }
+
+    private void CloseTimelineModal()
+    {
+        _showTimelineModal = false;
     }
 
     private async Task RunOcrScanner()
@@ -543,7 +1075,7 @@
         _isOcrScanning = true;
         _ocrFields.Clear();
         StateHasChanged();
-        await Task.Delay(1000); // Latencia de escaneo de OCR
+        await Task.Delay(1000);
 
         _ocrFields = new List<OcrFieldItem>
         {
@@ -626,7 +1158,6 @@
     {
         if (_currentDoc != null)
         {
-            // Auto-compilar los campos rechazados/observados en el texto de observación
             var failedFields = _currentDoc.ValidationFields?
                 .Where(f => f.Status != "VALID")
                 .ToList();
@@ -648,9 +1179,97 @@
             _incidents = null;
             _ocrFields.Clear();
             _observation = "";
+            _flowInstance = null;
             
             _queue = await BackofficeService.GetPendingQueueAsync();
             _isLoading = false;
         }
     }
-} 
+
+    public class OcrFieldItem
+    {
+        public string FieldLabel { get; set; } = "";
+        public string DetectedText { get; set; } = "";
+        public int Confidence { get; set; } = 95;
+        public string BoxColor { get; set; } = "#6366f1";
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double W { get; set; }
+        public double H { get; set; }
+    }
+
+    public class StageDto
+    {
+        public long IdStage { get; set; }
+        public string StageCode { get; set; } = "";
+        public string Name { get; set; } = "";
+        public short OrderIndex { get; set; }
+    }
+
+    public class FlowInstanceWithCheckpointsDto
+    {
+        public long IdInstance { get; set; }
+        public long CurrentStageId { get; set; }
+        public int DayCounter { get; set; }
+        public string Status { get; set; } = "ACTIVE";
+        public List<CheckpointInstanceItemDto>? Checkpoints { get; set; }
+    }
+
+    public class CheckpointInstanceItemDto
+    {
+        public long IdCpInstance { get; set; }
+        public long IdCheckpoint { get; set; }
+        public string CheckpointCode { get; set; } = "";
+        public string Status { get; set; } = "PENDING";
+    }
+
+    public class FullCatalogItemDto
+    {
+        public long IdCheckpoint { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public long? TriggerStageId { get; set; }
+        public bool BlocksAdvance { get; set; }
+        public string? RollbackToStage { get; set; }
+        public List<CheckpointStepItemDto>? Steps { get; set; }
+    }
+
+    public class CheckpointStepItemDto
+    {
+        public long IdStep { get; set; }
+        public long IdCheckpoint { get; set; }
+        public short StepOrder { get; set; }
+        public string Name { get; set; } = "";
+        public string Instruction { get; set; } = "";
+        public bool IsRequired { get; set; }
+    }
+
+    public class StageCheckpointVm
+    {
+        public long IdCheckpoint { get; set; }
+        public long IdCpInstance { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public long? TriggerStageId { get; set; }
+        public bool BlocksAdvance { get; set; }
+        public string? RollbackToStage { get; set; }
+        public string Status { get; set; } = "PENDING";
+        public List<CheckpointStepItemVm> Steps { get; set; } = new();
+    }
+
+    public class CheckpointStepItemVm
+    {
+        public long IdStep { get; set; }
+        public long IdCheckpoint { get; set; }
+        public short StepOrder { get; set; }
+        public string Instruction { get; set; } = "";
+        public bool IsRequired { get; set; }
+        public bool IsCompleted { get; set; }
+    }
+
+    public class StepProgressDto
+    {
+        public long IdStep { get; set; }
+        public bool IsCompleted { get; set; }
+    }
+}

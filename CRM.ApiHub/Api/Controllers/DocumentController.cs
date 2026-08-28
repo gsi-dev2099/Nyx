@@ -3,10 +3,12 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using CRM.ApiHub.Application.DTOs;
+using CRM.ApiHub.Application.Interfaces;
 using CRM.ApiHub.Application.UseCases.Documents;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace CRM.ApiHub.Api.Controllers;
 
@@ -18,31 +20,30 @@ public class DocumentController : ControllerBase
     private readonly UploadOrderDocumentUseCase _uploadOrderDocumentUseCase;
     private readonly VerifyOrderDocumentUseCase _verifyOrderDocumentUseCase;
     private readonly GetDocumentByIdUseCase _getDocumentByIdUseCase;
+    private readonly IFileStorageService _fileStorageService;
+    private readonly string _bucketName;
 
     public DocumentController(
         GetDocumentsByOrderUseCase getDocumentsByOrderUseCase,
         UploadOrderDocumentUseCase uploadOrderDocumentUseCase,
         VerifyOrderDocumentUseCase verifyOrderDocumentUseCase,
-        GetDocumentByIdUseCase getDocumentByIdUseCase)
+        GetDocumentByIdUseCase getDocumentByIdUseCase,
+        IFileStorageService fileStorageService,
+        IConfiguration config)
     {
         _getDocumentsByOrderUseCase = getDocumentsByOrderUseCase;
         _uploadOrderDocumentUseCase = uploadOrderDocumentUseCase;
         _verifyOrderDocumentUseCase = verifyOrderDocumentUseCase;
         _getDocumentByIdUseCase = getDocumentByIdUseCase;
+        _fileStorageService = fileStorageService;
+        _bucketName = config["MinioSettings:BucketName"] ?? "nyx-crm-documents";
     }
 
     [HttpGet("api/orders/{id:long}/documents")]
     public async Task<IActionResult> GetDocumentsByOrder(long id, CancellationToken ct)
     {
-        try
-        {
-            var docs = await _getDocumentsByOrderUseCase.ExecuteAsync(id, ct);
-            return Ok(docs);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al obtener los documentos de la orden.", details = ex.Message });
-        }
+        var docs = await _getDocumentsByOrderUseCase.ExecuteAsync(id, ct);
+        return Ok(docs);
     }
 
     [HttpPost("api/orders/{id:long}/documents")]
@@ -62,42 +63,29 @@ public class DocumentController : ControllerBase
             return BadRequest(new { message = "El tipo de documento es requerido." });
         }
 
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("id_user");
         if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long uploadedBy))
         {
             return Unauthorized(new { message = "Usuario no autorizado." });
         }
 
-        if (uploadedBy == -999) uploadedBy = 101;
-        else if (uploadedBy == -1000) uploadedBy = 237;
-        else if (uploadedBy == -998) uploadedBy = 9;
+        var originalFileName = dto.File.FileName;
+        var mimeType = string.IsNullOrWhiteSpace(dto.File.ContentType) ? "application/octet-stream" : dto.File.ContentType;
+        var fileSizeKb = dto.File.Length / 1024;
 
-        try
-        {
-            var originalFileName = dto.File.FileName;
-            var mimeType = dto.File.ContentType;
-            var fileSizeKb = dto.File.Length / 1024;
+        using var fileStream = dto.File.OpenReadStream();
+        var createdDoc = await _uploadOrderDocumentUseCase.ExecuteAsync(
+            idOrder: id,
+            documentType: dto.DocumentType,
+            originalFileName: originalFileName,
+            mimeType: mimeType,
+            fileSizeKb: fileSizeKb,
+            fileStream: fileStream,
+            uploadedBy: uploadedBy,
+            ct: ct
+        );
 
-            using (var fileStream = dto.File.OpenReadStream())
-            {
-                var createdDoc = await _uploadOrderDocumentUseCase.ExecuteAsync(
-                    idOrder: id,
-                    documentType: dto.DocumentType,
-                    originalFileName: originalFileName,
-                    mimeType: mimeType,
-                    fileSizeKb: fileSizeKb,
-                    fileStream: fileStream,
-                    uploadedBy: uploadedBy,
-                    ct: ct
-                );
-
-                return Created($"api/documents/{createdDoc.IdDocument}", createdDoc);
-            }
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al subir el documento.", details = ex.Message });
-        }
+        return Created($"api/documents/{createdDoc.IdDocument}", createdDoc);
     }
 
     [HttpPatch("api/documents/{id:long}/verify")]
@@ -108,67 +96,60 @@ public class DocumentController : ControllerBase
             return BadRequest(new { message = "El estado de verificación es requerido." });
         }
 
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("id_user");
         if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out long verifiedBy))
         {
             return Unauthorized(new { message = "Usuario no autorizado." });
         }
 
-        if (verifiedBy == -999) verifiedBy = 101;
-        else if (verifiedBy == -1000) verifiedBy = 237;
-        else if (verifiedBy == -998) verifiedBy = 9;
+        var success = await _verifyOrderDocumentUseCase.ExecuteAsync(
+            idDoc: id,
+            status: dto.Status,
+            notes: dto.Notes,
+            verifiedBy: verifiedBy,
+            ct: ct
+        );
 
-        try
+        if (!success)
         {
-            var success = await _verifyOrderDocumentUseCase.ExecuteAsync(
-                idDoc: id,
-                status: dto.Status,
-                notes: dto.Notes,
-                verifiedBy: verifiedBy,
-                ct: ct
-            );
-
-            if (!success)
-            {
-                return NotFound(new { message = "Documento no encontrado." });
-            }
-
-            return Ok(new { message = "Verificación de documento actualizada correctamente." });
+            return NotFound(new { message = "Documento no encontrado." });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al actualizar la verificación del documento.", details = ex.Message });
-        }
+
+        return Ok(new { message = "Verificación de documento actualizada correctamente." });
     }
 
     [HttpGet("api/documents/{id:long}/download")]
     public async Task<IActionResult> DownloadDocument(long id, CancellationToken ct)
     {
-        try
+        var doc = await _getDocumentByIdUseCase.ExecuteAsync(id, ct);
+        if (doc == null)
         {
-            var doc = await _getDocumentByIdUseCase.ExecuteAsync(id, ct);
-            if (doc == null)
-            {
-                return NotFound(new { message = "Documento no encontrado." });
-            }
-
-            if (doc.FilePath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                doc.FilePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            {
-                return Redirect(doc.FilePath);
-            }
-
-            if (!System.IO.File.Exists(doc.FilePath))
-            {
-                return NotFound(new { message = "El archivo físico no existe en el servidor." });
-            }
-
-            var mimeType = doc.MimeType ?? "application/octet-stream";
-            return PhysicalFile(doc.FilePath, mimeType, System.IO.Path.GetFileName(doc.FilePath));
+            return NotFound(new { message = "Documento no encontrado." });
         }
-        catch (Exception ex)
+
+        var stream = await _fileStorageService.DownloadFileAsync(_bucketName, doc.FilePath, ct);
+        var mimeType = doc.MimeType ?? "application/octet-stream";
+        var fileName = doc.FileName ?? "documento";
+
+        return File(stream, mimeType, fileName);
+    }
+
+    [HttpGet("api/documents/{id:long}/presigned-url")]
+    public async Task<IActionResult> GetPresignedUrl(long id, [FromQuery] int expiryMinutes = 15, CancellationToken ct = default)
+    {
+        var doc = await _getDocumentByIdUseCase.ExecuteAsync(id, ct);
+        if (doc == null)
         {
-            return StatusCode(500, new { message = "Error al descargar el documento.", details = ex.Message });
+            return NotFound(new { message = "Documento no encontrado." });
         }
+
+        var presignedUrl = await _fileStorageService.GetPresignedUrlAsync(
+            bucketName: _bucketName,
+            objectKey: doc.FilePath,
+            expiry: TimeSpan.FromMinutes(Math.Clamp(expiryMinutes, 1, 60)),
+            ct: ct
+        );
+
+        return Ok(new { url = presignedUrl, expiresInMinutes = expiryMinutes });
     }
 }

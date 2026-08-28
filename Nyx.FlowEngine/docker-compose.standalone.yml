@@ -1,0 +1,54 @@
+name: nyx_cycle_engine_standalone
+
+services:
+  nyx_flow_redis:
+    image: redis:7-alpine
+    container_name: nyx_flow_redis
+    ports:
+      - "6380:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  nyx_flow_postgres:
+    image: postgres:16-alpine
+    container_name: nyx_flow_postgres
+    environment:
+      - POSTGRES_USER=usr_flow
+      - POSTGRES_PASSWORD=Flow$$Nyx2026!Engine#Key
+      - POSTGRES_DB=nyx_flow
+    ports:
+      - "5433:5432"
+    volumes:
+      - nyx_flow_pgdata:/var/lib/postgresql/data
+      - ./db_init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U usr_flow -d nyx_flow"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  flow_engine_standalone:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flow_engine_standalone
+    ports:
+      - "5072:5072"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=nyx_flow_postgres;Port=5432;Database=nyx_flow;Username=usr_flow;Password=Flow$$Nyx2026!Engine#Key
+      - RedisSettings__ConnectionString=nyx_flow_redis:6379
+    depends_on:
+      nyx_flow_redis:
+        condition: service_healthy
+      nyx_flow_postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  nyx_flow_pgdata:

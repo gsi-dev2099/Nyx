@@ -3,7 +3,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using System.Net.Http.Json
 @using System.Text.Json
-@attribute [Authorize(Roles = "ADMIN_CRM")]
+@attribute [Authorize(Roles = "ADMIN_CRM,ADMINISTRADOR,SUPERVISOR,COORDINADOR,BACKOFFICE")]
 @inject HttpClient Http
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavManager
@@ -75,6 +75,7 @@
         <div class="hub-tabs">
             <button class="hub-tab @(tab == "etapas" ? "active" : "")" @onclick='() => SetTab("etapas")'>🏗️ 1. Etapas & Asignación de Checkpoints</button>
             <button class="hub-tab @(tab == "catalogo" ? "active" : "")" @onclick='() => SetTab("catalogo")'>📦 2. Catálogo & Crear Checkpoints</button>
+            <button class="hub-tab @(tab == "diagrama" ? "active" : "")" @onclick='() => SetTab("diagrama")'>🕸️ 3. Diagrama BPMN Interactivo</button>
         </div>
     </div>
 
@@ -88,6 +89,10 @@
                     <p class="text-muted small mb-0">Datos en vivo desde <code>Nyx.FlowEngine → nyx_flow.checkpoint_catalog</code>. Cada fila activa requirió aprobación de Data, Negocio y Gerencia.</p>
                 </div>
                 <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-dark rounded-pill px-3 shadow-sm d-inline-flex align-items-center gap-1.5" @onclick="OpenImportJsonModal" title="Importar o sincronizar desde formato GSI backup JSON">
+                        <i class="bi bi-file-earmark-code"></i>
+                        <span>📂 Importar Backup JSON</span>
+                    </button>
                     <button class="btn btn-sm btn-primary rounded-pill px-3" @onclick="OpenCreateCpModal">
                         ➕ Nuevo Checkpoint
                     </button>
@@ -241,6 +246,353 @@
                             }
                         </tbody>
                     </table>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- ========== TAB 3: DIAGRAMA DE PROCESOS (BPMN INTERACTIVO RESPONSIVO) ========== -->
+    @if (tab == "diagrama")
+    {
+        <div class="card-panel">
+            <!-- Header y Filtros del Diagrama -->
+            <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
+                <div>
+                    <h5 class="fw-bold mb-1">🕸️ Diagrama de Procesos & Flujo de Checkpoints (BPMN Nyx Flow)</h5>
+                    <p class="text-muted small mb-0">Representación visual del flujo entre etapas, progresión secuencial, encadenamiento por KO (<code>TriggeredByKo</code>) y finalización de ciclo.</p>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <button class="btn btn-sm btn-outline-dark rounded-pill px-3 shadow-sm" @onclick="OpenImportJsonModal">
+                        <i class="bi bi-file-earmark-code me-1"></i> 📂 Importar Backup JSON
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" @onclick="LoadCatalog">
+                        <i class="bi bi-arrow-clockwise me-1"></i> ↻ Recargar
+                    </button>
+                </div>
+            </div>
+
+            <!-- BARRA DE HERRAMIENTAS RESPONSIVA: VISTAS Y FILTROS -->
+            <div class="p-3 bg-light rounded-4 border mb-4">
+                <div class="row g-2 align-items-center">
+                    <!-- Selector de Modo de Vista -->
+                    <div class="col-12 col-md-auto">
+                        <div class="btn-group p-1 bg-white border rounded-pill shadow-xs w-100 w-md-auto" role="group">
+                            <button type="button" class='btn btn-xs rounded-pill px-3 py-1 fw-semibold @(diagramViewMode == "grid" ? "btn-primary text-white shadow-sm" : "btn-light text-muted")' @onclick='() => diagramViewMode = "grid"'>
+                                <i class="bi bi-grid-fill me-1"></i> 📱 Grid Responsivo
+                            </button>
+                            <button type="button" class='btn btn-xs rounded-pill px-3 py-1 fw-semibold @(diagramViewMode == "swimlanes" ? "btn-primary text-white shadow-sm" : "btn-light text-muted")' @onclick='() => diagramViewMode = "swimlanes"'>
+                                <i class="bi bi-layout-three-columns me-1"></i> ↔️ Swimlanes
+                            </button>
+                            <button type="button" class='btn btn-xs rounded-pill px-3 py-1 fw-semibold @(diagramViewMode == "pipeline" ? "btn-primary text-white shadow-sm" : "btn-light text-muted")' @onclick='() => diagramViewMode = "pipeline"'>
+                                <i class="bi bi-bezier2 me-1"></i> 📑 Cascada Pipeline
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filtro por Etapa -->
+                    <div class="col-12 col-sm-6 col-md-4">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0 rounded-start-pill text-muted"><i class="bi bi-funnel-fill"></i></span>
+                            <select class="form-select border-start-0 rounded-end-pill" @bind="diagramStageFilter">
+                                <option value="">🌐 Todas las Etapas (@dbStages.Count)</option>
+                                @foreach (var st in dbStages.OrderBy(s => s.OrderIndex))
+                                {
+                                    <option value="@st.IdStage">#@st.OrderIndex - @st.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Buscador Rápido de Checkpoint -->
+                    <div class="col-12 col-sm-6 col-md">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0 rounded-start-pill text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control border-start-0 rounded-end-pill" placeholder="Buscar por código o nombre..." @bind="diagramSearchQuery" @bind:event="oninput" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LEYENDA Y MÉTRICAS RÁPIDAS -->
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 pt-2 border-top">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="small fw-bold text-secondary me-1"><i class="bi bi-info-circle me-1 text-primary"></i> Gobernanza:</span>
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1" style="font-size: 0.72rem;">
+                            <i class="bi bi-arrow-right me-1"></i> Secuencial (OK)
+                        </span>
+                        <span class="badge rounded-pill px-2.5 py-1" style="background:#F3E8FF; color:#6B21A8; border: 1px solid #D8B4FE; font-size: 0.72rem;">
+                            <i class="bi bi-bezier2 me-1"></i> KO Encadenado (TriggeredByKo)
+                        </span>
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1" style="font-size: 0.72rem;">
+                            <i class="bi bi-x-circle-fill me-1"></i> Cierre Definitivo
+                        </span>
+                        <span class="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25 rounded-pill px-2.5 py-1" style="font-size: 0.72rem;">
+                            <i class="bi bi-lock-fill me-1"></i> Bloqueante
+                        </span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-dark rounded-pill px-3 py-1.5 font-monospace">
+                            @dbStages.Count Etapas · @catalogItems.Count Checkpoints
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENIDO DEL DIAGRAMA SEGÚN MODO DE VISTA -->
+            @{
+                var displayedStages = dbStages
+                    .Where(s => !diagramStageFilter.HasValue || s.IdStage == diagramStageFilter.Value)
+                    .OrderBy(s => s.OrderIndex)
+                    .ToList();
+            }
+
+            @if (diagramViewMode == "grid")
+            {
+                <!-- 1. VISTA GRID RESPONSIVO (AUTO-WRAP) -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 1.25rem; width: 100%;">
+                    @foreach (var stage in displayedStages)
+                    {
+                        var stageCps = catalogItems.Where(c => c.TriggerStageId == stage.IdStage).OrderBy(c => c.ExecutionOrder).ToList();
+                        if (!string.IsNullOrWhiteSpace(diagramSearchQuery))
+                        {
+                            stageCps = stageCps.Where(c => c.Name.Contains(diagramSearchQuery, StringComparison.OrdinalIgnoreCase) || c.Code.Contains(diagramSearchQuery, StringComparison.OrdinalIgnoreCase)).ToList();
+                        }
+
+                        <div class="stage-lane-card bg-white border rounded-4 p-3 shadow-xs d-flex flex-column h-100">
+                            <!-- Header de Etapa -->
+                            <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+                                <div>
+                                    <div class="d-flex align-items-center gap-1.5">
+                                        <span class="badge bg-dark text-white font-monospace rounded-pill" style="font-size: 0.68rem;">#@stage.OrderIndex</span>
+                                        <h6 class="fw-bold text-dark mb-0" style="font-size: 0.9rem;" title="@stage.Name">@stage.Name</h6>
+                                    </div>
+                                    <span class="text-muted font-monospace" style="font-size: 0.68rem;">@stage.StageCode</span>
+                                </div>
+                                <span class="badge @(stage.IsTerminal ? "bg-danger text-white" : "bg-light text-secondary border") rounded-pill font-monospace" style="font-size: 0.68rem;">
+                                    @(stage.IsTerminal ? "TERMINAL" : $"{stageCps.Count} CPs")
+                                </span>
+                            </div>
+
+                            <!-- Lista de Checkpoints -->
+                            <div class="d-flex flex-column gap-2 mt-1 flex-grow-1">
+                                @if (!stageCps.Any())
+                                {
+                                    <div class="text-center py-4 text-muted small bg-light rounded-3 border border-dashed my-auto">
+                                        <i class="bi bi-inbox d-block mb-1"></i>
+                                        Sin checkpoints
+                                    </div>
+                                }
+                                else
+                                {
+                                    @for (int i = 0; i < stageCps.Count; i++)
+                                    {
+                                        var cp = stageCps[i];
+                                        var triggeredByParent = cp.TriggeredByKo.HasValue ? catalogItems.FirstOrDefault(x => x.IdCheckpoint == cp.TriggeredByKo.Value) : null;
+                                        var triggersChildren = catalogItems.Where(x => x.TriggeredByKo == cp.IdCheckpoint).ToList();
+
+                                        <div class="bpmn-node-card bg-white p-2.5 rounded-3 border shadow-xs" style="border-left: 4px solid @(cp.FinalizesCycle ? "#EF4444" : cp.TriggeredByKo.HasValue ? "#8B5CF6" : "#2563EB") !important; cursor: pointer; transition: all 0.2s ease;" @onclick="() => OpenEditCpModal(cp)" title="Haz clic para editar parámetros de gobierno">
+                                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                                <span class="badge bg-dark text-white font-monospace" style="font-size: 0.65rem;">@cp.Code</span>
+                                                <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.62rem;">Ord #@cp.ExecutionOrder</span>
+                                            </div>
+                                            <div class="fw-bold text-dark text-truncate" style="font-size: 0.84rem;" title="@cp.Name">
+                                                @cp.Name
+                                            </div>
+
+                                            <div class="d-flex flex-wrap gap-1 mt-1.5">
+                                                @if (cp.FinalizesCycle)
+                                                {
+                                                    <span class="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-25 rounded-pill" style="font-size: 0.62rem;">
+                                                        ⛔ Finaliza Ciclo
+                                                    </span>
+                                                }
+                                                @if (cp.BlocksAdvance)
+                                                {
+                                                    <span class="badge bg-warning bg-opacity-15 text-dark border border-warning border-opacity-25 rounded-pill" style="font-size: 0.62rem;">
+                                                        🔒 Bloqueante
+                                                    </span>
+                                                }
+                                                @if (triggeredByParent != null)
+                                                {
+                                                    <span class="badge rounded-pill" style="background:#F3E8FF; color:#6B21A8; font-size: 0.62rem;" title="Se activa si @triggeredByParent.Code sale KO">
+                                                        🔗 Si KO de: @triggeredByParent.Code
+                                                    </span>
+                                                }
+                                                @if (triggersChildren.Any())
+                                                {
+                                                    <span class="badge bg-info bg-opacity-15 text-dark rounded-pill" style="font-size: 0.62rem;" title="Dispara a: @string.Join(", ", triggersChildren.Select(x => x.Code))">
+                                                        ⚡ KO → @string.Join(", ", triggersChildren.Select(x => x.Code))
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        @if (i < stageCps.Count - 1 && stageCps[i + 1].TriggeredByKo == null)
+                                        {
+                                            <div class="text-center my-0.5 text-muted" style="font-size: 0.7rem;">
+                                                <i class="bi bi-arrow-down text-secondary"></i>
+                                            </div>
+                                        }
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else if (diagramViewMode == "swimlanes")
+            {
+                <!-- 2. VISTA SWIMLANES KANBAN (SCROLL HORIZONTAL) -->
+                <div class="bpmn-canvas-scroll" style="overflow-x: auto; padding-bottom: 16px;">
+                    <div class="d-flex gap-3 align-items-start" style="min-width: @(displayedStages.Count * 280)px;">
+                        @foreach (var stage in displayedStages)
+                        {
+                            var stageCps = catalogItems.Where(c => c.TriggerStageId == stage.IdStage).OrderBy(c => c.ExecutionOrder).ToList();
+                            if (!string.IsNullOrWhiteSpace(diagramSearchQuery))
+                            {
+                                stageCps = stageCps.Where(c => c.Name.Contains(diagramSearchQuery, StringComparison.OrdinalIgnoreCase) || c.Code.Contains(diagramSearchQuery, StringComparison.OrdinalIgnoreCase)).ToList();
+                            }
+
+                            <div class="stage-lane-column" style="width: 270px; flex-shrink: 0; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 16px; padding: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+                                <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom" style="border-color: #E2E8F0 !important;">
+                                    <div>
+                                        <div class="d-flex align-items-center gap-1.5">
+                                            <span class="badge bg-dark text-white font-monospace rounded-pill" style="font-size: 0.68rem;">#@stage.OrderIndex</span>
+                                            <h6 class="fw-bold text-dark mb-0" style="font-size: 0.88rem;" title="@stage.Name">@stage.Name</h6>
+                                        </div>
+                                        <span class="text-muted font-monospace" style="font-size: 0.68rem;">@stage.StageCode</span>
+                                    </div>
+                                    <span class="badge @(stage.IsTerminal ? "bg-danger text-white" : "bg-light text-secondary border") rounded-pill font-monospace" style="font-size: 0.68rem;">
+                                        @(stage.IsTerminal ? "TERMINAL" : $"{stageCps.Count} CPs")
+                                    </span>
+                                </div>
+
+                                <div class="d-flex flex-column gap-2 mt-2">
+                                    @if (!stageCps.Any())
+                                    {
+                                        <div class="text-center py-4 text-muted small bg-white rounded-3 border border-dashed">
+                                            <i class="bi bi-inbox d-block mb-1"></i>
+                                            Sin checkpoints
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @for (int i = 0; i < stageCps.Count; i++)
+                                        {
+                                            var cp = stageCps[i];
+                                            var triggeredByParent = cp.TriggeredByKo.HasValue ? catalogItems.FirstOrDefault(x => x.IdCheckpoint == cp.TriggeredByKo.Value) : null;
+                                            var triggersChildren = catalogItems.Where(x => x.TriggeredByKo == cp.IdCheckpoint).ToList();
+
+                                            <div class="bpmn-node-card bg-white p-2.5 rounded-3 border shadow-xs" style="border-left: 4px solid @(cp.FinalizesCycle ? "#EF4444" : cp.TriggeredByKo.HasValue ? "#8B5CF6" : "#2563EB") !important; cursor: pointer; transition: all 0.2s ease;" @onclick="() => OpenEditCpModal(cp)" title="Haz clic para editar parámetros de gobierno">
+                                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                                    <span class="badge bg-dark text-white font-monospace" style="font-size: 0.65rem;">@cp.Code</span>
+                                                    <span class="badge bg-light text-muted border rounded-pill" style="font-size: 0.62rem;">Ord #@cp.ExecutionOrder</span>
+                                                </div>
+                                                <div class="fw-bold text-dark text-truncate" style="font-size: 0.82rem;" title="@cp.Name">
+                                                    @cp.Name
+                                                </div>
+
+                                                <div class="d-flex flex-wrap gap-1 mt-1.5">
+                                                    @if (cp.FinalizesCycle)
+                                                    {
+                                                        <span class="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-25 rounded-pill" style="font-size: 0.62rem;">
+                                                            ⛔ Finaliza Ciclo
+                                                        </span>
+                                                    }
+                                                    @if (cp.BlocksAdvance)
+                                                    {
+                                                        <span class="badge bg-warning bg-opacity-15 text-dark border border-warning border-opacity-25 rounded-pill" style="font-size: 0.62rem;">
+                                                            🔒 Bloqueante
+                                                        </span>
+                                                    }
+                                                    @if (triggeredByParent != null)
+                                                    {
+                                                        <span class="badge rounded-pill" style="background:#F3E8FF; color:#6B21A8; font-size: 0.62rem;" title="Se activa si @triggeredByParent.Code sale KO">
+                                                            🔗 Si KO de: @triggeredByParent.Code
+                                                        </span>
+                                                    }
+                                                    @if (triggersChildren.Any())
+                                                    {
+                                                        <span class="badge bg-info bg-opacity-15 text-dark rounded-pill" style="font-size: 0.62rem;" title="Dispara a: @string.Join(", ", triggersChildren.Select(x => x.Code))">
+                                                            ⚡ KO → @string.Join(", ", triggersChildren.Select(x => x.Code))
+                                                        </span>
+                                                    }
+                                                </div>
+                                            </div>
+
+                                            @if (i < stageCps.Count - 1 && stageCps[i + 1].TriggeredByKo == null)
+                                            {
+                                                <div class="text-center my-0.5 text-muted" style="font-size: 0.7rem;">
+                                                    <i class="bi bi-arrow-down text-secondary"></i>
+                                                </div>
+                                            }
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- 3. VISTA PIPELINE EN CASCADA -->
+                <div class="d-flex flex-column gap-3 max-w-4xl mx-auto">
+                    @foreach (var stage in displayedStages)
+                    {
+                        var stageCps = catalogItems.Where(c => c.TriggerStageId == stage.IdStage).OrderBy(c => c.ExecutionOrder).ToList();
+                        if (!string.IsNullOrWhiteSpace(diagramSearchQuery))
+                        {
+                            stageCps = stageCps.Where(c => c.Name.Contains(diagramSearchQuery, StringComparison.OrdinalIgnoreCase) || c.Code.Contains(diagramSearchQuery, StringComparison.OrdinalIgnoreCase)).ToList();
+                        }
+
+                        <div class="card border rounded-4 shadow-sm overflow-hidden">
+                            <div class="card-header bg-dark text-white py-2.5 px-3 d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-primary text-white font-monospace">Etapa #@stage.OrderIndex</span>
+                                    <span class="fw-bold">@stage.Name</span>
+                                    <small class="text-light text-opacity-75 font-monospace">(@stage.StageCode)</small>
+                                </div>
+                                <span class="badge bg-light text-dark rounded-pill">@stageCps.Count Checkpoints</span>
+                            </div>
+                            <div class="card-body p-3 bg-light">
+                                <div class="row g-2">
+                                    @foreach (var cp in stageCps)
+                                    {
+                                        var triggeredByParent = cp.TriggeredByKo.HasValue ? catalogItems.FirstOrDefault(x => x.IdCheckpoint == cp.TriggeredByKo.Value) : null;
+                                        var triggersChildren = catalogItems.Where(x => x.TriggeredByKo == cp.IdCheckpoint).ToList();
+
+                                        <div class="col-12 col-md-6">
+                                            <div class="bg-white p-3 rounded-3 border shadow-xs h-100" style="border-left: 4px solid @(cp.FinalizesCycle ? "#EF4444" : cp.TriggeredByKo.HasValue ? "#8B5CF6" : "#2563EB") !important; cursor: pointer;" @onclick="() => OpenEditCpModal(cp)">
+                                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                                    <span class="badge bg-dark text-white font-monospace">@cp.Code</span>
+                                                    <span class="badge bg-light text-muted border rounded-pill">Orden #@cp.ExecutionOrder</span>
+                                                </div>
+                                                <div class="fw-bold text-dark mb-1">@cp.Name</div>
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    @if (cp.FinalizesCycle)
+                                                    {
+                                                        <span class="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-25 rounded-pill" style="font-size: 0.65rem;">⛔ Finaliza Ciclo</span>
+                                                    }
+                                                    @if (cp.BlocksAdvance)
+                                                    {
+                                                        <span class="badge bg-warning bg-opacity-15 text-dark border border-warning border-opacity-25 rounded-pill" style="font-size: 0.65rem;">🔒 Bloqueante</span>
+                                                    }
+                                                    @if (triggeredByParent != null)
+                                                    {
+                                                        <span class="badge rounded-pill" style="background:#F3E8FF; color:#6B21A8; font-size: 0.65rem;">🔗 Si KO de: @triggeredByParent.Code</span>
+                                                    }
+                                                    @if (triggersChildren.Any())
+                                                    {
+                                                        <span class="badge bg-info bg-opacity-15 text-dark rounded-pill" style="font-size: 0.65rem;">⚡ KO → @string.Join(", ", triggersChildren.Select(x => x.Code))</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
                 </div>
             }
         </div>
@@ -1326,29 +1678,113 @@
                     </div>
                 </div>
 
-                <div class="row g-2 mb-2">
-                    <div class="col-12 col-sm-6">
-                        <label class="form-label small fw-bold text-dark mb-1">↩ Retrocede Específicamente a Checkpoint</label>
-                        <select class="form-select form-select-sm" @bind="editCpRollbackCode">
-                            <option value="">(Sin retroceso específico)</option>
-                            @foreach (var item in catalogItems.OrderBy(c => c.ExecutionOrder))
-                            {
-                                <option value="@item.Code">#@item.ExecutionOrder — @item.Code (@item.Name)</option>
-                            }
-                        </select>
+                <!-- ⚙️ SECCIÓN DESTACADA: CONFIGURACIÓN DE GOBIERNO (Estilo GSI Auditoría) -->
+                <div class="mb-3 p-3 rounded-3 border" style="background: #F8FAFC; border-color: #CBD5E1 !important;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold small text-dark" style="font-size: 0.82rem;">⚙️ Configuración de Gobierno</span>
+                        <span class="badge bg-white text-secondary border rounded-pill px-2 py-0.5" style="font-size: 0.68rem;">Motor Nyx Flow</span>
                     </div>
-                    <div class="col-6 col-sm-3">
-                        <label class="form-label small fw-bold text-dark mb-1">Paso Específico</label>
-                        <input type="number" class="form-control form-control-sm text-center" min="1" max="10" @bind="editCpRollbackStep" disabled="@(string.IsNullOrEmpty(editCpRollbackCode))" />
-                    </div>
-                    <div class="col-6 col-sm-3 d-flex align-items-end gap-3 justify-content-end pb-1">
-                        <div class="form-check form-switch small">
-                            <input class="form-check-input" type="checkbox" id="checkBlockEdit" @bind="editCpBlocks" />
-                            <label class="form-check-label small fw-bold" for="checkBlockEdit">Bloqueante</label>
+
+                    <!-- 1. Bloquea Avance & Finaliza Ciclo -->
+                    <div class="row g-2 mb-2 align-items-center">
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1 d-block" style="font-size: 11px;">Bloquea avance de etapa</label>
+                            <div class="btn-group btn-group-sm w-100" role="group">
+                                <button type="button" class="btn @(editCpBlocks ? "btn-danger text-white fw-bold" : "btn-outline-secondary")" @onclick="() => editCpBlocks = true">
+                                    <i class="bi bi-lock-fill me-1"></i> Sí (Bloqueante)
+                                </button>
+                                <button type="button" class="btn @(!editCpBlocks ? "btn-success text-white fw-bold" : "btn-outline-secondary")" @onclick="() => editCpBlocks = false">
+                                    <i class="bi bi-unlock-fill me-1"></i> No (Informativo)
+                                </button>
+                            </div>
                         </div>
-                        <div class="form-check form-switch small">
-                            <input class="form-check-input" type="checkbox" id="checkFinalizeEdit" @bind="editCpFinalizesCycle" />
-                            <label class="form-check-label small fw-bold text-danger" for="checkFinalizeEdit">Finaliza</label>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1 d-block" style="font-size: 11px;">Cierre de Flujo por KO</label>
+                            <div class="form-check form-switch p-2 bg-white rounded border d-flex align-items-center justify-content-between m-0">
+                                <label class="form-check-label small fw-bold text-danger m-0" for="checkFinalizeEdit">
+                                    ⛔ Si sale KO, finaliza ciclo (Irreversible)
+                                </label>
+                                <input class="form-check-input ms-2" type="checkbox" id="checkFinalizeEdit" @bind="editCpFinalizesCycle" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Disparador por KO & Retroceso de Etapa -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">
+                                🔗 Se dispara si sale KO de (Disparador):
+                            </label>
+                            <select class="form-select form-select-sm fw-semibold border-primary text-primary" @bind="editCpTriggeredByKo">
+                                <option value="0">— Ninguno (Disparo por Etapa / Secuencial) —</option>
+                                @foreach (var other in catalogItems.Where(x => x.IdCheckpoint != selectedCp?.IdCheckpoint).OrderBy(x => x.ExecutionOrder))
+                                {
+                                    <option value="@other.IdCheckpoint">#@other.ExecutionOrder — @other.Code: @other.Name (@GetStageName(other.TriggerStageId ?? 0))</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">
+                                ↩ Si sale KO, retrocede a etapa:
+                            </label>
+                            <select class="form-select form-select-sm" @bind="editCpRollbackStage">
+                                <option value="0">— Sin retroceso de etapa —</option>
+                                @foreach (var stg in dbStages.OrderBy(s => s.OrderIndex))
+                                {
+                                    <option value="@stg.IdStage">#@stg.OrderIndex — @stg.Name (@stg.StageCode)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 3. Retroceso Específico de Checkpoint y Paso -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-12 col-sm-8">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">
+                                ↩ Retrocede específicamente a Checkpoint:
+                            </label>
+                            <select class="form-select form-select-sm" @bind="editCpRollbackCode">
+                                <option value="">— Sin retroceso específico —</option>
+                                @foreach (var item in catalogItems.OrderBy(c => c.ExecutionOrder))
+                                {
+                                    <option value="@item.Code">#@item.ExecutionOrder — @item.Code (@item.Name)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">Paso Específico:</label>
+                            <input type="number" class="form-control form-control-sm text-center" min="1" max="20" placeholder="Opcional" @bind="editCpRollbackStep" disabled="@(string.IsNullOrEmpty(editCpRollbackCode))" />
+                        </div>
+                    </div>
+
+                    <!-- 4. Condición Previa & Dueño Operativo -->
+                    <div class="row g-2">
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">
+                                🔀 Condición previa (Fact / Opcional):
+                            </label>
+                            <input type="text" class="form-control form-control-sm" placeholder="ej: scoring_aprobado, doc_dni_uploaded" @bind="editCpPreconditionFact" />
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">
+                                👤 Dueño Operativo:
+                            </label>
+                            <input type="text" class="form-control form-control-sm" placeholder="ej: Asesor / Backoffice / Supervisor" @bind="editCpOwnerDept" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estado de Gobierno -->
+                <div class="mb-3 p-2 bg-light rounded-3 border">
+                    <label class="form-label small fw-bold text-dark mb-1 d-block" style="font-size: 11px;">Estado de Gobierno del Checkpoint</label>
+                    <div class="d-flex gap-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="editCpStatus" id="statusProposed" value="PROPOSED" checked="@(editCpApprovalStatus == "PROPOSED")" @onchange='() => editCpApprovalStatus = "PROPOSED"' />
+                            <label class="form-check-label small fw-bold text-warning" for="statusProposed">🟡 Propuesto (En Revisión)</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="editCpStatus" id="statusActive" value="ACTIVE" checked="@(editCpApprovalStatus == "ACTIVE")" @onchange='() => editCpApprovalStatus = "ACTIVE"' />
+                            <label class="form-check-label small fw-bold text-success" for="statusActive">🟢 Activo (Aprobado para Producción)</label>
                         </div>
                     </div>
                 </div>
@@ -1519,29 +1955,98 @@
                     </div>
                 </div>
 
-                <div class="row g-2 mb-2">
-                    <div class="col-12 col-sm-6">
-                        <label class="form-label small fw-bold text-dark mb-1">↩ Retrocede Específicamente a Checkpoint</label>
-                        <select class="form-select form-select-sm" @bind="newCpRollbackCode">
-                            <option value="">(Sin retroceso específico)</option>
-                            @foreach (var item in catalogItems.OrderBy(c => c.ExecutionOrder))
-                            {
-                                <option value="@item.Code">#@item.ExecutionOrder — @item.Code (@item.Name)</option>
-                            }
-                        </select>
+                <!-- ⚙️ SECCIÓN DESTACADA: CONFIGURACIÓN DE GOBIERNO (Estilo GSI Auditoría) -->
+                <div class="mb-3 p-3 rounded-3 border" style="background: #F8FAFC; border-color: #CBD5E1 !important;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold small text-dark" style="font-size: 0.82rem;">⚙️ Configuración de Gobierno</span>
+                        <span class="badge bg-white text-secondary border rounded-pill px-2 py-0.5" style="font-size: 0.68rem;">Motor Nyx Flow</span>
                     </div>
-                    <div class="col-6 col-sm-3">
-                        <label class="form-label small fw-bold text-dark mb-1">Paso Específico</label>
-                        <input type="number" class="form-control form-control-sm text-center" min="1" max="10" @bind="newCpRollbackStep" disabled="@(string.IsNullOrEmpty(newCpRollbackCode))" />
-                    </div>
-                    <div class="col-6 col-sm-3 d-flex align-items-end gap-3 justify-content-end pb-1">
-                        <div class="form-check form-switch small">
-                            <input class="form-check-input" type="checkbox" id="checkBlockCreate" @bind="newCpBlocks" />
-                            <label class="form-check-label small fw-bold" for="checkBlockCreate">Bloqueante</label>
+
+                    <!-- 1. Bloquea Avance & Finaliza Ciclo -->
+                    <div class="row g-2 mb-2 align-items-center">
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1 d-block" style="font-size: 11px;">Bloquea avance de etapa</label>
+                            <div class="btn-group btn-group-sm w-100" role="group">
+                                <button type="button" class="btn @(newCpBlocks ? "btn-danger text-white fw-bold" : "btn-outline-secondary")" @onclick="() => newCpBlocks = true">
+                                    <i class="bi bi-lock-fill me-1"></i> Sí (Bloqueante)
+                                </button>
+                                <button type="button" class="btn @(!newCpBlocks ? "btn-success text-white fw-bold" : "btn-outline-secondary")" @onclick="() => newCpBlocks = false">
+                                    <i class="bi bi-unlock-fill me-1"></i> No (Informativo)
+                                </button>
+                            </div>
                         </div>
-                        <div class="form-check form-switch small">
-                            <input class="form-check-input" type="checkbox" id="checkFinalizeCreate" @bind="newCpFinalizesCycle" />
-                            <label class="form-check-label small fw-bold text-danger" for="checkFinalizeCreate">Finaliza</label>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1 d-block" style="font-size: 11px;">Cierre de Flujo por KO</label>
+                            <div class="form-check form-switch p-2 bg-white rounded border d-flex align-items-center justify-content-between m-0">
+                                <label class="form-check-label small fw-bold text-danger m-0" for="checkFinalizeCreate">
+                                    ⛔ Si sale KO, finaliza ciclo (Irreversible)
+                                </label>
+                                <input class="form-check-input ms-2" type="checkbox" id="checkFinalizeCreate" @bind="newCpFinalizesCycle" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Disparador por KO & Retroceso de Etapa -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">
+                                🔗 Se dispara si sale KO de (Disparador):
+                            </label>
+                            <select class="form-select form-select-sm fw-semibold border-primary text-primary" @bind="newCpTriggeredByKo">
+                                <option value="">— Ninguno (Disparo por Etapa / Secuencial) —</option>
+                                @foreach (var other in catalogItems.OrderBy(x => x.ExecutionOrder))
+                                {
+                                    <option value="@other.IdCheckpoint">#@other.ExecutionOrder — @other.Code: @other.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">
+                                ↩ Si sale KO, retrocede a etapa:
+                            </label>
+                            <select class="form-select form-select-sm" @bind="newCpRollbackStage">
+                                <option value="">— Sin retroceso de etapa —</option>
+                                @foreach (var stg in dbStages.OrderBy(s => s.OrderIndex))
+                                {
+                                    <option value="@stg.IdStage">#@stg.OrderIndex — @stg.Name (@stg.StageCode)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 3. Retroceso Específico de Checkpoint y Paso -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-12 col-sm-8">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">
+                                ↩ Retrocede específicamente a Checkpoint:
+                            </label>
+                            <select class="form-select form-select-sm" @bind="newCpRollbackCode">
+                                <option value="">— Sin retroceso específico —</option>
+                                @foreach (var item in catalogItems.OrderBy(c => c.ExecutionOrder))
+                                {
+                                    <option value="@item.Code">#@item.ExecutionOrder — @item.Code (@item.Name)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">Paso Específico:</label>
+                            <input type="number" class="form-control form-control-sm text-center" min="1" max="20" placeholder="Opcional" @bind="newCpRollbackStep" disabled="@(string.IsNullOrEmpty(newCpRollbackCode))" />
+                        </div>
+                    </div>
+
+                    <!-- 4. Condición Previa & Dueño Operativo -->
+                    <div class="row g-2">
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">
+                                🔀 Condición previa (Fact / Opcional):
+                            </label>
+                            <input type="text" class="form-control form-control-sm" placeholder="ej: scoring_aprobado, doc_dni_uploaded" @bind="newCpPreconditionFact" />
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-dark mb-1" style="font-size: 11px;">
+                                👤 Dueño Operativo:
+                            </label>
+                            <input type="text" class="form-control form-control-sm" placeholder="ej: Asesor / Backoffice / Supervisor" @bind="newCpOwnerDept" />
                         </div>
                     </div>
                 </div>
@@ -1713,10 +2218,1142 @@
             </div>
         </div>
     }
+
+    <!-- MODAL IMPORTAR BACKUP JSON (GSI BACKUP COMPLIANT) -->
+    @if (showImportJsonModal)
+    {
+        <div class="modal-backdrop-blur" @onclick="CloseImportJsonModal">
+            <div class="modal-card" @onclick:stopPropagation="true" style="max-width: 780px; width: 92vw;">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:36px;height:36px;border-radius:10px;background:#0F172A;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">📂</div>
+                        <div>
+                            <h5 class="fw-bold mb-0 text-dark">Importar y Sincronizar Backup JSON</h5>
+                            <span class="text-muted small">Carga masiva de checkpoints, etapas, reglas de disparo KO y pasos operativos</span>
+                        </div>
+                    </div>
+                    <button class="btn-close-circle" @onclick="CloseImportJsonModal">✕</button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(importJsonFeedback))
+                {
+                    <div class="mb-3 p-2.5 rounded-3 small fw-bold @(importJsonIsError ? "bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25" : "bg-success bg-opacity-10 text-success border border-success border-opacity-25")">
+                        @importJsonFeedback
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1.5">
+                        <label class="form-label small fw-bold text-dark mb-0">Contenido JSON (Formato GSI Backup o array de checkpoints):</label>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-0.5" style="font-size: 0.72rem;" @onclick="LoadSampleJson">
+                            📋 Cargar Plantilla Oficial
+                        </button>
+                    </div>
+                    <textarea class="form-control font-monospace rounded-3" rows="12" style="font-size: 0.8rem; background: #F8FAFC;" placeholder="Pega aquí el JSON con los checkpoints y sus pasos..." @bind="importJsonText"></textarea>
+                    <div class="form-text small">Soporta campos <code>codigo</code>, <code>nombre</code>, <code>etapaId</code>, <code>orden</code>, <code>finalizaCiclo</code>, <code>disparaSiKoDe</code>, <code>bloqueaAvance</code>, <code>pasos</code>.</div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <button type="button" class="btn btn-sm btn-light rounded-pill px-4" @onclick="CloseImportJsonModal" disabled="@isImportingJson">Cancelar</button>
+                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-5 fw-bold shadow-sm" @onclick="ProcessJsonImport" disabled="@isImportingJson">
+                        @if (isImportingJson) { <span class="spinner-border spinner-border-sm me-2"></span><span>Importando...</span> }
+                        else { <span><i class="bi bi-cloud-arrow-up-fill me-1"></i> Procesar e Importar</span> }
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
     private string tab = "etapas";
+
+    // — JSON Import State —
+    private bool showImportJsonModal = false;
+    private string importJsonText = string.Empty;
+    private string importJsonFeedback = string.Empty;
+    private bool importJsonIsError = false;
+    private bool isImportingJson = false;
+
+    private void OpenImportJsonModal()
+    {
+        importJsonFeedback = string.Empty;
+        importJsonIsError = false;
+        showImportJsonModal = true;
+    }
+
+    private void CloseImportJsonModal()
+    {
+        showImportJsonModal = false;
+        importJsonFeedback = string.Empty;
+    }
+
+    private void LoadSampleJson()
+    {
+        importJsonText = @"[
+  {
+    ""id"": 11,
+    ""codigo"": ""CP_TEL_011"",
+    ""nombre"": ""Aceptación de Fichero"",
+    ""etapaId"": 12,
+    ""etapaNombre"": ""Preventa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Presentar Subida""
+    ]
+  },
+  {
+    ""id"": 12,
+    ""codigo"": ""CP_TEL_012"",
+    ""nombre"": ""Preventa — 1ª Llamada"",
+    ""etapaId"": 12,
+    ""etapaNombre"": ""Preventa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": true,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Llamar de 1ª compañía"",
+      ""No recibir aceptación de la oferta""
+    ]
+  },
+  {
+    ""id"": 13,
+    ""codigo"": ""CP_TEL_013"",
+    ""nombre"": ""Preventa — 2ª Llamada"",
+    ""etapaId"": 12,
+    ""etapaNombre"": ""Preventa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": true,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Escucha 2ª compañía""
+    ]
+  },
+  {
+    ""id"": 14,
+    ""codigo"": ""CP_TEL_014"",
+    ""nombre"": ""Preventa — 3ª Llamada"",
+    ""etapaId"": 12,
+    ""etapaNombre"": ""Preventa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": true,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Llamar por 3ra compañia""
+    ]
+  },
+  {
+    ""id"": 15,
+    ""codigo"": ""CP_TEL_015"",
+    ""nombre"": ""Preventa — Alerta Cambio/Retencion "",
+    ""etapaId"": 12,
+    ""etapaNombre"": ""Preventa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": 75,
+    ""pasos"": [
+      ""Informar Alerta de cambio"",
+      ""Confirmar aceptación de cambio""
+    ]
+  },
+  {
+    ""id"": 16,
+    ""codigo"": ""CP_TEL_016"",
+    ""nombre"": ""Toma de Datos Personales"",
+    ""etapaId"": 13,
+    ""etapaNombre"": ""Venta Creada"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": true,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Solicitar Nombre Completo (Titular / Origen)"",
+      ""Solicitar Dirección Completa"",
+      ""Solicitar Cuenta Bancaria"",
+      ""Solicitar NIF/NIE/CIF (Titular / Origen)"",
+      ""Solicitar Correo Electrónico"",
+      ""Solicitar Fecha Nacimiento"",
+      ""Solicitar Operador Actual"",
+      ""Solicitar Tipo de Contrato"",
+      ""Solicitar Tipo Cliente"",
+      ""Solicitar/Confirmar Teléfono Contacto"",
+      ""Solicitar Movil Principal"",
+      ""Solicitar Números a Portar (Fijos/Moviles)"",
+      ""Confirmar Proveedor"",
+      ""Confirmar Oferta: Tecnología + Promoción + Velocidad + Descuento + Tarifas Móviles + Convergentes + Líneas Adicionales + Plataforma + Permanencia""
+    ]
+  },
+  {
+    ""id"": 79,
+    ""codigo"": ""CP_TEL_079"",
+    ""nombre"": ""Pre Carga Verificacion Scoring Venta"",
+    ""etapaId"": 13,
+    ""etapaNombre"": ""Venta Creada"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""YOIGO - MASMOVIL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""BackOffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": 80,
+    ""pasos"": [
+      ""Precargar al CRM de la Campaña"",
+      ""Confirmar Validacion Scoring""
+    ]
+  },
+  {
+    ""id"": 18,
+    ""codigo"": ""CP_TEL_018"",
+    ""nombre"": ""Verificación de Score Cliente"",
+    ""etapaId"": 13,
+    ""etapaNombre"": ""Venta Creada"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""VODAFONE"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": 80,
+    ""pasos"": [
+      ""Verificar Scoring""
+    ]
+  },
+  {
+    ""id"": 77,
+    ""codigo"": ""CP_TEL_077"",
+    ""nombre"": ""Verificacion Cobertura"",
+    ""etapaId"": 13,
+    ""etapaNombre"": ""Venta Creada"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": 76,
+    ""pasos"": [
+      ""Verificar Cobertura""
+    ]
+  },
+  {
+    ""id"": 78,
+    ""codigo"": ""CP_TEL_078"",
+    ""nombre"": ""Verificacion Robinson"",
+    ""etapaId"": 13,
+    ""etapaNombre"": ""Venta Creada"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": 76,
+    ""pasos"": [
+      ""Verificar Robinson""
+    ]
+  },
+  {
+    ""id"": 19,
+    ""codigo"": ""CP_TEL_019"",
+    ""nombre"": ""Revisión de Supervisor"",
+    ""etapaId"": 14,
+    ""etapaNombre"": ""Gestión Inicial"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Supervisor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""1) Revisar el CRM"",
+      ""2) Verificar cumplimiento del checkpoint \""Creación CRM GSI\"""",
+      ""3) Identificar errores"",
+      ""4) Devolver al asesor si corresponde"",
+      ""5) Autorizar envío a Validación Perú""
+    ]
+  },
+  {
+    ""id"": 20,
+    ""codigo"": ""CP_TEL_020"",
+    ""nombre"": ""Envío Carga Solivesa"",
+    ""etapaId"": 16,
+    ""etapaNombre"": ""Envío Proveedor"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Solivesa"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": 74,
+    ""pasos"": [
+      ""Llamar Cliente por Linea Filtro (10 Min)"",
+      ""Corroborar Datos Personales"",
+      ""Corroborar Oferta"",
+      ""Fidelización""
+    ]
+  },
+  {
+    ""id"": 21,
+    ""codigo"": ""CP_TEL_021"",
+    ""nombre"": ""Envío Carga Leyash"",
+    ""etapaId"": 16,
+    ""etapaNombre"": ""Envío Proveedor"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": 74,
+    ""pasos"": [
+      ""Llamar Cliente por OCM (7 Min) / Goautodial"",
+      ""Corroborar Datos Personales"",
+      ""Corroborar Oferta"",
+      ""Fidelización""
+    ]
+  },
+  {
+    ""id"": 22,
+    ""codigo"": ""CP_TEL_022"",
+    ""nombre"": ""Confirmación Contrato"",
+    ""etapaId"": 16,
+    ""etapaNombre"": ""Envío Proveedor"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Proveedor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 23,
+    ""codigo"": ""CP_TEL_023"",
+    ""nombre"": ""Scoring Datos"",
+    ""etapaId"": 15,
+    ""etapaNombre"": ""Validación Interna"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Calidad"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 24,
+    ""codigo"": ""CP_TEL_024"",
+    ""nombre"": ""Postventa Seguimiento"",
+    ""etapaId"": 21,
+    ""etapaNombre"": ""Postventa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Auxiliar"",
+    ""bloqueaAvance"": false,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 30,
+    ""codigo"": ""CP_TEL_030"",
+    ""nombre"": ""Revisión ficha de datos"",
+    ""etapaId"": 15,
+    ""etapaNombre"": ""Validación Interna"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Verificar CRM""
+    ]
+  },
+  {
+    ""id"": 32,
+    ""codigo"": ""CP_TEL_032"",
+    ""nombre"": ""Revisión funcionalidad"",
+    ""etapaId"": 15,
+    ""etapaNombre"": ""Validación Interna"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""Yoigo - Masmovil"",
+    ""proveedor"": ""LEYASH"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Verificar funcionalidad OCM""
+    ]
+  },
+  {
+    ""id"": 31,
+    ""codigo"": ""CP_TEL_031"",
+    ""nombre"": ""Llamada de Validación"",
+    ""etapaId"": 15,
+    ""etapaNombre"": ""Validación Interna"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Confirmación de Datos personales"",
+      ""Confirmación de Oferta"",
+      ""Confirmación de preguntas antifraude""
+    ]
+  },
+  {
+    ""id"": 73,
+    ""codigo"": ""CP_TEL_073"",
+    ""nombre"": ""Llamada Filtro Alarma"",
+    ""etapaId"": 15,
+    ""etapaNombre"": ""Validación Interna"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": false,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Validar Servicio De Alarma""
+    ]
+  },
+  {
+    ""id"": 33,
+    ""codigo"": ""CP_TEL_033"",
+    ""nombre"": ""Correcciones Operación"",
+    ""etapaId"": 15,
+    ""etapaNombre"": ""Validación Interna"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Aplicar Correcciones CRM"",
+      ""Trasladar correcciones Operaciones""
+    ]
+  },
+  {
+    ""id"": 34,
+    ""codigo"": ""CP_TEL_034"",
+    ""nombre"": ""Confirmación carga"",
+    ""etapaId"": 16,
+    ""etapaNombre"": ""Envío Proveedor"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Operaciones"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 35,
+    ""codigo"": ""CP_TEL_035"",
+    ""nombre"": ""Confirmación datos"",
+    ""etapaId"": 16,
+    ""etapaNombre"": ""Envío Proveedor"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 36,
+    ""codigo"": ""CP_TEL_036"",
+    ""nombre"": ""Carga sistema prov."",
+    ""etapaId"": 16,
+    ""etapaNombre"": ""Envío Proveedor"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 37,
+    ""codigo"": ""CP_TEL_037"",
+    ""nombre"": ""Verificación final"",
+    ""etapaId"": 16,
+    ""etapaNombre"": ""Envío Proveedor"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 38,
+    ""codigo"": ""CP_TEL_038"",
+    ""nombre"": ""Programación cita"",
+    ""etapaId"": 16,
+    ""etapaNombre"": ""Envío Proveedor"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Yoigo"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 39,
+    ""codigo"": ""CP_TEL_039"",
+    ""nombre"": ""Verificación contacto"",
+    ""etapaId"": 17,
+    ""etapaNombre"": ""Validación Externa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 40,
+    ""codigo"": ""CP_TEL_040"",
+    ""nombre"": ""Revisión obs prov."",
+    ""etapaId"": 17,
+    ""etapaNombre"": ""Validación Externa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 41,
+    ""codigo"": ""CP_TEL_041"",
+    ""nombre"": ""ID subsanable BO/Op"",
+    ""etapaId"": 17,
+    ""etapaNombre"": ""Validación Externa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 42,
+    ""codigo"": ""CP_TEL_042"",
+    ""nombre"": ""Obs. subsanada BO"",
+    ""etapaId"": 17,
+    ""etapaNombre"": ""Validación Externa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 43,
+    ""codigo"": ""CP_TEL_043"",
+    ""nombre"": ""Obs. subsanada Op"",
+    ""etapaId"": 17,
+    ""etapaNombre"": ""Validación Externa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Operaciones"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 44,
+    ""codigo"": ""CP_TEL_044"",
+    ""nombre"": ""Val. externa fin"",
+    ""etapaId"": 17,
+    ""etapaNombre"": ""Validación Externa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 45,
+    ""codigo"": ""CP_TEL_045"",
+    ""nombre"": ""Verificar contrato env"",
+    ""etapaId"": 18,
+    ""etapaNombre"": ""Firma"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 46,
+    ""codigo"": ""CP_TEL_046"",
+    ""nombre"": ""Info a Operaciones"",
+    ""etapaId"": 18,
+    ""etapaNombre"": ""Firma"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 47,
+    ""codigo"": ""CP_TEL_047"",
+    ""nombre"": ""Confirma firma Op"",
+    ""etapaId"": 18,
+    ""etapaNombre"": ""Firma"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Operaciones"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 48,
+    ""codigo"": ""CP_TEL_048"",
+    ""nombre"": ""Verificar firma Smart"",
+    ""etapaId"": 18,
+    ""etapaNombre"": ""Firma"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 49,
+    ""codigo"": ""CP_TEL_049"",
+    ""nombre"": ""Confirma firma a Op"",
+    ""etapaId"": 18,
+    ""etapaNombre"": ""Firma"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 50,
+    ""codigo"": ""CP_TEL_050"",
+    ""nombre"": ""Envío constancia"",
+    ""etapaId"": 18,
+    ""etapaNombre"": ""Firma"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Yoigo"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 51,
+    ""codigo"": ""CP_TEL_051"",
+    ""nombre"": ""Verificar cita"",
+    ""etapaId"": 19,
+    ""etapaNombre"": ""Tramitación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 52,
+    ""codigo"": ""CP_TEL_052"",
+    ""nombre"": ""Seguimiento instal."",
+    ""etapaId"": 19,
+    ""etapaNombre"": ""Tramitación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 53,
+    ""codigo"": ""CP_TEL_053"",
+    ""nombre"": ""ID incidencias pre"",
+    ""etapaId"": 19,
+    ""etapaNombre"": ""Tramitación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 54,
+    ""codigo"": ""CP_TEL_054"",
+    ""nombre"": ""Seguimiento inc prov"",
+    ""etapaId"": 19,
+    ""etapaNombre"": ""Tramitación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 55,
+    ""codigo"": ""CP_TEL_055"",
+    ""nombre"": ""Traslado inc a Op"",
+    ""etapaId"": 19,
+    ""etapaNombre"": ""Tramitación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 56,
+    ""codigo"": ""CP_TEL_056"",
+    ""nombre"": ""Confirmación subs. Op"",
+    ""etapaId"": 19,
+    ""etapaNombre"": ""Tramitación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Operaciones"",
+    ""bloqueaAvance"": false,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 57,
+    ""codigo"": ""CP_TEL_057"",
+    ""nombre"": ""Confirma instalación"",
+    ""etapaId"": 19,
+    ""etapaNombre"": ""Tramitación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 58,
+    ""codigo"": ""CP_TEL_058"",
+    ""nombre"": ""Seguimiento Activ."",
+    ""etapaId"": 20,
+    ""etapaNombre"": ""Activación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 59,
+    ""codigo"": ""CP_TEL_059"",
+    ""nombre"": ""ID incidencias post"",
+    ""etapaId"": 20,
+    ""etapaNombre"": ""Activación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 60,
+    ""codigo"": ""CP_TEL_060"",
+    ""nombre"": ""Seguimiento inc prov"",
+    ""etapaId"": 20,
+    ""etapaNombre"": ""Activación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 61,
+    ""codigo"": ""CP_TEL_061"",
+    ""nombre"": ""Traslado inc Op"",
+    ""etapaId"": 20,
+    ""etapaNombre"": ""Activación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 62,
+    ""codigo"": ""CP_TEL_062"",
+    ""nombre"": ""Confirmación Op"",
+    ""etapaId"": 20,
+    ""etapaNombre"": ""Activación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Operaciones"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 63,
+    ""codigo"": ""CP_TEL_063"",
+    ""nombre"": ""Confirma Activ. Full"",
+    ""etapaId"": 20,
+    ""etapaNombre"": ""Activación"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Leyash"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 70,
+    ""codigo"": ""CP_TEL_070"",
+    ""nombre"": ""Fraude Definitivo"",
+    ""etapaId"": 17,
+    ""etapaNombre"": ""Validación Externa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Backoffice"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": true,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 72,
+    ""codigo"": ""CP_TEL_072"",
+    ""nombre"": ""Gestión Recup Post"",
+    ""etapaId"": 21,
+    ""etapaNombre"": ""Postventa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Postventa"",
+    ""bloqueaAvance"": false,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 74,
+    ""codigo"": ""CP_TEL_074"",
+    ""nombre"": ""Gestion Recuperacion Pre"",
+    ""etapaId"": 16,
+    ""etapaNombre"": ""Envío Proveedor"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Operación"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": true,
+    ""disparaSiKoDe"": null,
+    ""pasos"": []
+  },
+  {
+    ""id"": 75,
+    ""codigo"": ""CP_TEL_075"",
+    ""nombre"": ""Gestion Botada"",
+    ""etapaId"": 12,
+    ""etapaNombre"": ""Preventa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": 76,
+    ""pasos"": [
+      ""Presionar Cambio de Compañía."",
+      ""Confirmar nombre de compañía de cambio.""
+    ]
+  },
+  {
+    ""id"": 76,
+    ""codigo"": ""CP_TEL_076"",
+    ""nombre"": ""Gestion Compañias Alternas"",
+    ""etapaId"": 12,
+    ""etapaNombre"": ""Preventa"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": true,
+    ""disparaSiKoDe"": null,
+    ""pasos"": [
+      ""Ofrecer Campañas Alternas vigentes"",
+      ""Confirmar Aceptación""
+    ]
+  },
+  {
+    ""id"": 80,
+    ""codigo"": ""CP_TEL_080"",
+    ""nombre"": ""Gestion Scoring"",
+    ""etapaId"": 13,
+    ""etapaNombre"": ""Venta Creada"",
+    ""cartera"": ""Telecom"",
+    ""campana"": ""GENERAL"",
+    ""proveedor"": ""Genérico"",
+    ""dueno"": ""Asesor"",
+    ""bloqueaAvance"": true,
+    ""finalizaCiclo"": false,
+    ""disparaSiKoDe"": 76,
+    ""pasos"": [
+      ""Cambiar titularidad por Familiar/Tercero"",
+      ""Cambiar Cuenta Bancaria"",
+      ""Cambiar Dirección""
+    ]
+  }
+]";
+    }
+
+    private async Task ProcessJsonImport()
+    {
+        if (string.IsNullOrWhiteSpace(importJsonText))
+        {
+            importJsonFeedback = "Por favor ingresa o pega el contenido JSON.";
+            importJsonIsError = true;
+            return;
+        }
+
+        isImportingJson = true;
+        importJsonFeedback = string.Empty;
+        try
+        {
+            await EnsureAuthHeader();
+            var apiBase = GetApiBase();
+
+            using var doc = System.Text.Json.JsonDocument.Parse(importJsonText.Trim());
+            var root = doc.RootElement;
+            JsonElement checkpointsArray;
+
+            if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                checkpointsArray = root;
+            }
+            else if (root.ValueKind == System.Text.Json.JsonValueKind.Object && root.TryGetProperty("checkpoints", out var cpArr))
+            {
+                checkpointsArray = cpArr;
+            }
+            else
+            {
+                importJsonFeedback = "El JSON debe ser un array de checkpoints o un objeto con propiedad 'checkpoints'.";
+                importJsonIsError = true;
+                return;
+            }
+
+            int importedCount = 0;
+            foreach (var item in checkpointsArray.EnumerateArray())
+            {
+                long id = item.TryGetProperty("id", out var idProp) && idProp.TryGetInt64(out var idVal) ? idVal : 0;
+                string code = item.TryGetProperty("codigo", out var cProp) ? cProp.GetString() ?? "" : (item.TryGetProperty("code", out var cProp2) ? cProp2.GetString() ?? "" : $"CP_{id}");
+                string name = item.TryGetProperty("nombre", out var nProp) ? nProp.GetString() ?? "" : (item.TryGetProperty("name", out var nProp2) ? nProp2.GetString() ?? "" : $"Checkpoint {id}");
+                long? stageId = item.TryGetProperty("etapaId", out var sProp) && sProp.TryGetInt64(out var sVal) ? sVal : (item.TryGetProperty("triggerStageId", out var sProp2) && sProp2.TryGetInt64(out var sVal2) ? sVal2 : (long?)null);
+                int order = item.TryGetProperty("orden", out var oProp) && oProp.TryGetInt32(out var oVal) ? oVal : (item.TryGetProperty("executionOrder", out var oProp2) && oProp2.TryGetInt32(out var oVal2) ? oVal2 : 1);
+                bool blocks = (item.TryGetProperty("bloqueaAvance", out var bProp) && bProp.GetBoolean()) || (item.TryGetProperty("blocksAdvance", out var bProp2) && bProp2.GetBoolean());
+                bool finalizes = (item.TryGetProperty("finalizaCiclo", out var fProp) && fProp.GetBoolean()) || (item.TryGetProperty("finalizesCycle", out var fProp2) && fProp2.GetBoolean());
+                long? triggeredByKo = item.TryGetProperty("disparaSiKoDe", out var dProp) && dProp.ValueKind == System.Text.Json.JsonValueKind.Number ? dProp.GetInt64() : (item.TryGetProperty("triggeredByKo", out var dProp2) && dProp2.ValueKind == System.Text.Json.JsonValueKind.Number ? dProp2.GetInt64() : (long?)null);
+                string category = item.TryGetProperty("categoria", out var catProp) ? catProp.GetString() ?? "GENERAL" : "GENERAL";
+                string division = item.TryGetProperty("division", out var divProp) ? divProp.GetString() ?? "OPERACIONES" : "OPERACIONES";
+
+                var existing = catalogItems.FirstOrDefault(c => (id > 0 && c.IdCheckpoint == id) || c.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+                
+                var payload = new
+                {
+                    code,
+                    name,
+                    origin = "INTERNAL",
+                    scope = "ENTITY",
+                    triggerStageId = stageId,
+                    blocksAdvance = blocks,
+                    executionOrder = order,
+                    triggeredByKo = triggeredByKo > 0 ? triggeredByKo : null,
+                    category,
+                    division,
+                    approvalJobTitle = "SUPERVISOR",
+                    satellites = new[] { "FLOW_ENGINE", "API_HUB" },
+                    portfolio = "GENERAL",
+                    campaign = "GENERAL",
+                    provider = "INTERNO",
+                    finalizesCycle = finalizes,
+                    targetRoles = "SUPERVISOR,BACKOFFICE",
+                    approvalStatus = "ACTIVE"
+                };
+
+                long targetCpId = 0;
+                if (existing != null)
+                {
+                    targetCpId = existing.IdCheckpoint;
+                    await Http.PutAsJsonAsync($"{apiBase}/api/engines/flow/catalogs/{existing.IdCheckpoint}", payload);
+                    if (stageId.HasValue && stageId > 0)
+                    {
+                        await Http.PatchAsJsonAsync($"{apiBase}/api/engines/flow/catalogs/{existing.IdCheckpoint}/stage", new { stageId });
+                    }
+                }
+                else
+                {
+                    var createResp = await Http.PostAsJsonAsync($"{apiBase}/api/engines/flow/catalogs", payload);
+                    if (createResp.IsSuccessStatusCode)
+                    {
+                        var created = await createResp.Content.ReadFromJsonAsync<CatalogItemVm>();
+                        if (created != null) targetCpId = created.IdCheckpoint;
+                    }
+                }
+
+                // Sincronizar pasos si vienen en JSON
+                if (targetCpId > 0 && (item.TryGetProperty("pasos", out var pasosArr) || item.TryGetProperty("steps", out pasosArr)) && pasosArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    var stepsList = new List<CheckpointStepItemVm>();
+                    short sOrder = 1;
+                    foreach (var stepElem in pasosArr.EnumerateArray())
+                    {
+                        string sName = stepElem.ValueKind == System.Text.Json.JsonValueKind.String ? stepElem.GetString() ?? "" : (stepElem.TryGetProperty("nombre", out var sn) ? sn.GetString() ?? "" : (stepElem.TryGetProperty("name", out var sn2) ? sn2.GetString() ?? "" : $"Paso {sOrder}"));
+                        if (!string.IsNullOrWhiteSpace(sName))
+                        {
+                            stepsList.Add(new CheckpointStepItemVm { StepOrder = sOrder++, Instruction = sName, Name = sName, IsRequired = true });
+                        }
+                    }
+                    if (stepsList.Any())
+                    {
+                        await SaveCheckpointStepsApi(targetCpId, stepsList);
+                    }
+                }
+
+                importedCount++;
+            }
+
+            importJsonIsError = false;
+            importJsonFeedback = $"✓ Éxito: {importedCount} checkpoints y sus pasos importados/sincronizados correctamente.";
+            await LoadCatalog();
+            await LoadStagesFromDb();
+        }
+        catch (Exception ex)
+        {
+            importJsonIsError = true;
+            importJsonFeedback = $"Error procesando JSON: {ex.Message}";
+        }
+        finally
+        {
+            isImportingJson = false;
+        }
+    }
 
     // — Catalog —
     private bool loadingCatalog = false;
@@ -1753,6 +3390,7 @@
         public string Campaign { get; set; } = "GENERAL";
     }
 
+    private long selectedFlowId = 2;
     private List<StageVm> dbStages = new();
 
     protected override async Task OnInitializedAsync()
@@ -1767,7 +3405,7 @@
         {
             await EnsureAuthHeader();
             var apiBase = GetApiBase();
-            var result = await Http.GetFromJsonAsync<List<StageVm>>($"{apiBase}/api/engines/flow/stages");
+            var result = await Http.GetFromJsonAsync<List<StageVm>>($"{apiBase}/api/engines/flow/stages?flowId={selectedFlowId}");
             if (result != null && result.Any())
             {
                 dbStages = result.OrderBy(s => s.OrderIndex).ToList();
@@ -1992,6 +3630,7 @@
         public string TargetRoles { get; set; } = "SUPERVISOR,BACKOFFICE";
         public string ApprovalStatus { get; set; } = "PROPOSED";
         public long? TriggerStageId { get; set; }
+        public long? TriggeredByKo { get; set; }
     }
 
     private class FlowInstanceVm
@@ -2024,6 +3663,11 @@
     private int newStageOrder = 1;
     private short? newStageSlaHours = null;
     private bool newStageIsTerminal = false;
+
+    // — Diagram UX & Responsiveness state —
+    private long? diagramStageFilter = null;
+    private string diagramViewMode = "grid"; // "grid", "swimlanes", "pipeline"
+    private string diagramSearchQuery = string.Empty;
 
     // — New UX & Modals state —
     private string stageSubTab = "list";
@@ -2203,6 +3847,8 @@
     // — Checkpoint Edit / Create State —
     private CatalogItemVm? selectedCp = null;
     private string editCpName = string.Empty;
+    private string editCpApprovalStatus = "PROPOSED";
+    private string newCpApprovalStatus = "PROPOSED";
     private int editCpExecutionOrder = 1;
     private string editCpCategory = "GENERAL";
     private string editCpDivision = "OPERACIONES";
@@ -2211,6 +3857,9 @@
     private string editCpOrigin = "INTERNAL";
     private string? editCpRollbackCode = null;
     private int? editCpRollbackStep = null;
+    private long editCpRollbackStage = 0;
+    private long editCpTriggeredByKo = 0;
+    private string editCpOwnerDept = "OPERACIONES";
     private string? editCpPreconditionFact = null;
     private bool editCpBlocks = false;
     private bool editCpFinalizesCycle = false;
@@ -2232,10 +3881,14 @@
         editCpOrigin = string.IsNullOrEmpty(c.Origin) ? "INTERNAL" : c.Origin;
         editCpRollbackCode = c.RollbackToCheckpointCode;
         editCpRollbackStep = c.RollbackToStepOrder;
+        editCpRollbackStage = c.RollbackToStage ?? 0;
+        editCpTriggeredByKo = c.TriggeredByKo ?? 0;
+        editCpOwnerDept = string.IsNullOrEmpty(c.OwnerDept) ? "OPERACIONES" : c.OwnerDept;
         editCpPreconditionFact = c.PreconditionFact;
         editCpBlocks = c.BlocksAdvance;
         editCpFinalizesCycle = c.FinalizesCycle;
         editCpTriggerStageId = c.TriggerStageId ?? 0;
+        editCpApprovalStatus = string.IsNullOrEmpty(c.ApprovalStatus) ? "PROPOSED" : c.ApprovalStatus;
 
         editSelectedSatellites = new HashSet<string>(c.Satellites ?? Array.Empty<string>());
         editSelectedPortfolios = new HashSet<string>((c.Portfolio ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()));
@@ -2257,6 +3910,11 @@
     {
         newCpExecutionOrder = catalogItems.Count + 1;
         newCpTriggerStageId = 0;
+        newCpTriggeredByKo = null;
+        newCpRollbackStage = null;
+        newCpOwnerDept = "OPERACIONES";
+        newCpPreconditionFact = "";
+        newCpApprovalStatus = "PROPOSED";
         newCpSteps.Clear();
         cpCreateFeedback = string.Empty;
         cpCreateIsError = false;
@@ -2304,6 +3962,9 @@
                 triggerStageId = editCpTriggerStageId > 0 ? (long?)editCpTriggerStageId : null,
                 blocksAdvance = editCpBlocks,
                 executionOrder = editCpExecutionOrder,
+                triggeredByKo = editCpTriggeredByKo > 0 ? (long?)editCpTriggeredByKo : null,
+                rollbackToStage = editCpRollbackStage > 0 ? (long?)editCpRollbackStage : null,
+                ownerDept = editCpOwnerDept,
                 category = editCpCategory,
                 division = editCpDivision,
                 approvalJobTitle = editCpApprovalJobTitle,
@@ -2315,6 +3976,7 @@
                 campaign = editSelectedCampaigns.Any() ? string.Join(",", editSelectedCampaigns) : "GENERAL",
                 provider = editCpProvider,
                 finalizesCycle = editCpFinalizesCycle,
+                approvalStatus = editCpApprovalStatus,
                 targetRoles = selectedCp.TargetRoles ?? "SUPERVISOR,BACKOFFICE"
             };
 
@@ -2761,6 +4423,9 @@
     private int newCpExecutionOrder = 1;
     private string newCpRollbackCode = "";
     private int newCpRollbackStep = 1;
+    private long? newCpTriggeredByKo = null;
+    private long? newCpRollbackStage = null;
+    private string newCpOwnerDept = "OPERACIONES";
     private string newCpPreconditionFact = "";
     private string cpCreateFeedback = "";
     private bool cpCreateIsError = false;
@@ -3058,6 +4723,9 @@
                 approvalJobTitle = newCpApprovalJobTitle,
                 satellites = selectedSatellites.ToArray(),
                 executionOrder = newCpExecutionOrder,
+                triggeredByKo = newCpTriggeredByKo > 0 ? newCpTriggeredByKo : null,
+                rollbackToStage = newCpRollbackStage > 0 ? newCpRollbackStage : null,
+                ownerDept = newCpOwnerDept,
                 rollbackToCheckpointCode = string.IsNullOrWhiteSpace(newCpRollbackCode) ? null : newCpRollbackCode,
                 rollbackToStepOrder = string.IsNullOrWhiteSpace(newCpRollbackCode) ? null : (int?)newCpRollbackStep,
                 preconditionFact = string.IsNullOrWhiteSpace(newCpPreconditionFact) ? null : newCpPreconditionFact.Trim(),

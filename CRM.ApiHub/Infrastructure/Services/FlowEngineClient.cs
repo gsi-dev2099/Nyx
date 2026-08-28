@@ -8,8 +8,12 @@ public interface IFlowEngineClient
     Task<FlowInstanceDto?> StartFlowInstanceAsync(string flowCode, string entityType, long entityId, long? actorId = null);
     Task<FlowInstanceDto?> AdvanceStageAsync(long instanceId, long? actorId = null);
     Task<CheckpointInstanceDto?> ResolveCheckpointAsync(long cpInstanceId, string status, long? actorId = null);
+    Task<ResolveCheckpointResultDto?> ResolveCheckpointDetailedAsync(long cpInstanceId, string status, long? actorId = null);
     Task<FlowInstanceDto?> GetInstanceByEntityAsync(string entityType, long entityId);
     Task<FlowInstanceWithCheckpointsDto?> GetInstanceWithCheckpointsByEntityAsync(string entityType, long entityId);
+    Task<FlowInstanceDetailDto?> GetFlowInstanceDetailByIdAsync(long instanceId);
+    Task<FlowInstanceDetailDto?> GetFlowInstanceDetailByEntityAsync(string entityType, long entityId);
+    Task<FlowValidationResultDto?> ValidateStageAdvanceAsync(long instanceId);
     Task<IEnumerable<CheckpointCatalogDto>> GetCheckpointCatalogAsync(long? flowId = null);
     Task<IEnumerable<CheckpointCatalogWithStepsDto>> GetFullCatalogAsync(long? flowId = null);
     Task<CheckpointCatalogDto?> CreateCheckpointCatalogAsync(object payload);
@@ -20,6 +24,8 @@ public interface IFlowEngineClient
     Task<IEnumerable<CheckpointStepProgressDto>> GetStepProgressAsync(long cpInstanceId);
     Task<bool> SetFactsAsync(long instanceId, string factsJson, long? actorId = null);
     Task<bool> ValidateTransitionAsync(string entityType, int currentState, int targetState);
+    Task<bool> SetEntityFactsAsync(string entityType, long entityId, string factsJson, long? actorId = null);
+    Task<FlowInstanceWithCheckpointsDto?> SyncStageByStatusAsync(string entityType, long entityId, long statusId, long? actorId = null);
 }
 
 public class FlowEngineClient : IFlowEngineClient
@@ -57,6 +63,48 @@ public class FlowEngineClient : IFlowEngineClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not fetch flow instance with checkpoints for {EntityType} #{EntityId}.", entityType, entityId);
+        }
+        return null;
+    }
+
+    public async Task<FlowInstanceDetailDto?> GetFlowInstanceDetailByIdAsync(long instanceId)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<FlowInstanceDetailDto>(
+                $"/api/flow/instances/{instanceId}/detail");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not fetch detailed flow instance for #{InstanceId}.", instanceId);
+        }
+        return null;
+    }
+
+    public async Task<FlowInstanceDetailDto?> GetFlowInstanceDetailByEntityAsync(string entityType, long entityId)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<FlowInstanceDetailDto>(
+                $"/api/flow/instances/by-entity/{entityType}/{entityId}/detail");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not fetch detailed flow instance for {EntityType} #{EntityId}.", entityType, entityId);
+        }
+        return null;
+    }
+
+    public async Task<FlowValidationResultDto?> ValidateStageAdvanceAsync(long instanceId)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<FlowValidationResultDto>(
+                $"/api/flow/instances/{instanceId}/validate-advance");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not validate stage advance for instance #{InstanceId}.", instanceId);
         }
         return null;
     }
@@ -147,6 +195,30 @@ public class FlowEngineClient : IFlowEngineClient
     {
         try
         {
+            var detailed = await ResolveCheckpointDetailedAsync(cpInstanceId, status, actorId);
+            if (detailed != null)
+            {
+                return new CheckpointInstanceDto
+                {
+                    IdCpInstance = detailed.CheckpointInstanceId,
+                    IdCheckpoint = detailed.IdCheckpoint,
+                    Status = detailed.ResolvedStatus,
+                    ResolvedBy = actorId,
+                    ResolvedAt = DateTime.UtcNow
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not resolve checkpoint instance #{CpInstanceId}.", cpInstanceId);
+        }
+        return null;
+    }
+
+    public async Task<ResolveCheckpointResultDto?> ResolveCheckpointDetailedAsync(long cpInstanceId, string status, long? actorId = null)
+    {
+        try
+        {
             var payload = new
             {
                 status = status.ToUpperInvariant(),
@@ -156,12 +228,12 @@ public class FlowEngineClient : IFlowEngineClient
             var response = await _httpClient.PostAsJsonAsync($"/api/flow/checkpoints/instances/{cpInstanceId}/resolve", payload);
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<CheckpointInstanceDto>();
+                return await response.Content.ReadFromJsonAsync<ResolveCheckpointResultDto>();
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not resolve checkpoint instance #{CpInstanceId}.", cpInstanceId);
+            _logger.LogWarning(ex, "Could not resolve checkpoint instance #{CpInstanceId} in detailed mode.", cpInstanceId);
         }
         return null;
     }
@@ -282,7 +354,6 @@ public class FlowEngineClient : IFlowEngineClient
             
             if (response.IsSuccessStatusCode)
             {
-                // El motor responde true/false indicando si es válida
                 var isValid = await response.Content.ReadFromJsonAsync<bool>();
                 return isValid;
             }
@@ -293,8 +364,58 @@ public class FlowEngineClient : IFlowEngineClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not validate transition for {EntityType} with FlowEngine.", entityType);
-            throw; // El Circuit Breaker lanzará excepcion o reintentará; si falla por completo lanzamos para que se propague
+            throw; 
         }
+    }
+
+    public async Task<bool> SetEntityFactsAsync(string entityType, long entityId, string factsJson, long? actorId = null)
+    {
+        try
+        {
+            var payload = new { factsJson, actorId = actorId ?? 1 };
+            var response = await _httpClient.PostAsJsonAsync($"/api/flow/instances/by-entity/{entityType}/{entityId}/facts", payload);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not update entity facts for {EntityType} #{EntityId}.", entityType, entityId);
+        }
+        return false;
+    }
+
+    public async Task<FlowInstanceWithCheckpointsDto?> SyncStageByStatusAsync(string entityType, long entityId, long statusId, long? actorId = null)
+    {
+        try
+        {
+            var payload = new
+            {
+                entityType = entityType.ToLowerInvariant(),
+                entityId,
+                statusId,
+                actorId = actorId ?? 1
+            };
+
+            var response = await _httpClient.PostAsJsonAsync("/api/flow/instances/sync-status", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<FlowInstanceWithCheckpointsDto>();
+            }
+
+            var errJson = await response.Content.ReadFromJsonAsync<ErrorResponseDto>();
+            if (!string.IsNullOrEmpty(errJson?.Error))
+            {
+                throw new InvalidOperationException(errJson.Error);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not sync stage by status for {EntityType} #{EntityId} to status {StatusId}.", entityType, entityId, statusId);
+        }
+        return null;
     }
 }
 
@@ -508,4 +629,347 @@ public class CheckpointStepDto
 
     [System.Text.Json.Serialization.JsonPropertyName("isRequired")]
     public bool IsRequired { get; set; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DTOs ENRIQUECIDOS PARA FRONTEND, CLIENTES Y SIMULADOR
+// ══════════════════════════════════════════════════════════════════════════════
+
+public class CheckpointStepDetailDto
+{
+    [System.Text.Json.Serialization.JsonPropertyName("idStep")]
+    public long IdStep { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("idCheckpoint")]
+    public long IdCheckpoint { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("stepOrder")]
+    public short StepOrder { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("instruction")]
+    public string Instruction { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("isRequired")]
+    public bool IsRequired { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("isCompleted")]
+    public bool IsCompleted { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("completedBy")]
+    public long? CompletedBy { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("completedAt")]
+    public DateTime? CompletedAt { get; set; }
+}
+
+public class CheckpointInstanceDetailDto
+{
+    [System.Text.Json.Serialization.JsonPropertyName("idCpInstance")]
+    public long IdCpInstance { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("idInstance")]
+    public long IdInstance { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("idCheckpoint")]
+    public long IdCheckpoint { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("code")]
+    public string Code { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("status")]
+    public string Status { get; set; } = "PENDING";
+
+    [System.Text.Json.Serialization.JsonPropertyName("openedAtStage")]
+    public long? OpenedAtStage { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("triggerStageId")]
+    public long? TriggerStageId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("openedAtStageName")]
+    public string? OpenedAtStageName { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("isRetroactive")]
+    public bool IsRetroactive { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("occurrenceNumber")]
+    public short OccurrenceNumber { get; set; } = 1;
+
+    [System.Text.Json.Serialization.JsonPropertyName("scheduledFor")]
+    public DateTime? ScheduledFor { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("resolvedBy")]
+    public long? ResolvedBy { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("resolvedAt")]
+    public DateTime? ResolvedAt { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Metadatos del catálogo
+    [System.Text.Json.Serialization.JsonPropertyName("ownerDept")]
+    public string OwnerDept { get; set; } = "Asesor";
+
+    [System.Text.Json.Serialization.JsonPropertyName("category")]
+    public string Category { get; set; } = "GENERAL";
+
+    [System.Text.Json.Serialization.JsonPropertyName("division")]
+    public string Division { get; set; } = "OPERACIONES";
+
+    [System.Text.Json.Serialization.JsonPropertyName("blocksAdvance")]
+    public bool BlocksAdvance { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("finalizesCycle")]
+    public bool FinalizesCycle { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("rollbackToStage")]
+    public long? RollbackToStage { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("rollbackToStageName")]
+    public string? RollbackToStageName { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("triggeredByKo")]
+    public long? TriggeredByKo { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("triggeredByKoName")]
+    public string? TriggeredByKoName { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("executionOrder")]
+    public int ExecutionOrder { get; set; } = 1;
+
+    [System.Text.Json.Serialization.JsonPropertyName("campaign")]
+    public string Campaign { get; set; } = "GENERAL";
+
+    [System.Text.Json.Serialization.JsonPropertyName("portfolio")]
+    public string Portfolio { get; set; } = "GENERAL";
+
+    [System.Text.Json.Serialization.JsonPropertyName("provider")]
+    public string Provider { get; set; } = "INTERNO";
+
+    [System.Text.Json.Serialization.JsonPropertyName("approvalStatus")]
+    public string ApprovalStatus { get; set; } = "ACTIVE";
+
+    // Pasos interactivos
+    [System.Text.Json.Serialization.JsonPropertyName("steps")]
+    public List<CheckpointStepDetailDto> Steps { get; set; } = new();
+
+    [System.Text.Json.Serialization.JsonPropertyName("totalStepsCount")]
+    public int TotalStepsCount => Steps.Count;
+
+    [System.Text.Json.Serialization.JsonPropertyName("completedStepsCount")]
+    public int CompletedStepsCount => Steps.Count(s => s.IsCompleted);
+
+    [System.Text.Json.Serialization.JsonPropertyName("allRequiredStepsCompleted")]
+    public bool AllRequiredStepsCompleted => Steps.Where(s => s.IsRequired).All(s => s.IsCompleted);
+}
+
+public class FlowStageDetailDto
+{
+    [System.Text.Json.Serialization.JsonPropertyName("idStage")]
+    public long IdStage { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("idFlow")]
+    public long IdFlow { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("stageCode")]
+    public string StageCode { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("orderIndex")]
+    public short OrderIndex { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("isTerminal")]
+    public bool IsTerminal { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("slaHours")]
+    public short? SlaHours { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("portfolio")]
+    public string Portfolio { get; set; } = "GENERAL";
+
+    [System.Text.Json.Serialization.JsonPropertyName("campaign")]
+    public string Campaign { get; set; } = "GENERAL";
+}
+
+public class StageTransitionDetailDto
+{
+    [System.Text.Json.Serialization.JsonPropertyName("idTransition")]
+    public long IdTransition { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("idInstance")]
+    public long IdInstance { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("fromStageId")]
+    public long? FromStageId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("fromStageName")]
+    public string? FromStageName { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("toStageId")]
+    public long ToStageId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("toStageName")]
+    public string ToStageName { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("direction")]
+    public string Direction { get; set; } = "FORWARD";
+
+    [System.Text.Json.Serialization.JsonPropertyName("triggeredBy")]
+    public string? TriggeredBy { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("actorId")]
+    public long? ActorId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("transitionedAt")]
+    public DateTime TransitionedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class FlowInstanceDetailDto
+{
+    [System.Text.Json.Serialization.JsonPropertyName("idInstance")]
+    public long IdInstance { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("idFlow")]
+    public long IdFlow { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("flowCode")]
+    public string FlowCode { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("flowName")]
+    public string FlowName { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("entityType")]
+    public string EntityType { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("entityId")]
+    public long EntityId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("currentStageId")]
+    public long CurrentStageId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("currentStage")]
+    public FlowStageDetailDto? CurrentStage { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("dayCounter")]
+    public int DayCounter { get; set; } = 1;
+
+    [System.Text.Json.Serialization.JsonPropertyName("status")]
+    public string Status { get; set; } = "ACTIVE";
+
+    [System.Text.Json.Serialization.JsonPropertyName("facts")]
+    public string Facts { get; set; } = "{}";
+
+    [System.Text.Json.Serialization.JsonPropertyName("metadata")]
+    public string Metadata { get; set; } = "{}";
+
+    [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [System.Text.Json.Serialization.JsonPropertyName("completedAt")]
+    public DateTime? CompletedAt { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("checkpoints")]
+    public List<CheckpointInstanceDetailDto> Checkpoints { get; set; } = new();
+
+    [System.Text.Json.Serialization.JsonPropertyName("recentTransitions")]
+    public List<StageTransitionDetailDto> RecentTransitions { get; set; } = new();
+
+    // Consultas de negocio rápidas
+    [System.Text.Json.Serialization.JsonPropertyName("canAdvanceStage")]
+    public bool CanAdvanceStage => !Checkpoints.Any(c => c.Status == "PENDING" && c.BlocksAdvance);
+
+    [System.Text.Json.Serialization.JsonPropertyName("pendingBlockingCount")]
+    public int PendingBlockingCount => Checkpoints.Count(c => c.Status == "PENDING" && c.BlocksAdvance);
+
+    [System.Text.Json.Serialization.JsonPropertyName("pendingCount")]
+    public int PendingCount => Checkpoints.Count(c => c.Status == "PENDING");
+
+    [System.Text.Json.Serialization.JsonPropertyName("approvedCount")]
+    public int ApprovedCount => Checkpoints.Count(c => c.Status == "APPROVED");
+
+    [System.Text.Json.Serialization.JsonPropertyName("koCount")]
+    public int KoCount => Checkpoints.Count(c => c.Status == "KO");
+}
+
+public class ResolveCheckpointResultDto
+{
+    [System.Text.Json.Serialization.JsonPropertyName("checkpointInstanceId")]
+    public long CheckpointInstanceId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("idCheckpoint")]
+    public long IdCheckpoint { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("code")]
+    public string Code { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("resolvedStatus")]
+    public string ResolvedStatus { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("nextAction")]
+    public string NextAction { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("currentStageId")]
+    public long CurrentStageId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("currentStageName")]
+    public string CurrentStageName { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("flowStatus")]
+    public string FlowStatus { get; set; } = "ACTIVE";
+
+    [System.Text.Json.Serialization.JsonPropertyName("isCycleClosed")]
+    public bool IsCycleClosed => FlowStatus == "CLOSED" || FlowStatus == "COMPLETED";
+
+    [System.Text.Json.Serialization.JsonPropertyName("canAdvanceStage")]
+    public bool CanAdvanceStage { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("triggeredCheckpoints")]
+    public List<CheckpointInstanceDetailDto> TriggeredCheckpoints { get; set; } = new();
+
+    [System.Text.Json.Serialization.JsonPropertyName("flowInstance")]
+    public FlowInstanceDetailDto? FlowInstance { get; set; }
+}
+
+public class FlowValidationResultDto
+{
+    [System.Text.Json.Serialization.JsonPropertyName("instanceId")]
+    public long InstanceId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("currentStageId")]
+    public long CurrentStageId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("currentStageName")]
+    public string CurrentStageName { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("canAdvance")]
+    public bool CanAdvance { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("pendingBlockingCount")]
+    public int PendingBlockingCount { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("blockingPendingCheckpoints")]
+    public List<CheckpointInstanceDetailDto> BlockingPendingCheckpoints { get; set; } = new();
+
+    [System.Text.Json.Serialization.JsonPropertyName("blockingReasons")]
+    public List<string> BlockingReasons { get; set; } = new();
 }

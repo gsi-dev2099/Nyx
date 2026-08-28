@@ -10,13 +10,13 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 
-<PageTitle>Mis Pre-Ventas - Asesor</PageTitle>
+<PageTitle>Mis Pre-Ventas & Checkpoint - Asesor</PageTitle>
 
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="fw-bold text-primary mb-1">Mis Pre-Ventas</h2>
-            <p class="text-muted mb-0">Gestiona y haz seguimiento a tus pre-ventas y leads.</p>
+            <h2 class="fw-bold text-primary mb-1">Bandeja de Pre-Ventas</h2>
+            <p class="text-muted mb-0">Gestión de 1ra, 2da y 3ra llamada en Checkpoint de Preventa por Asesor.</p>
         </div>
         <button class="btn btn-primary rounded-pill px-4 shadow-sm" @onclick="OpenNewModal">
             <i class="bi bi-plus-lg me-2"></i> + Nueva Pre-Venta
@@ -28,16 +28,17 @@
         <div class="card-body p-3">
             <div class="row row-cols-1 row-cols-md-3 g-3 align-items-end">
                 <div class="col">
-                    <label for="filter-operator" class="form-label small text-muted fw-bold">Filtrar por Operador</label>
-                    <input type="text" id="filter-operator" class="form-control" placeholder="Ej. Movistar" @bind="filterOperator" @bind:event="oninput" aria-label="Filtrar por Operador" />
+                    <label for="filter-operator" class="form-label small text-muted fw-bold">Operador a Gestionar</label>
+                    <input type="text" id="filter-operator" class="form-control" placeholder="Ej. Movistar, Orange..." @bind="filterOperator" @bind:event="oninput" />
                 </div>
                 <div class="col">
-                    <label for="filter-coverage" class="form-label small text-muted fw-bold">Estado de Cobertura</label>
-                    <select id="filter-coverage" class="form-select" @bind="filterCoverage" @bind:event="onchange" aria-label="Filtrar por Estado de Cobertura">
-                        <option value="">Todos</option>
-                        <option value="SI">Con Cobertura (SI)</option>
-                        <option value="NO">Sin Cobertura (NO)</option>
-                        <option value="PENDIENTE">Pendiente</option>
+                    <label for="filter-campaign" class="form-label small text-muted fw-bold">Filtrar por Campaña</label>
+                    <select id="filter-campaign" class="form-select" @bind="filterCampaignId" @bind:event="onchange">
+                        <option value="0">Todas las campañas</option>
+                        @foreach (var cmp in campaigns)
+                        {
+                            <option value="@cmp.Id">@cmp.Name</option>
+                        }
                     </select>
                 </div>
                 <div class="col">
@@ -59,11 +60,11 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="bg-light">
                             <tr>
-                                <th class="border-0 px-4 py-3 text-muted fw-bold text-nowrap">N° Pre-Venta</th>
+                                <th class="border-0 px-4 py-3 text-muted fw-bold text-nowrap">Pre-Venta / Campaña</th>
                                 <th class="border-0 px-4 py-3 text-muted fw-bold text-nowrap">Cliente</th>
-                                <th class="border-0 px-4 py-3 text-muted fw-bold text-nowrap">Teléfono</th>
-                                <th class="border-0 px-4 py-3 text-muted fw-bold text-nowrap">Operador / Notas</th>
-                                <th class="border-0 px-4 py-3 text-muted fw-bold text-nowrap">Cobertura</th>
+                                <th class="border-0 px-4 py-3 text-muted fw-bold text-nowrap">Teléfono / Operador</th>
+                                <th class="border-0 px-4 py-3 text-muted fw-bold text-nowrap">Asesores Asignados (hasta 3)</th>
+                                <th class="border-0 px-4 py-3 text-muted fw-bold text-nowrap">Checkpoint 3 Llamadas</th>
                                 <th class="border-0 px-4 py-3 text-muted fw-bold text-end text-nowrap">Acciones</th>
                             </tr>
                         </thead>
@@ -76,52 +77,84 @@
                             {
                                 @foreach (var preSale in pagedPreSales)
                                 {
+                                    bool isOwner = preSale.OwnerUserId == currentUserId;
                                     <tr class="cursor-pointer">
                                         <td class="px-4 py-3 text-nowrap">
-                                            <span class="text-primary fw-bold">#@preSale.IdPresale</span>
-                                            @if (preSale.OwnerUserId != preSale.CurrentUserId || !string.IsNullOrEmpty(preSale.OwnerUserName))
-                                            {
-                                                <span class="badge bg-warning bg-opacity-10 text-dark border border-warning rounded-pill px-2 py-1 ms-1" title="Pre-Venta derivada / referida por @(string.IsNullOrEmpty(preSale.OwnerUserName) ? $"ID #{preSale.OwnerUserId}" : preSale.OwnerUserName)">
-                                                    <i class="bi bi-person-badge text-warning me-1"></i> Referido de: @(string.IsNullOrEmpty(preSale.OwnerUserName) ? $"#{preSale.OwnerUserId}" : preSale.OwnerUserName)
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="text-primary fw-bold fs-6">#@preSale.IdPresale</span>
+                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1">
+                                                    @(string.IsNullOrEmpty(preSale.CampaignName) ? "Campaña General" : preSale.CampaignName)
                                                 </span>
-                                            }
-                                            <br/>
-                                            <small class="text-muted">@preSale.Register.ToString("dd/MM/yyyy")</small>
+                                            </div>
+                                            <div class="mt-1">
+                                                <small class="text-muted"><i class="bi bi-person-fill text-secondary me-1"></i> Dueño: <strong>@(string.IsNullOrEmpty(preSale.OwnerUserName) ? $"Asesor #{preSale.OwnerUserId}" : preSale.OwnerUserName)</strong></small>
+                                            </div>
                                         </td>
                                         <td class="px-4 py-3 text-dark text-nowrap">
-                                            @(string.IsNullOrWhiteSpace(preSale.FirstName) && string.IsNullOrWhiteSpace(preSale.LastName) ? "Sin nombre" : $"{preSale.FirstName} {preSale.LastName}".Trim())
-                                        </td>
-                                        <td class="px-4 py-3 fw-bold text-dark text-nowrap">
-                                            @preSale.Phone
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span class="badge bg-light text-dark border mb-1">@preSale.Operator</span><br/>
-                                            <small class="text-muted" style="max-width: 200px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                                @preSale.Notes
-                                            </small>
+                                            <div class="fw-bold text-dark">
+                                                @(string.IsNullOrWhiteSpace(preSale.FirstName) && string.IsNullOrWhiteSpace(preSale.LastName) ? "Sin nombre" : $"{preSale.FirstName} {preSale.LastName}".Trim())
+                                            </div>
+                                            <small class="text-muted">Etapa: <span class="badge bg-info bg-opacity-10 text-info border rounded-pill px-2 py-0.5">Preventa (1ra Etapa)</span></small>
                                         </td>
                                         <td class="px-4 py-3 text-nowrap">
-                                            @if (IsCovered(preSale.CoverageStatus))
-                                            {
-                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-2">Con Cobertura</span>
-                                            }
-                                            else if (IsNoCoverage(preSale.CoverageStatus))
-                                            {
-                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-3 py-2">Sin Cobertura</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-3 py-2">Pendiente</span>
-                                            }
+                                            <div class="fw-bold text-dark font-monospace"><i class="bi bi-telephone-fill text-success me-1"></i> @preSale.Phone</div>
+                                            <small class="text-muted"><i class="bi bi-building me-1"></i> Operador: @(string.IsNullOrEmpty(preSale.Operator) ? "No especificado" : preSale.Operator)</small>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="d-flex flex-column gap-1">
+                                                <span class="badge bg-light text-dark border text-start" title="Asesor 1">
+                                                    <i class="bi bi-numeric-1-circle-fill text-primary me-1"></i> @(string.IsNullOrEmpty(preSale.AssignedAdvisor1Name) ? (preSale.AssignedAdvisor1Id.HasValue ? $"Asesor #{preSale.AssignedAdvisor1Id}" : "No asignado") : preSale.AssignedAdvisor1Name)
+                                                </span>
+                                                @if (preSale.AssignedAdvisor2Id.HasValue)
+                                                {
+                                                    <span class="badge bg-light text-dark border text-start" title="Asesor 2">
+                                                        <i class="bi bi-numeric-2-circle-fill text-info me-1"></i> @(string.IsNullOrEmpty(preSale.AssignedAdvisor2Name) ? $"Asesor #{preSale.AssignedAdvisor2Id}" : preSale.AssignedAdvisor2Name)
+                                                    </span>
+                                                }
+                                                @if (preSale.AssignedAdvisor3Id.HasValue)
+                                                {
+                                                    <span class="badge bg-light text-dark border text-start" title="Asesor 3">
+                                                        <i class="bi bi-numeric-3-circle-fill text-warning me-1"></i> @(string.IsNullOrEmpty(preSale.AssignedAdvisor3Name) ? $"Asesor #{preSale.AssignedAdvisor3Id}" : preSale.AssignedAdvisor3Name)
+                                                    </span>
+                                                }
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-nowrap">
+                                            <!-- Checkpoint Stepper Visual 3 Llamadas -->
+                                            <div class="d-flex align-items-center gap-1.5 p-2 rounded-3" style="background: #F8FAFC; border: 1px solid #E2E8F0;">
+                                                <div class="badge rounded-pill px-2.5 py-1.5 bg-primary text-white" title="1ra Llamada realizada">
+                                                    <i class="bi bi-telephone-outbound me-1"></i> 1ra
+                                                </div>
+                                                <i class="bi bi-chevron-right text-muted small"></i>
+                                                <div class="badge rounded-pill px-2.5 py-1.5 bg-info text-white" title="2da Llamada en proceso">
+                                                    <i class="bi bi-telephone-outbound me-1"></i> 2da
+                                                </div>
+                                                <i class="bi bi-chevron-right text-muted small"></i>
+                                                <div class="badge rounded-pill px-2.5 py-1.5 bg-secondary bg-opacity-25 text-secondary border" title="3ra Llamada pendiente">
+                                                    <i class="bi bi-telephone-outbound me-1"></i> 3ra
+                                                </div>
+                                            </div>
                                         </td>
                                         <td class="px-4 py-3 text-end text-nowrap" @onclick:stopPropagation="true">
                                             <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-primary rounded-pill px-2.5 me-1" @onclick="() => OpenCallModal(preSale.IdPresale)" title="Registrar llamada">
+                                                <button class="btn btn-sm btn-outline-primary rounded-pill px-2.5 me-1" @onclick="() => OpenCallModal(preSale.IdPresale)" title="Registrar bitácora de llamada">
                                                     <i class="bi bi-telephone-fill me-1"></i> Llamada
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-warning rounded-pill px-2.5 me-1 text-dark" @onclick="() => OpenAssignModal(preSale.IdPresale)" title="Derivar a otro asesor del equipo">
-                                                    <i class="bi bi-person-fill-gear me-1"></i> Derivar
+                                                <button class="btn btn-sm btn-outline-warning rounded-pill px-2.5 me-1 text-dark" @onclick="() => OpenAssignModal(preSale.IdPresale)" title="Asignar hasta 3 asesores">
+                                                    <i class="bi bi-people-fill me-1"></i> Asignar (3)
                                                 </button>
+                                                @if (isOwner)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 me-1" @onclick="() => OpenEditModal(preSale)" title="Editar datos principales (Propietario)">
+                                                        <i class="bi bi-pencil-fill me-1"></i> Editar
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-light text-muted border rounded-pill px-2.5 me-1" disabled title="Sólo el propietario (#@preSale.OwnerUserName) puede editar los datos">
+                                                        <i class="bi bi-lock-fill me-1"></i> Editar
+                                                    </button>
+                                                }
                                                 <button class="btn btn-sm btn-success text-white rounded-pill px-3 shadow-sm" @onclick="() => ConvertToOrder(preSale.IdPresale)" title="Convertir esta Pre-Venta a Orden de Venta" disabled="@isSaving">
                                                     <i class="bi bi-cart-check-fill me-1"></i> Convertir a Venta
                                                 </button>
@@ -166,54 +199,65 @@
     }
 </div>
 
-<!-- Modal: Nueva Pre-Venta -->
+<!-- Modal: Nueva / Editar Pre-Venta -->
 @if (showNewModal)
 {
     <div class="modal fade show d-block bg-dark bg-opacity-50" tabindex="-1" role="dialog" aria-labelledby="modal-new-title">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
                 <div class="modal-header border-0 pb-0">
-                    <h5 id="modal-new-title" class="modal-title fw-bold">Registrar Nueva Pre-Venta</h5>
+                    <div>
+                        <h5 id="modal-new-title" class="modal-title fw-bold text-dark">
+                            <i class="bi bi-file-earmark-plus-fill text-primary me-2"></i> @(isEditing ? $"Editar Pre-Venta #{newPreSale.IdPresale}" : "Registrar Nueva Pre-Venta")
+                        </h5>
+                        <p class="text-muted small mb-0">Etapa inicial: Preventa (1ra Etapa del Flujo)</p>
+                    </div>
                     <button type="button" class="btn-close" aria-label="Cerrar" @onclick="ConfirmCloseNewModalAsync"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="presale-phone" class="form-label fw-bold small">Teléfono</label>
-                        <input type="text" id="presale-phone" class="form-control" @bind="newPreSale.Phone" placeholder="Número de teléfono" />
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <label for="presale-fname" class="form-label fw-bold small">Nombre</label>
-                            <input type="text" id="presale-fname" class="form-control" @bind="newPreSale.FirstName" />
+                <div class="modal-body py-3">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="presale-campaign" class="form-label fw-bold small text-secondary">Campaña <span class="text-danger">*</span></label>
+                            <select id="presale-campaign" class="form-select rounded-3 border-primary" @bind="newPreSale.IdCmpg">
+                                @foreach (var cmp in campaigns)
+                                {
+                                    <option value="@cmp.Id">@cmp.Name</option>
+                                }
+                            </select>
+                            <div class="form-text">Selecciona la campaña comercial de la pre-venta.</div>
                         </div>
-                        <div class="col-6">
-                            <label for="presale-lname" class="form-label fw-bold small">Apellido</label>
-                            <input type="text" id="presale-lname" class="form-control" @bind="newPreSale.LastName" />
+                        <div class="col-md-6">
+                            <label for="presale-operator" class="form-label fw-bold small text-secondary">Operador a Gestionar <span class="text-danger">*</span></label>
+                            <input type="text" id="presale-operator" class="form-control rounded-3" @bind="newPreSale.Operator" placeholder="Ej. Movistar, Orange, Vodafone..." />
                         </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="presale-operator" class="form-label fw-bold small">Operador Actual</label>
-                        <input type="text" id="presale-operator" class="form-control" @bind="newPreSale.Operator" placeholder="Ej. Movistar, Orange..." />
-                    </div>
-                    <div class="mb-3">
-                        <label for="presale-coverage" class="form-label fw-bold small">Estado de Cobertura</label>
-                        <select id="presale-coverage" class="form-select" @bind="newPreSale.CoverageStatus">
-                            <option value="PENDIENTE">Pendiente</option>
-                            <option value="SI">Sí, validado</option>
-                            <option value="NO">No hay cobertura</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="presale-notes" class="form-label fw-bold small">Oferta Tentativa / Notas</label>
-                        <textarea id="presale-notes" class="form-control" rows="2" @bind="newPreSale.Notes" placeholder="Interesado en fibra 1Gb..."></textarea>
+                        <div class="col-md-6">
+                            <label for="presale-fname" class="form-label fw-bold small text-secondary">Nombre del Cliente</label>
+                            <input type="text" id="presale-fname" class="form-control rounded-3" @bind="newPreSale.FirstName" placeholder="Nombre" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="presale-lname" class="form-label fw-bold small text-secondary">Apellido del Cliente</label>
+                            <input type="text" id="presale-lname" class="form-control rounded-3" @bind="newPreSale.LastName" placeholder="Apellido" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="presale-phone" class="form-label fw-bold small text-secondary">Teléfono Principal <span class="text-danger">*</span></label>
+                            <input type="text" id="presale-phone" class="form-control rounded-3 font-monospace" @bind="newPreSale.Phone" placeholder="Número de teléfono" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="presale-secphone" class="form-label fw-bold small text-secondary">Teléfono Secundario / Trabajo</label>
+                            <input type="text" id="presale-secphone" class="form-control rounded-3 font-monospace" @bind="newPreSale.SecondaryPhone" placeholder="Opcional" />
+                        </div>
+                        <div class="col-12">
+                            <label for="presale-notes" class="form-label fw-bold small text-secondary">Notas</label>
+                            <textarea id="presale-notes" class="form-control rounded-3" rows="3" @bind="newPreSale.Notes" placeholder="Escribe observaciones generales, requerimientos o detalles acordados con el cliente..."></textarea>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-light rounded-pill" @onclick="ConfirmCloseNewModalAsync" disabled="@isSaving">Cancelar</button>
-                    <button type="button" class="btn btn-primary rounded-pill px-4" @onclick="SaveNewPreSale" disabled="@(isSaving || isSuccessNew)">
+                    <button type="button" class="btn btn-primary rounded-pill px-4 shadow-sm" @onclick="SaveNewPreSale" disabled="@(isSaving || isSuccessNew)">
                         @if(isSaving) { <span class="spinner-border spinner-border-sm me-2"></span><span>Guardando...</span> }
-                        else if(isSuccessNew) { <i class="bi bi-check-circle-fill me-2"></i><span>¡Creado!</span> }
-                        else { <span>Crear Pre-Venta</span> }
+                        else if(isSuccessNew) { <i class="bi bi-check-circle-fill me-2"></i><span>¡Guardado!</span> }
+                        else { <span>@(isEditing ? "Guardar Cambios" : "Crear Pre-Venta")</span> }
                     </button>
                 </div>
             </div>
@@ -221,26 +265,54 @@
     </div>
 }
 
-<!-- Modal: Registrar Llamada y Copiar Número -->
+<!-- Modal: Registrar Llamada con Bitácora de Checkpoint -->
 @if (showCallModal)
 {
     <div class="modal fade show d-block bg-dark bg-opacity-50" tabindex="-1" role="dialog" aria-labelledby="modal-call-title">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content rounded-4 border-0 shadow-lg">
                 <div class="modal-header border-0 pb-0">
                     <div>
                         <h5 id="modal-call-title" class="modal-title fw-bold text-dark">
-                            <i class="bi bi-telephone-outbound-fill text-primary me-2"></i> Llamada al Cliente
+                            <i class="bi bi-telephone-outbound-fill text-primary me-2"></i> Checkpoint de Preventa: Bitácora de Llamadas
                         </h5>
                         <p class="text-muted small mb-0">Pre-Venta #@selectedPreSaleId — @(selectedPreSaleObj != null ? $"{selectedPreSaleObj.FirstName} {selectedPreSaleObj.LastName}".Trim() : "Cliente")</p>
                     </div>
                     <button type="button" class="btn-close" aria-label="Cerrar" @onclick="CloseCallModal"></button>
                 </div>
                 <div class="modal-body py-3">
-                    <!-- Selector / Copiado de Números Registrados -->
+                    <!-- Stepper de 3 Llamadas -->
+                    <div class="card bg-light border-0 rounded-4 mb-3 p-3">
+                        <h6 class="fw-bold text-secondary mb-2"><i class="bi bi-diagram-3-fill me-1"></i> Secuencia del Checkpoint de Preventa</h6>
+                        <div class="row text-center g-2">
+                            <div class="col-4">
+                                <div class="p-2.5 rounded-3 bg-white border border-primary border-2 shadow-sm">
+                                    <span class="badge bg-primary rounded-circle mb-1">1</span>
+                                    <div class="fw-bold text-dark small">1ra Llamada</div>
+                                    <small class="text-muted d-block">Filtro Inicial</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-2.5 rounded-3 bg-white border border-info border-2 shadow-sm">
+                                    <span class="badge bg-info text-white rounded-circle mb-1">2</span>
+                                    <div class="fw-bold text-dark small">2da Llamada</div>
+                                    <small class="text-muted d-block">Presentación Oferta</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-2.5 rounded-3 bg-white border border-secondary border-2 shadow-sm">
+                                    <span class="badge bg-secondary rounded-circle mb-1">3</span>
+                                    <div class="fw-bold text-dark small">3ra Llamada</div>
+                                    <small class="text-muted d-block">Cierre de Preventa</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Teléfonos Registrados -->
                     <div class="p-3 rounded-4 mb-3" style="background: #F8FAFC; border: 1px solid #E2E8F0;">
                         <label class="form-label fw-bold small text-secondary mb-2 d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-phone me-1"></i> Teléfono(s) Registrado(s)</span>
+                            <span><i class="bi bi-phone me-1"></i> Teléfono(s) del Cliente</span>
                             <span class="badge bg-primary-subtle text-primary font-monospace">@selectedPhones.Count número(s)</span>
                         </label>
                         @if (selectedPhones.Any())
@@ -263,22 +335,18 @@
                                 }
                             </div>
                         }
-                        else
-                        {
-                            <div class="text-muted small py-2 text-center">No hay números telefónicos registrados en esta pre-venta.</div>
-                        }
                     </div>
 
                     <!-- Presets Rápidos de Notas -->
                     <div class="mb-3">
-                        <label class="form-label fw-bold small text-secondary mb-2">Resultado / Nota Rápida</label>
+                        <label class="form-label fw-bold small text-secondary mb-2">Bitácora / Notas de la Llamada</label>
                         <div class="d-flex flex-wrap gap-1.5 mb-2">
-                            <button type="button" class="btn btn-sm btn-light border rounded-pill small" @onclick='() => SetQuickNote("Contactado: Cliente interesado, solicita información adicional.")'>👍 Interesado</button>
+                            <button type="button" class="btn btn-sm btn-light border rounded-pill small" @onclick='() => SetQuickNote("1ra Llamada: Cliente contactado e interesado. Se agenda 2da llamada.")'>👍 1ra Llamada OK</button>
+                            <button type="button" class="btn btn-sm btn-light border rounded-pill small" @onclick='() => SetQuickNote("2da Llamada: Oferta presentada. Solicita consultar con cónyuge.")'>📞 2da Llamada OK</button>
+                            <button type="button" class="btn btn-sm btn-light border rounded-pill small" @onclick='() => SetQuickNote("3ra Llamada: Confirmación final de datos previa a convertir a venta.")'>🎯 3ra Llamada OK</button>
                             <button type="button" class="btn btn-sm btn-light border rounded-pill small" @onclick='() => SetQuickNote("No contesta: Intento de llamada sin respuesta.")'>📵 No contesta</button>
-                            <button type="button" class="btn btn-sm btn-light border rounded-pill small" @onclick='() => SetQuickNote("Volver a llamar: Cliente solicita ser contactado en otro horario.")'>⏰ Reagendar</button>
-                            <button type="button" class="btn btn-sm btn-light border rounded-pill small" @onclick='() => SetQuickNote("Número no válido / Fuera de servicio.")'>❌ No Válido</button>
                         </div>
-                        <textarea id="call-notes" class="form-control rounded-3" rows="3" @bind="callNotes" placeholder="Escribe detalles de la conversación..."></textarea>
+                        <textarea id="call-notes" class="form-control rounded-3" rows="3" @bind="callNotes" placeholder="Escribe los detalles de la llamada realizada..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
@@ -286,7 +354,7 @@
                     <button type="button" class="btn btn-success rounded-pill px-4 shadow-sm" @onclick="SaveCall" disabled="@(isSaving || isSuccessCall)">
                         @if(isSaving) { <span class="spinner-border spinner-border-sm me-2"></span><span>Guardando...</span> }
                         else if(isSuccessCall) { <i class="bi bi-check-circle-fill me-2"></i><span>¡Registrado!</span> }
-                        else { <span><i class="bi bi-telephone-fill me-1"></i> Registrar Bitácora</span> }
+                        else { <span><i class="bi bi-telephone-fill me-1"></i> Registrar Bitácora de Llamada</span> }
                     </button>
                 </div>
             </div>
@@ -294,40 +362,65 @@
     </div>
 }
 
-<!-- Modal: Derivar Asesor -->
+<!-- Modal: Asignar Hasta 3 Asesores -->
 @if (showAssignModal)
 {
     <div class="modal fade show d-block bg-dark bg-opacity-50" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
                 <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">Derivar a otro Asesor</h5>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark">
+                            <i class="bi bi-people-fill text-warning me-2"></i> Asignar Asesores (Hasta 3)
+                        </h5>
+                        <p class="text-muted small mb-0">Pre-Venta #@selectedPreSaleId — Selecciona hasta 3 asesores colaboradores con opción de modificación.</p>
+                    </div>
                     <button type="button" class="btn-close" @onclick="CloseAssignModal"></button>
                 </div>
-                <div class="modal-body">
-                    <p class="text-muted small">Traslada la pre-venta #@selectedPreSaleId a otro agente.</p>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small">Nuevo Asesor</label>
-                        <select class="form-select rounded-3" @bind="assignUserId">
-                            <option value="0" disabled>-- Selecciona un asesor --</option>
-                            @foreach (var adv in advisors)
-                            {
-                                <option value="@adv.Id">@adv.Name</option>
-                            }
-                        </select>
-                        <div class="form-text">Selecciona el asesor de destino para transferir la pre-venta.</div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small">Contexto de la Derivación</label>
-                        <textarea class="form-control" rows="2" @bind="assignContext" placeholder="Motivo de la transferencia..."></textarea>
+                <div class="modal-body py-3">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-secondary"><i class="bi bi-numeric-1-circle-fill text-primary me-1"></i> Asesor 1 (Llamada 1)</label>
+                            <select class="form-select rounded-3" @bind="assignAdvisor1Id">
+                                <option value="0">-- Ninguno --</option>
+                                @foreach (var adv in advisors)
+                                {
+                                    <option value="@adv.Id">@adv.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-secondary"><i class="bi bi-numeric-2-circle-fill text-info me-1"></i> Asesor 2 (Llamada 2)</label>
+                            <select class="form-select rounded-3" @bind="assignAdvisor2Id">
+                                <option value="0">-- Ninguno --</option>
+                                @foreach (var adv in advisors)
+                                {
+                                    <option value="@adv.Id">@adv.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-secondary"><i class="bi bi-numeric-3-circle-fill text-warning me-1"></i> Asesor 3 (Llamada 3)</label>
+                            <select class="form-select rounded-3" @bind="assignAdvisor3Id">
+                                <option value="0">-- Ninguno --</option>
+                                @foreach (var adv in advisors)
+                                {
+                                    <option value="@adv.Id">@adv.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold small text-secondary">Observación de Asignación</label>
+                            <textarea class="form-control rounded-3" rows="2" @bind="assignContext" placeholder="Motivo o instrucciones para los asesores colaboradores..."></textarea>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-light rounded-pill" @onclick="CloseAssignModal" disabled="@isSaving">Cancelar</button>
-                    <button type="button" class="btn btn-warning rounded-pill px-4 text-dark" @onclick="SaveAssign" disabled="@(isSaving || isSuccessAssign)">
-                        @if(isSaving) { <span class="spinner-border spinner-border-sm me-2"></span><span>Transfiriendo...</span> }
-                        else if(isSuccessAssign) { <i class="bi bi-check-circle-fill me-2"></i><span>¡Transferido!</span> }
-                        else { <span>Transferir</span> }
+                    <button type="button" class="btn btn-warning rounded-pill px-4 text-dark shadow-sm" @onclick="SaveAssign" disabled="@(isSaving || isSuccessAssign)">
+                        @if(isSaving) { <span class="spinner-border spinner-border-sm me-2"></span><span>Guardando...</span> }
+                        else if(isSuccessAssign) { <i class="bi bi-check-circle-fill me-2"></i><span>¡Asignados!</span> }
+                        else { <span><i class="bi bi-check-lg me-1"></i> Guardar Asesores</span> }
                     </button>
                 </div>
             </div>
@@ -358,10 +451,11 @@
 
     // Filtros
     private string filterOperator = "";
-    private string filterCoverage = "";
+    private long filterCampaignId = 0;
 
     // Modales y Estados
     private bool showNewModal = false;
+    private bool isEditing = false;
     private bool showCallModal = false;
     private bool showAssignModal = false;
     
@@ -369,11 +463,14 @@
     private bool isSuccessCall = false;
     private bool isSuccessAssign = false;
     
-    private PreSaleDto newPreSale = new() { CoverageStatus = "PENDIENTE" };
+    private PreSaleDto newPreSale = new() { IdCmpg = 1 };
     private long selectedPreSaleId = 0;
     private PreSaleDto? selectedPreSaleObj;
     private string callNotes = "";
-    private int assignUserId = 0;
+    
+    private long assignAdvisor1Id = 0;
+    private long assignAdvisor2Id = 0;
+    private long assignAdvisor3Id = 0;
     private string assignContext = "";
 
     public class PhoneOptionItem
@@ -386,10 +483,17 @@
     private PhoneOptionItem? activeSelectedPhone;
 
     private List<AdvisorLookupDto> advisors = new();
+    private List<CampaignLookupDto> campaigns = new();
 
     public class AdvisorLookupDto 
     { 
         public int Id { get; set; } 
+        public string Name { get; set; } = string.Empty; 
+    }
+
+    public class CampaignLookupDto 
+    { 
+        public long Id { get; set; } 
         public string Name { get; set; } = string.Empty; 
     }
 
@@ -406,8 +510,41 @@
                 currentUserId = uid;
             }
         }
+        await LoadCampaignsAsync();
         await LoadAdvisorsAsync();
         await LoadPreSalesAsync();
+    }
+
+    private async Task LoadCampaignsAsync()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var result = await client.GetFromJsonAsync<List<CampaignLookupDto>>("/api/campaigns");
+            if (result != null && result.Any())
+            {
+                campaigns = result;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading campaigns: {ex.Message}");
+        }
+
+        if (!campaigns.Any())
+        {
+            campaigns = new List<CampaignLookupDto>
+            {
+                new() { Id = 1, Name = "VODAFONE" },
+                new() { Id = 4, Name = "MASMOVIL" },
+                new() { Id = 5, Name = "ORANGE" },
+                new() { Id = 6, Name = "NATURGY" },
+                new() { Id = 7, Name = "REPSOL" },
+                new() { Id = 8, Name = "SEGURMA" },
+                new() { Id = 3, Name = "YOIGO" },
+                new() { Id = 2, Name = "LOWI" }
+            };
+        }
     }
 
     private async Task LoadAdvisorsAsync()
@@ -439,19 +576,17 @@
             
             if (result != null)
             {
-                // Filtrar solo las pre-ventas activas (no convertidas ni terminales)
                 allPreSales = result
-                    .Where(p => p.IdStatus != 3) // Excluir estado 3 (CONVERTIDO)
+                    .Where(p => p.IdStatus != 3) // Excluir convertidas
                     .OrderByDescending(p => p.Register)
                     .ToList();
                 ApplyFilters();
             }
-
         }
         catch (Exception ex)
         {
             hasApiError = true;
-            apiErrorMessage = "No se pudieron obtener las pre-ventas desde la API. Por favor comprueba si el servicio backend está activo.";
+            apiErrorMessage = "No se pudieron obtener las pre-ventas desde la API.";
             Snackbar.Add($"Error al cargar pre-ventas: {ex.Message}", Severity.Error);
         }
         finally
@@ -467,21 +602,8 @@
         if (!string.IsNullOrWhiteSpace(filterOperator))
             temp = temp.Where(p => p.Operator != null && p.Operator.Contains(filterOperator, StringComparison.OrdinalIgnoreCase));
 
-        if (!string.IsNullOrWhiteSpace(filterCoverage))
-        {
-            if (filterCoverage == "SI")
-            {
-                temp = temp.Where(p => IsCovered(p.CoverageStatus));
-            }
-            else if (filterCoverage == "NO")
-            {
-                temp = temp.Where(p => IsNoCoverage(p.CoverageStatus));
-            }
-            else if (filterCoverage == "PENDIENTE")
-            {
-                temp = temp.Where(p => !IsCovered(p.CoverageStatus) && !IsNoCoverage(p.CoverageStatus));
-            }
-        }
+        if (filterCampaignId > 0)
+            temp = temp.Where(p => p.IdCmpg == filterCampaignId);
 
         filteredPreSales = temp.ToList();
         currentPage = 1;
@@ -506,28 +628,51 @@
         if (currentPage < totalPages) { currentPage++; UpdatePagedPreSales(); }
     }
 
-    // --- Lógica de Nueva Pre-Venta ---
+    // --- Lógica de Nueva y Editar Pre-Venta ---
     private void OpenNewModal()
     {
+        isEditing = false;
         newPreSale = new() { 
-            CoverageStatus = "PENDIENTE", 
+            IdCmpg = campaigns.FirstOrDefault()?.Id ?? 1, 
             CurrentUserId = currentUserId, 
             OwnerUserId = currentUserId,
-            IdCmpg = 1, // Por defecto campaña 1
-            IdStatus = 1 // Por defecto estado 1 (ej. Pendiente/Nuevo)
+            IdStatus = 1
         };
         showNewModal = true;
     }
-    private void CloseNewModal() => showNewModal = false;
-    
+
+    private void OpenEditModal(PreSaleDto item)
+    {
+        if (item.OwnerUserId != currentUserId)
+        {
+            Snackbar.Add($"Sólo el creador propietario (Asesor #{item.OwnerUserId}) puede editar esta pre-venta.", Severity.Warning);
+            return;
+        }
+
+        isEditing = true;
+        newPreSale = new() {
+            IdPresale = item.IdPresale,
+            IdCmpg = item.IdCmpg > 0 ? item.IdCmpg : 1,
+            Phone = item.Phone,
+            SecondaryPhone = item.SecondaryPhone,
+            Operator = item.Operator,
+            FirstName = item.FirstName,
+            LastName = item.LastName,
+            Notes = item.Notes,
+            OwnerUserId = item.OwnerUserId,
+            CurrentUserId = item.CurrentUserId
+        };
+        showNewModal = true;
+    }
+
     private async Task ConfirmCloseNewModalAsync()
     {
         if (!string.IsNullOrWhiteSpace(newPreSale.Phone) || !string.IsNullOrWhiteSpace(newPreSale.FirstName))
         {
             bool? result = await DialogService.ShowMessageBoxAsync(new MessageBoxOptions
             {
-                Title = "¿Descartar Pre-Venta?",
-                Message = "¿Estás seguro de cancelar? Se perderán los datos ingresados en el formulario.",
+                Title = "¿Descartar cambios?",
+                Message = "¿Estás seguro de cerrar? Se perderán los datos del formulario.",
                 YesText = "Sí, descartar",
                 NoText = "Continuar editando"
             });
@@ -536,27 +681,43 @@
         }
         showNewModal = false;
     }
-    
+
     private async Task SaveNewPreSale()
     {
+        if (string.IsNullOrWhiteSpace(newPreSale.Phone))
+        {
+            Snackbar.Add("Debe ingresar un número de teléfono principal.", Severity.Warning);
+            return;
+        }
+
         isSaving = true;
         try
         {
             var client = HttpClientFactory.CreateClient("BackendApi");
-            var response = await client.PostAsJsonAsync("/api/presales", newPreSale);
+            HttpResponseMessage response;
+            if (isEditing)
+            {
+                response = await client.PutAsJsonAsync($"/api/presales/{newPreSale.IdPresale}", newPreSale);
+            }
+            else
+            {
+                response = await client.PostAsJsonAsync("/api/presales", newPreSale);
+            }
+
             if (response.IsSuccessStatusCode)
             {
                 isSuccessNew = true;
                 StateHasChanged();
-                await Task.Delay(1500);
-                Snackbar.Add("Pre-Venta registrada correctamente.", Severity.Success);
+                await Task.Delay(1200);
+                Snackbar.Add(isEditing ? "Pre-Venta actualizada correctamente." : "Pre-Venta registrada correctamente en 1ra etapa.", Severity.Success);
                 showNewModal = false;
                 isSuccessNew = false;
-                await LoadPreSalesAsync(); // Recargar datos
+                await LoadPreSalesAsync();
             }
             else
             {
-                Snackbar.Add("Error al registrar pre-venta.", Severity.Error);
+                var errStr = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error: {errStr}", Severity.Error);
             }
         }
         catch (Exception ex)
@@ -569,7 +730,7 @@
         }
     }
 
-    // --- Lógica de Registrar Llamada con Selección de Teléfono ---
+    // --- Lógica de Llamada ---
     private void OpenCallModal(long id)
     {
         selectedPreSaleId = id;
@@ -581,25 +742,11 @@
         {
             if (!string.IsNullOrWhiteSpace(selectedPreSaleObj.Phone))
             {
-                var parts = selectedPreSaleObj.Phone.Split(new[] { ',', '/', ';' }, StringSplitOptions.RemoveEmptyEntries);
-                int idx = 1;
-                foreach (var p in parts)
-                {
-                    var trimmed = p.Trim();
-                    if (!string.IsNullOrWhiteSpace(trimmed))
-                    {
-                        selectedPhones.Add(new PhoneOptionItem { Number = trimmed, Label = parts.Length > 1 ? $"Teléfono registrado #{idx++}" : "Teléfono Principal" });
-                    }
-                }
+                selectedPhones.Add(new PhoneOptionItem { Number = selectedPreSaleObj.Phone, Label = "Teléfono Principal" });
             }
-
             if (!string.IsNullOrWhiteSpace(selectedPreSaleObj.SecondaryPhone))
             {
-                var trimmed = selectedPreSaleObj.SecondaryPhone.Trim();
-                if (!selectedPhones.Any(x => x.Number == trimmed))
-                {
-                    selectedPhones.Add(new PhoneOptionItem { Number = trimmed, Label = "Teléfono Secundario / Trabajo" });
-                }
+                selectedPhones.Add(new PhoneOptionItem { Number = selectedPreSaleObj.SecondaryPhone, Label = "Teléfono Secundario" });
             }
         }
 
@@ -623,11 +770,11 @@
         try
         {
             await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", number);
-            Snackbar.Add($"¡Teléfono «{number}» copiado al portapapeles!", Severity.Success);
+            Snackbar.Add($"¡Teléfono «{number}» copiado!", Severity.Success);
         }
         catch
         {
-            Snackbar.Add($"Número: {number} (Selecciona para copiar)", Severity.Info);
+            Snackbar.Add($"Número: {number}", Severity.Info);
         }
     }
 
@@ -650,10 +797,11 @@
             {
                 isSuccessCall = true;
                 StateHasChanged();
-                await Task.Delay(1500);
-                Snackbar.Add("Llamada registrada correctamente.", Severity.Success);
+                await Task.Delay(1200);
+                Snackbar.Add("Llamada registrada correctamente en el checkpoint.", Severity.Success);
                 showCallModal = false;
                 isSuccessCall = false;
+                await LoadPreSalesAsync();
             }
             else
             {
@@ -670,43 +818,46 @@
         }
     }
 
-    // --- Lógica de Derivar Asesor ---
+    // --- Lógica de Asignar Hasta 3 Asesores ---
     private void OpenAssignModal(long id)
     {
         selectedPreSaleId = id;
-        assignUserId = 0;
+        var obj = allPreSales.FirstOrDefault(x => x.IdPresale == id);
+        assignAdvisor1Id = obj?.AssignedAdvisor1Id ?? 0;
+        assignAdvisor2Id = obj?.AssignedAdvisor2Id ?? 0;
+        assignAdvisor3Id = obj?.AssignedAdvisor3Id ?? 0;
         assignContext = "";
         showAssignModal = true;
     }
+
     private void CloseAssignModal() => showAssignModal = false;
 
     private async Task SaveAssign()
     {
-        if(assignUserId <= 0)
-        {
-            Snackbar.Add("Debe ingresar un ID de Asesor válido.", Severity.Warning);
-            return;
-        }
-
         isSaving = true;
         try
         {
             var client = HttpClientFactory.CreateClient("BackendApi");
-            var payload = new { ToUserId = assignUserId, Context = assignContext };
-            var response = await client.PostAsJsonAsync($"/api/presales/{selectedPreSaleId}/assign", payload);
+            var payload = new { 
+                ToUserId1 = assignAdvisor1Id > 0 ? (long?)assignAdvisor1Id : null,
+                ToUserId2 = assignAdvisor2Id > 0 ? (long?)assignAdvisor2Id : null,
+                ToUserId3 = assignAdvisor3Id > 0 ? (long?)assignAdvisor3Id : null,
+                Context = assignContext 
+            };
+            var response = await client.PostAsJsonAsync($"/api/presales/{selectedPreSaleId}/assign-multi", payload);
             if (response.IsSuccessStatusCode)
             {
                 isSuccessAssign = true;
                 StateHasChanged();
-                await Task.Delay(1500);
-                Snackbar.Add("Pre-Venta derivada con éxito.", Severity.Success);
+                await Task.Delay(1200);
+                Snackbar.Add("Asesores asignados con éxito a la pre-venta.", Severity.Success);
                 showAssignModal = false;
                 isSuccessAssign = false;
-                await LoadPreSalesAsync(); // Recargar datos porque ya no es nuestra pre-venta
+                await LoadPreSalesAsync();
             }
             else
             {
-                Snackbar.Add("Error al derivar pre-venta.", Severity.Error);
+                Snackbar.Add("Error al asignar asesores.", Severity.Error);
             }
         }
         catch (Exception ex)
@@ -717,23 +868,6 @@
         {
             isSaving = false;
         }
-    }
-
-    private bool IsCovered(string? status)
-    {
-        if (string.IsNullOrWhiteSpace(status)) return false;
-        var s = status.Trim();
-        return string.Equals(s, "SI", StringComparison.OrdinalIgnoreCase) || 
-               string.Equals(s, "COVERED", StringComparison.OrdinalIgnoreCase) || 
-               string.Equals(s, "AVAILABLE", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private bool IsNoCoverage(string? status)
-    {
-        if (string.IsNullOrWhiteSpace(status)) return false;
-        var s = status.Trim();
-        return string.Equals(s, "NO", StringComparison.OrdinalIgnoreCase) || 
-               string.Equals(s, "NO_COVERAGE", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task ConvertToOrder(long idPresale)

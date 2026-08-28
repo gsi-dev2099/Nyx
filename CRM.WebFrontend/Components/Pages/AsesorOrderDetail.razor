@@ -1,6 +1,9 @@
 @page "/asesor/orders/{id:long}"
+@page "/backoffice/orders/{id:long}"
+@page "/supervisor/orders/{id:long}"
+@page "/orders/{id:long}"
 @rendermode InteractiveServer
-@attribute [Authorize(Roles = "ASESOR")]
+@attribute [Authorize(Roles = "ASESOR,BACKOFFICE,SUPERVISOR,COORDINADOR,ADMIN_CRM,ADMINISTRADOR")]
 @using CRM.WebFrontend.Services
 @using CRM.WebFrontend.Client.Helpers
 @using System.Text.RegularExpressions
@@ -310,6 +313,92 @@
                         }
                     </div>
                 </div>
+
+                <!-- PANEL DE CHECKPOINTS Y VALIDACIONES ACTIVAS DE LA ETAPA (NYX FLOW) -->
+                @if (_orderCheckpoints.Any())
+                {
+                    <div class="premium-panel mb-4" style="border-left: 4px solid #0F172A;">
+                        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
+                                    <i class="bi bi-shield-check text-primary"></i> Checkpoints y Requisitos de la Etapa Actual
+                                    <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size:10px;">Nyx Flow Engine</span>
+                                </h6>
+                                <p class="text-muted small mb-0">Requisitos y validaciones obligatorias para avanzar la orden en el ciclo de vida.</p>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill" @onclick="ReloadCheckpointsAsync">
+                                <i class="bi bi-arrow-clockwise me-1"></i> Actualizar Checkpoints
+                            </button>
+                        </div>
+
+                        <div class="row g-3">
+                            @foreach (var cp in _orderCheckpoints)
+                            {
+                                bool isApproved = cp.Status == "APPROVED" || cp.Status == "SUBSANADO";
+                                bool isKo = cp.Status == "KO";
+                                bool isPending = cp.Status == "PENDING";
+
+                                <div class="col-12 col-md-6 col-lg-4">
+                                    <div class="p-3 rounded-3 border h-100 @(isApproved ? "bg-success-subtle border-success" : (isKo ? "bg-danger-subtle border-danger" : "bg-light border-secondary-subtle"))">
+                                        <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                            <div>
+                                                <span class="fw-bold d-block text-dark" style="font-size: 13px;">@cp.Name</span>
+                                                <span class="text-muted text-uppercase" style="font-size: 10px; font-family: monospace;">@cp.Code</span>
+                                            </div>
+                                            <div>
+                                                @if (isApproved)
+                                                {
+                                                    <span class="badge bg-success text-white rounded-pill px-2 py-1" style="font-size: 10px;">
+                                                        <i class="bi bi-check-circle-fill me-1"></i> Cumplido
+                                                    </span>
+                                                }
+                                                else if (isKo)
+                                                {
+                                                    <span class="badge bg-danger text-white rounded-pill px-2 py-1" style="font-size: 10px;">
+                                                        <i class="bi bi-x-circle-fill me-1"></i> Rechazado
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge @(cp.BlocksAdvance ? "bg-warning text-dark" : "bg-secondary text-white") rounded-pill px-2 py-1" style="font-size: 10px;">
+                                                        @(cp.BlocksAdvance ? "⚠️ Bloqueante" : "Informativo")
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        @if (!string.IsNullOrEmpty(cp.Description))
+                                        {
+                                            <p class="text-muted mb-2" style="font-size: 11px;">@cp.Description</p>
+                                        }
+
+                                        @if (cp.Steps.Any())
+                                        {
+                                            <div class="mt-2 pt-2 border-top">
+                                                <span class="d-block fw-bold text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">Pasos Requeridos:</span>
+                                                <div class="d-flex flex-column gap-1">
+                                                    @foreach (var step in cp.Steps)
+                                                    {
+                                                        <div class="form-check form-check-sm mb-0">
+                                                            <input class="form-check-input" type="checkbox" id="@($"chk_{cp.IdCpInstance}_{step.IdStep}")"
+                                                                   checked="@step.IsCompleted"
+                                                                   disabled="@(!_isEditable || isApproved)"
+                                                                   @onchange="@((ChangeEventArgs e) => ToggleStepAsync(cp, step, (bool)(e.Value ?? false)))" />
+                                                            <label class="form-check-label @(step.IsCompleted ? "text-decoration-line-through text-muted" : "text-dark")" 
+                                                                   for="@($"chk_{cp.IdCpInstance}_{step.IdStep}")" style="font-size: 11px;">
+                                                                @step.StepName
+                                                            </label>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
 
                 <div class="premium-panel mb-4">
                     <div class="d-flex align-items-center justify-content-between mb-4">
@@ -1035,6 +1124,9 @@
                 {
                     // Fallback to CRM status mapping
                 }
+
+                // 7. Cargar checkpoints del flujo para esta orden
+                await ReloadCheckpointsAsync();
             }
         }
         catch (Exception ex)
@@ -1356,5 +1448,147 @@
         {
             _isSaving = false;
         }
+    }
+
+    private List<OrderCheckpointVm> _orderCheckpoints = new();
+
+    private async Task ReloadCheckpointsAsync()
+    {
+        if (_order == null) return;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var flowInst = await client.GetFromJsonAsync<FlowInstanceWithCheckpointsApiDto>($"/api/engines/flow/instances/by-entity/order/{_order.IdOrder}");
+            if (flowInst?.CheckpointInstances != null)
+            {
+                var catalog = await client.GetFromJsonAsync<List<CheckpointCatalogApiDto>>("/api/engines/flow/checkpoints/catalog");
+                var catalogDict = catalog?.ToDictionary(c => c.IdCheckpoint) ?? new();
+
+                var list = new List<OrderCheckpointVm>();
+                foreach (var ci in flowInst.CheckpointInstances)
+                {
+                    catalogDict.TryGetValue(ci.IdCheckpoint, out var catDef);
+                    var vm = new OrderCheckpointVm
+                    {
+                        IdCpInstance = ci.IdCpInstance,
+                        IdCheckpoint = ci.IdCheckpoint,
+                        Code = catDef?.Code ?? $"CP-{ci.IdCheckpoint}",
+                        Name = catDef?.Name ?? $"Checkpoint #{ci.IdCheckpoint}",
+                        Description = catDef?.Description,
+                        Status = ci.Status ?? "PENDING",
+                        BlocksAdvance = catDef?.BlocksAdvance ?? false
+                    };
+
+                    try
+                    {
+                        var stepsProgress = await client.GetFromJsonAsync<List<StepProgressApiDto>>($"/api/engines/flow/checkpoints/instances/{ci.IdCpInstance}/steps");
+                        if (stepsProgress != null && stepsProgress.Any())
+                        {
+                            vm.Steps = stepsProgress.Select(s => new OrderCheckpointStepVm
+                            {
+                                IdStep = s.IdStep,
+                                StepName = s.StepName ?? $"Paso #{s.IdStep}",
+                                IsCompleted = s.IsCompleted
+                            }).ToList();
+                        }
+                    }
+                    catch { }
+
+                    list.Add(vm);
+                }
+                _orderCheckpoints = list;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AsesorOrderDetail] Error loading checkpoints: {ex.Message}");
+        }
+    }
+
+    private async Task ToggleStepAsync(OrderCheckpointVm cp, OrderCheckpointStepVm step, bool isChecked)
+    {
+        step.IsCompleted = isChecked;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("BackendApi");
+            var payload = new { isCompleted = isChecked, actorId = _order?.IdUser ?? 1 };
+            var response = await client.PostAsJsonAsync($"/api/engines/flow/checkpoints/instances/{cp.IdCpInstance}/steps/{step.IdStep}/toggle", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add($"Paso '{step.StepName}' actualizado.", Severity.Success);
+                await ReloadCheckpointsAsync();
+            }
+            else
+            {
+                step.IsCompleted = !isChecked;
+                Snackbar.Add("Error al actualizar el estado del paso.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            step.IsCompleted = !isChecked;
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    public class OrderCheckpointVm
+    {
+        public long IdCpInstance { get; set; }
+        public long IdCheckpoint { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string Status { get; set; } = "PENDING";
+        public bool BlocksAdvance { get; set; }
+        public List<OrderCheckpointStepVm> Steps { get; set; } = new();
+    }
+
+    public class OrderCheckpointStepVm
+    {
+        public long IdStep { get; set; }
+        public string StepName { get; set; } = string.Empty;
+        public bool IsCompleted { get; set; }
+    }
+
+    public class FlowInstanceWithCheckpointsApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idInstance")]
+        public long IdInstance { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("checkpointInstances")]
+        public List<CheckpointInstanceApiDto> CheckpointInstances { get; set; } = new();
+    }
+
+    public class CheckpointInstanceApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idCpInstance")]
+        public long IdCpInstance { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("idCheckpoint")]
+        public long IdCheckpoint { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public string Status { get; set; } = "PENDING";
+    }
+
+    public class CheckpointCatalogApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idCheckpoint")]
+        public long IdCheckpoint { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("code")]
+        public string Code { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("description")]
+        public string? Description { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("blocksAdvance")]
+        public bool BlocksAdvance { get; set; }
+    }
+
+    public class StepProgressApiDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("idStep")]
+        public long IdStep { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("stepName")]
+        public string StepName { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("isCompleted")]
+        public bool IsCompleted { get; set; }
     }
 }

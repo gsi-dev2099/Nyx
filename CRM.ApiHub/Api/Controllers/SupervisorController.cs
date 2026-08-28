@@ -13,7 +13,6 @@ namespace CRM.ApiHub.Api.Controllers;
 [Authorize(Roles = "SUPERVISOR,COORDINADOR")]
 [ApiController]
 [Route("api/supervisor")]
-
 public class SupervisorController : ControllerBase
 {
     private readonly GetTeamOrdersUseCase _getTeamOrdersUseCase;
@@ -50,19 +49,8 @@ public class SupervisorController : ControllerBase
             return Unauthorized(new { message = "Usuario no autorizado." });
         }
 
-        if (supervisorId == -998) supervisorId = 9;
-        else if (supervisorId == -999) supervisorId = 101;
-        else if (supervisorId == -1000) supervisorId = 237;
-
-        try
-        {
-            var pagedResult = await _getTeamOrdersUseCase.ExecuteAsync(supervisorId, userId, statusId, campaignId, dateFrom, dateTo, page, pageSize, ct);
-            return Ok(pagedResult);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al obtener órdenes del equipo.", details = ex.Message });
-        }
+        var pagedResult = await _getTeamOrdersUseCase.ExecuteAsync(supervisorId, userId, statusId, campaignId, dateFrom, dateTo, page, pageSize, ct);
+        return Ok(pagedResult);
     }
 
     [HttpGet("stats")]
@@ -77,19 +65,8 @@ public class SupervisorController : ControllerBase
             return Unauthorized(new { message = "Usuario no autorizado." });
         }
 
-        if (supervisorId == -998) supervisorId = 9;
-        else if (supervisorId == -999) supervisorId = 101;
-        else if (supervisorId == -1000) supervisorId = 237;
-
-        try
-        {
-            var stats = await _getTeamStatsUseCase.ExecuteAsync(supervisorId, dateFrom, dateTo, ct);
-            return Ok(stats);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al obtener estadísticas del equipo.", details = ex.Message });
-        }
+        var stats = await _getTeamStatsUseCase.ExecuteAsync(supervisorId, dateFrom, dateTo, ct);
+        return Ok(stats);
     }
 
     [HttpPost("bulk-transfer")]
@@ -111,49 +88,38 @@ public class SupervisorController : ControllerBase
             return Unauthorized(new { message = "Usuario no autorizado." });
         }
 
-        if (supervisorId == -998) supervisorId = 9;
-        else if (supervisorId == -999) supervisorId = 101;
-        else if (supervisorId == -1000) supervisorId = 237;
+        var result = await _bulkTransferToBackofficeUseCase.ExecuteAsync(
+            dto.OrderIds,
+            supervisorId,
+            dto.BackofficeUserId,
+            dto.Comment,
+            ct
+        );
 
-        try
+        if (result.SuccessfulCount == 0 && result.FailedCount > 0)
         {
-            var result = await _bulkTransferToBackofficeUseCase.ExecuteAsync(
-                dto.OrderIds,
-                supervisorId,
-                dto.BackofficeUserId,
-                dto.Comment,
-                ct
-            );
-
-            if (result.SuccessfulCount == 0 && result.FailedCount > 0)
-            {
-                return BadRequest(new { message = "No se pudo realizar la transferencia masiva de ninguna orden.", details = result });
-            }
-
-            // Send notification to the Backoffice analyst
-            if (result.SuccessfulCount > 0)
-            {
-                try
-                {
-                    await _notificationService.SendNotificationAsync(
-                        dto.BackofficeUserId,
-                        $"Nuevas órdenes asignadas ({result.SuccessfulCount})",
-                        $"Se te han asignado {result.SuccessfulCount} órdenes para revisión desde el Supervisor.",
-                        "TRANSFER",
-                        null
-                    );
-                }
-                catch (Exception notifEx)
-                {
-                    Console.WriteLine($"[SupervisorController] Error sending notification: {notifEx.Message}");
-                }
-            }
-
-            return Ok(new { message = "Transferencia masiva procesada.", details = result });
+            return BadRequest(new { message = "No se pudo realizar la transferencia masiva de ninguna orden.", details = result });
         }
-        catch (Exception ex)
+
+        // Send notification to the Backoffice analyst
+        if (result.SuccessfulCount > 0)
         {
-            return StatusCode(500, new { message = "Error al realizar la transferencia masiva.", details = ex.Message });
+            try
+            {
+                await _notificationService.SendNotificationAsync(
+                    dto.BackofficeUserId,
+                    $"Nuevas órdenes asignadas ({result.SuccessfulCount})",
+                    $"Se te han asignado {result.SuccessfulCount} órdenes para revisión desde el Supervisor.",
+                    "TRANSFER",
+                    null
+                );
+            }
+            catch
+            {
+                // Ignorar error de notificación no crítico
+            }
         }
+
+        return Ok(new { message = "Transferencia masiva procesada.", details = result });
     }
 }

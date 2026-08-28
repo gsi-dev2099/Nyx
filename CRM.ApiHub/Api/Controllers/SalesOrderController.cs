@@ -45,42 +45,22 @@ public class SalesOrderController : ControllerBase
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
     {
-        try
+        if (!userId.HasValue)
         {
-            if (!userId.HasValue)
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
+            if (userIdClaim != null && long.TryParse(userIdClaim.Value, out long parsedId))
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub");
-                if (userIdClaim != null && long.TryParse(userIdClaim.Value, out long parsedId))
-                {
-                    userId = parsedId;
-                }
+                userId = parsedId;
             }
-
-            if (userId == -999)
-            {
-                userId = 101; // Fallback: Map test.asesor to real asesor 'patricia' (ID 101)
-            }
-            else if (userId == -1000)
-            {
-                userId = 237; // Fallback: Map test.backoffice to real backoffice 'gvillanueva' (ID 237)
-            }
-            else if (userId == -998)
-            {
-                userId = 9; // Fallback: Map test.supervisor to real supervisor 'cnaranjo' (ID 9)
-            }
-
-            if (!userId.HasValue)
-            {
-                return Unauthorized(new { message = "El ID de usuario es requerido para realizar esta consulta." });
-            }
-
-            var pagedResult = await _getSalesOrdersUseCase.ExecuteAsync(userId, statusId, campaignId, dateFrom, dateTo, page, pageSize, ct);
-            return Ok(pagedResult);
         }
-        catch (Exception ex)
+
+        if (!userId.HasValue)
         {
-            return StatusCode(500, new { message = "Error al obtener órdenes.", details = ex.Message });
+            return Unauthorized(new { message = "El ID de usuario es requerido para realizar esta consulta." });
         }
+
+        var pagedResult = await _getSalesOrdersUseCase.ExecuteAsync(userId, statusId, campaignId, dateFrom, dateTo, page, pageSize, ct);
+        return Ok(pagedResult);
     }
 
     [HttpGet("{id:long}")]
@@ -97,29 +77,15 @@ public class SalesOrderController : ControllerBase
     [HttpGet("{id:long}/history")]
     public async Task<IActionResult> GetOrderHistory(long id, CancellationToken ct)
     {
-        try
-        {
-            var history = await _getSalesOrderHistoryUseCase.ExecuteAsync(id, ct);
-            return Ok(history);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al obtener el historial de la orden.", details = ex.Message });
-        }
+        var history = await _getSalesOrderHistoryUseCase.ExecuteAsync(id, ct);
+        return Ok(history);
     }
 
     [HttpPost]
     public async Task<IActionResult> CreateOrder([FromBody] SalesOrderCreateDto dto, CancellationToken ct)
     {
-        try
-        {
-            var createdOrder = await _createSalesOrderUseCase.ExecuteAsync(dto, ct);
-            return CreatedAtAction(nameof(GetOrderById), new { id = createdOrder.IdOrder }, createdOrder);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = "Error al crear orden de venta.", details = ex.Message });
-        }
+        var createdOrder = await _createSalesOrderUseCase.ExecuteAsync(dto, ct);
+        return CreatedAtAction(nameof(GetOrderById), new { id = createdOrder.IdOrder }, createdOrder);
     }
 
     [HttpPatch("{id:long}/status")]
@@ -131,22 +97,11 @@ public class SalesOrderController : ControllerBase
             return Unauthorized(new { message = "Usuario no autorizado." });
         }
 
-        if (actorId == -999) actorId = 101;
-        else if (actorId == -1000) actorId = 237;
-        else if (actorId == -998) actorId = 9;
-
-        try
+        var success = await _updateSalesOrderStatusUseCase.ExecuteAsync(id, dto, actorId, ct);
+        if (!success)
         {
-            var success = await _updateSalesOrderStatusUseCase.ExecuteAsync(id, dto, actorId, ct);
-            if (!success)
-            {
-                return NotFound(new { message = "Orden de venta no encontrada." });
-            }
-            return Ok(new { message = "Estado de orden de venta actualizado correctamente." });
+            return NotFound(new { message = "Orden de venta no encontrada." });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al actualizar estado de la orden.", details = ex.Message });
-        }
+        return Ok(new { message = "Estado de orden de venta actualizado correctamente." });
     }
 }

@@ -5,16 +5,19 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace CRM.WebFrontend.Services;
 
 public class SalesOrderService : ISalesOrderService
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<SalesOrderService> _logger;
 
-    public SalesOrderService(IHttpClientFactory httpClientFactory)
+    public SalesOrderService(IHttpClientFactory httpClientFactory, ILogger<SalesOrderService> logger)
     {
         _httpClient = httpClientFactory.CreateClient("BackendApi");
+        _logger = logger;
     }
 
     public async Task<IEnumerable<SalesOrderViewModel>> GetOrdersAsync(long? userId = null, long? statusId = null, long? campaignId = null)
@@ -27,7 +30,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetOrdersAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al obtener órdenes en GetOrdersAsync (userId={UserId}, statusId={StatusId})", userId, statusId);
             return new List<SalesOrderViewModel>();
         }
     }
@@ -40,7 +43,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetOrderByIdAsync for {id}: {ex.Message}");
+            _logger.LogError(ex, "Error al obtener orden #{Id} en GetOrderByIdAsync", id);
             return null;
         }
     }
@@ -54,7 +57,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetOrderHistoryAsync for {id}: {ex.Message}");
+            _logger.LogError(ex, "Error al obtener historial de la orden #{Id}", id);
             return new List<TimelineItemViewModel>();
         }
     }
@@ -68,7 +71,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetTemplatesAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al obtener plantillas de formulario (campaign={Cmpg}, stage={Stage})", idCmpg, idStage);
             return new List<FormTemplateViewModel>();
         }
     }
@@ -82,7 +85,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetFieldsAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al obtener campos del formulario #{FormId}", idForm);
             return new List<FormFieldViewModel>();
         }
     }
@@ -96,7 +99,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetOrderDataAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al obtener datos guardados de la orden #{OrderId}", idOrder);
             return new List<OrderDataViewModel>();
         }
     }
@@ -121,7 +124,7 @@ public class SalesOrderService : ISalesOrderService
             string errorMessage = $"Error de servidor ({response.StatusCode})";
             try
             {
-                using var jsonDoc = System.Text.Json.JsonDocument.Parse(content);
+                using var jsonDoc = JsonDocument.Parse(content);
                 if (jsonDoc.RootElement.TryGetProperty("message", out var msgProp))
                 {
                     errorMessage = msgProp.GetString() ?? errorMessage;
@@ -140,7 +143,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in SaveOrderDataAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al guardar datos de formulario de la orden #{OrderId}", idOrder);
             return (false, ex.Message);
         }
     }
@@ -153,7 +156,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetAlternateProfileAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al obtener perfil alterno de la orden #{OrderId}", idOrder);
             return null;
         }
     }
@@ -173,7 +176,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in SaveAlternateProfileAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al guardar perfil alterno de la orden #{OrderId}", idOrder);
             return false;
         }
     }
@@ -187,7 +190,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in GetDocumentsByOrderAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al obtener documentos de la orden #{OrderId}", idOrder);
             return new List<OrderDocumentViewModel>();
         }
     }
@@ -207,7 +210,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in UploadDocumentAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al subir documento para la orden #{OrderId}", idOrder);
             return false;
         }
     }
@@ -230,7 +233,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in DownloadDocumentAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al descargar documento #{DocId}", idDocument);
             return null;
         }
     }
@@ -249,7 +252,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in UpdateOrderStatusAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al actualizar estado de la orden #{OrderId} a {StatusId}", idOrder, toStatusId);
             return false;
         }
     }
@@ -263,7 +266,7 @@ public class SalesOrderService : ISalesOrderService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in CheckPermissionAsync: {ex.Message}");
+            _logger.LogError(ex, "Error al verificar permisos para key '{PermissionKey}' y status #{StatusId}", permissionKey, statusId);
             return false;
         }
     }

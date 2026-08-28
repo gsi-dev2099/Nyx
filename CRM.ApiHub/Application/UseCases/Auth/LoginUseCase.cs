@@ -17,32 +17,40 @@ public class LoginUseCase
     private readonly IRefreshTokenStore _refreshTokenStore;
     private readonly IConfiguration _configuration;
     private readonly IUserPreferencesRepository _preferencesRepository;
+    private readonly ILogger<LoginUseCase> _logger;
 
     public LoginUseCase(
         IUserRepository userRepository, 
         IJwtTokenGenerator tokenGenerator,
         IRefreshTokenStore refreshTokenStore,
         IConfiguration configuration,
-        IUserPreferencesRepository preferencesRepository)
+        IUserPreferencesRepository preferencesRepository,
+        ILogger<LoginUseCase> logger)
     {
         _userRepository = userRepository;
         _tokenGenerator = tokenGenerator;
         _refreshTokenStore = refreshTokenStore;
         _configuration = configuration;
         _preferencesRepository = preferencesRepository;
+        _logger = logger;
     }
 
     public async Task<LoginResponse?> ExecuteAsync(LoginRequest request, string ipAddress, string userAgent, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return null;
+        }
 
         // 1. Obtener el usuario por username
         var user = await _userRepository.GetByUsernameAsync(request.Username, ct);
         if (user == null)
         {
+            _logger.LogWarning("Intento de login fallido: usuario '{Username}' no existe.", request.Username);
             return null;
         }
 
-        // 2. Verificar la contraseña usando BCrypt (con soporte para hash plano y fallbacks de desarrollo)
+        // 2. Verificar la contraseña usando exclusivamente BCrypt seguro
         bool isPasswordValid = false;
         try
         {
@@ -52,39 +60,27 @@ public class LoginUseCase
                 {
                     isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
                 }
-                else if (user.PasswordHash == request.Password)
-                {
-                    isPasswordValid = true;
-                }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al verificar hash BCrypt para el usuario '{Username}'.", request.Username);
+        }
 
         if (!isPasswordValid)
         {
-            var allowDevFallback = _configuration.GetValue<bool>("AuthSettings:AllowDevFallbackPassword");
-            if (allowDevFallback)
-            {
-                if (request.Password == "password123" || request.Password == "123456" || request.Password == "1221" || request.Password == "72869754" || request.Password == "dayanyy2010")
-                {
-                    isPasswordValid = true;
-                }
-            }
-            
-            if (!isPasswordValid)
-            {
-                return null;
-            }
+            _logger.LogWarning("Intento de login fallido: credenciales incorrectas para el usuario '{Username}'.", request.Username);
+            return null;
         }
 
-        // 3. Obtener el rol del usuario
+        // 3. Obtener el rol y detalles del usuario
         var userDetail = await _userRepository.GetUserDetailByIdAsync(user.IdUser, ct);
-        var role = userDetail?.RoleName;
+        var role = userDetail?.RoleName ?? "ASESOR";
 
-        // 4. Generar token JWT válido
+        // 4. Generar token JWT firmado
         var token = _tokenGenerator.GenerateToken(user, role);
 
-        // 5. Generar Refresh Token y Familia
+        // 5. Generar Refresh Token seguro y Familia
         var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         var familyId = Guid.NewGuid().ToString("N");
         var expiry = DateTime.UtcNow.AddDays(7);
@@ -99,6 +95,7 @@ public class LoginUseCase
         }
         catch { /* Graceful fallback to default theme */ }
 
+        _logger.LogInformation("Login exitoso para usuario '{Username}' con rol '{Role}'.", user.Username, role);
         return new LoginResponse(token, refreshToken, user.Username, role, themeName);
     }
 }

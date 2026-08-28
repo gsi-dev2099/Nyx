@@ -37,21 +37,14 @@ public class UpdateSalesOrderStatusUseCase
             throw new InvalidOperationException($"Transición de estado no permitida. La orden #{idOrder} se encuentra en custodia del usuario {existingOrder.CustodyUserId.Value}.");
         }
 
-        // Consultar avance de etapa en Nyx.FlowEngine si cambia de estado hacia adelante
-        if (dto.ToStatusId > existingOrder.IdStatus)
+        // Sincronizar etapa exacta en Nyx.FlowEngine según el status destino (validando checkpoints bloqueantes)
+        try
         {
-            var flowInstance = await _flowEngineClient.GetInstanceByEntityAsync("order", idOrder);
-            if (flowInstance != null)
-            {
-                try
-                {
-                    await _flowEngineClient.AdvanceStageAsync(flowInstance.IdInstance, actorId);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    throw new InvalidOperationException($"Transición bloqueada por el Motor de Flujos (Nyx.FlowEngine): {ex.Message}");
-                }
-            }
+            await _flowEngineClient.SyncStageByStatusAsync("order", idOrder, dto.ToStatusId, actorId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidOperationException($"Transición bloqueada por el Motor de Flujos (Nyx.FlowEngine): {ex.Message}");
         }
 
 
