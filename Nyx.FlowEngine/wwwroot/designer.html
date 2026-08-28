@@ -377,39 +377,50 @@
                     </div>
                 </div>
 
-                <!-- POLÍTICAS DEL CHECKPOINT -->
+                <!-- POLÍTICAS DEL CHECKPOINT (100% Opcionales y Desactivadas por Defecto) -->
                 <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 14px; padding: 1.2rem; margin: 1.25rem 0;">
                     <h4 style="font-size: 0.9rem; font-weight: 700; color: #818cf8; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="bi bi-shield-check"></i> Políticas y Gobernanza de este Checkpoint
+                        <i class="bi bi-shield-check"></i> Políticas y Gobernanza de este Checkpoint (100% Opcionales)
                     </h4>
                     <div class="form-grid">
                         <div class="form-group">
                             <label class="form-label">📞 Permitir Handshake / Derivación CTI</label>
-                            <select id="polEnableHandshake" class="form-control" onchange="toggleTimeoutField()">
-                                <option value="true">Sí (Permite transferir la llamada)</option>
-                                <option value="false">No (Gestión individual)</option>
+                            <select id="polEnableHandshake" class="form-control" onchange="toggleHandshakeSubOptions()">
+                                <option value="false">No (Gestión individual estándar)</option>
+                                <option value="true">Sí (Habilita derivación y transferencia CTI)</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label class="form-label">👔 Requiere Validación de Supervisor</label>
                             <select id="polReqSupervisor" class="form-control">
                                 <option value="false">No (Asesor completa directo)</option>
-                                <option value="true">Sí (Escala para firma de Supervisor)</option>
+                                <option value="true">Sí (Escala para visto bueno de Supervisor)</option>
                             </select>
                         </div>
                     </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label">⚡ Auto-Avanzar Etapa al Aprobar</label>
-                            <select id="polAutoAdvance" class="form-control">
-                                <option value="false">No (Espera confirmación)</option>
-                                <option value="true">Sí (Avanza automáticamente si no hay bloqueos)</option>
-                            </select>
+
+                    <!-- Sub-opciones de Handshake (sólo visibles cuando Handshake = Sí) -->
+                    <div id="handshakeSubOptions" style="display: none; background: rgba(0,0,0,0.2); border-radius: 10px; padding: 0.85rem; margin-bottom: 1rem; border: 1px dashed rgba(99,102,241,0.3);">
+                        <div class="form-grid">
+                            <div class="form-group" style="margin-bottom:0.6rem;">
+                                <label class="form-label">🚫 ¿Titular puede cancelar antes de aceptación?</label>
+                                <select id="polAllowCancel" class="form-control">
+                                    <option value="false">No (Espera respuesta obligatoria)</option>
+                                    <option value="true">Sí (Puede anular antes de que el otro acepte)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom:0.6rem;">
+                                <label class="form-label">↩️ ¿Receptor puede devolver si aceptó por error?</label>
+                                <select id="polAllowRevert" class="form-control">
+                                    <option value="false">No (Custodia permanente)</option>
+                                    <option value="true">Sí (Puede devolver al titular si fue por error)</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group" id="timeoutGroup">
-                            <label class="form-label">⏱️ Timeout de Derivación (Opcional)</label>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">⏱️ Timeout de Derivación (Solo en ciertos puntos)</label>
                             <select id="polTimeoutSelect" class="form-control">
-                                <option value="none">Sin límite de tiempo (Ilimitado / Sin timeout)</option>
+                                <option value="none">Sin timeout (Ilimitado / Sin límite de tiempo)</option>
                                 <option value="5">5 minutos</option>
                                 <option value="10">10 minutos</option>
                                 <option value="15">15 minutos (Estándar)</option>
@@ -417,6 +428,14 @@
                                 <option value="60">60 minutos (1 hora)</option>
                             </select>
                         </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">⚡ Auto-Avanzar Etapa al Aprobar</label>
+                        <select id="polAutoAdvance" class="form-control">
+                            <option value="false">No (Espera confirmación manual del asesor)</option>
+                            <option value="true">Sí (Avanza automáticamente si no hay bloqueos)</option>
+                        </select>
                     </div>
                 </div>
 
@@ -549,10 +568,10 @@
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        function toggleTimeoutField() {
+        function toggleHandshakeSubOptions() {
             const enabled = document.getElementById('polEnableHandshake').value === 'true';
-            document.getElementById('timeoutGroup').style.opacity = enabled ? '1' : '0.4';
-            document.getElementById('polTimeoutSelect').disabled = !enabled;
+            const subOptions = document.getElementById('handshakeSubOptions');
+            if (subOptions) subOptions.style.display = enabled ? 'block' : 'none';
         }
 
         function toggleShowInactive() {
@@ -1090,12 +1109,14 @@
             document.getElementById('stepsContainer').innerHTML = '';
             addStepRow('Validación y registro de actuación', true);
 
-            // Default policies
-            document.getElementById('polEnableHandshake').value = 'true';
+            // Políticas por defecto: 100% Opcionales y Desactivadas
+            document.getElementById('polEnableHandshake').value = 'false';
+            document.getElementById('polAllowCancel').value = 'false';
+            document.getElementById('polAllowReceptorRevert').value = 'false';
             document.getElementById('polReqSupervisor').value = 'false';
             document.getElementById('polAutoAdvance').value = 'false';
             document.getElementById('polTimeoutSelect').value = 'none';
-            toggleTimeoutField();
+            toggleHandshakeSubOptions();
 
             populateKoTriggerOptions(null, null);
             populateRollbackStages();
@@ -1135,11 +1156,13 @@
                 // Políticas
                 let pol = {};
                 try { pol = typeof cp.policiesJson === 'string' ? JSON.parse(cp.policiesJson) : cp.policiesJson || {}; } catch(e){}
-                document.getElementById('polEnableHandshake').value = pol.enableHandshake !== false ? 'true' : 'false';
+                document.getElementById('polEnableHandshake').value = pol.enableHandshake ? 'true' : 'false';
+                document.getElementById('polAllowCancel').value = pol.allowOwnerCancelBeforeAccept ? 'true' : 'false';
+                document.getElementById('polAllowReceptorRevert').value = (pol.allowReceptorRevertIfError || pol.onlyReceptorCanRevert) ? 'true' : 'false';
                 document.getElementById('polReqSupervisor').value = pol.requiresSupervisorApproval ? 'true' : 'false';
                 document.getElementById('polAutoAdvance').value = pol.autoAdvanceOnApproval ? 'true' : 'false';
                 document.getElementById('polTimeoutSelect').value = pol.handshakeTimeoutMinutes ? pol.handshakeTimeoutMinutes.toString() : 'none';
-                toggleTimeoutField();
+                toggleHandshakeSubOptions();
 
                 populateRollbackStages(cp.rollbackToStage);
                 openModal('checkpointModal');
@@ -1166,11 +1189,12 @@
 
             const policiesObj = {
                 enableHandshake: enableHs,
+                allowOwnerCancelBeforeAccept: enableHs && document.getElementById('polAllowCancel').value === 'true',
+                allowReceptorRevertIfError: enableHs && document.getElementById('polAllowReceptorRevert').value === 'true',
+                onlyReceptorCanRevert: enableHs && document.getElementById('polAllowReceptorRevert').value === 'true',
                 requiresSupervisorApproval: document.getElementById('polReqSupervisor').value === 'true',
                 autoAdvanceOnApproval: document.getElementById('polAutoAdvance').value === 'true',
-                handshakeTimeoutMinutes: (enableHs && timeoutVal !== 'none') ? parseInt(timeoutVal) : null,
-                onlyReceptorCanRevert: true,
-                allowOwnerCancelBeforeAccept: true
+                handshakeTimeoutMinutes: (enableHs && timeoutVal !== 'none') ? parseInt(timeoutVal) : null
             };
 
             const payload = {

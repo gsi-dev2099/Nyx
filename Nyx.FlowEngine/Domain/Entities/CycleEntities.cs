@@ -71,14 +71,15 @@ public class CheckpointCatalog
 
 public class CheckpointPoliciesDto
 {
-    public bool EnableHandshake { get; set; } = true;
-    public bool OnlyReceptorCanRevert { get; set; } = true;
-    public bool AllowOwnerCancelBeforeAccept { get; set; } = true;
-    public int? HandshakeTimeoutMinutes { get; set; } = null; // null = Sin timeout / Ilimitado
-    public bool RequiresSupervisorApproval { get; set; } = false;
-    public bool AutoAdvanceOnApproval { get; set; } = false;
-    public int? MaxDurationMinutes { get; set; }
-    public string RequiredRole { get; set; } = "Asesor";
+    public bool EnableHandshake { get; set; } = false; // Por defecto desactivado (opt-in)
+    public bool AllowOwnerCancelBeforeAccept { get; set; } = false; // Permitir al titular cancelar antes de que el otro acepte
+    public bool AllowReceptorRevertIfError { get; set; } = false; // Permitir al receptor devolver si aceptó por error
+    public bool OnlyReceptorCanRevert { get; set; } = false; // Exclusividad de reversión
+    public int? HandshakeTimeoutMinutes { get; set; } = null; // null = Sin timeout (solo en ciertos puntos)
+    public bool RequiresSupervisorApproval { get; set; } = false; // Por defecto sin supervisor obligatorio
+    public bool AutoAdvanceOnApproval { get; set; } = false; // Por defecto sin auto-avance
+    public int? MaxDurationMinutes { get; set; } = null;
+    public string? RequiredRole { get; set; } = null;
 }
 
 public class CheckpointStep

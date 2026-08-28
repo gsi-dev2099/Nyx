@@ -66,7 +66,11 @@ public class PolicyRuleEvaluator
                 {
                     return (false, "No hay ninguna transferencia pendiente para cancelar.");
                 }
-                if (policy.AllowOwnerCancelBeforeAccept && instance.OwnerActorId.HasValue && instance.OwnerActorId.Value != actorId)
+                if (!policy.AllowOwnerCancelBeforeAccept)
+                {
+                    return (false, "La política de este checkpoint no permite cancelar derivaciones ya emitidas.");
+                }
+                if (instance.OwnerActorId.HasValue && instance.OwnerActorId.Value != actorId)
                 {
                     return (false, "Solo el titular original (Owner) puede cancelar la transferencia pendiente.");
                 }
@@ -94,16 +98,16 @@ public class PolicyRuleEvaluator
                 }
                 return (true, "Llamada rechazada. La gestión retorna al titular.");
 
-            case "REVERT_HANDSHAKE": // Receptor devuelve la llamada al dueño tras haberla aceptado
+            case "REVERT_HANDSHAKE": // Receptor devuelve la llamada al dueño tras haberla aceptado (por error o finalizada)
                 if (instance.HandshakeStatus != "ACCEPTED")
                 {
                     return (false, "Solo se pueden revertir gestiones que hayan sido previamente aceptadas.");
                 }
-                if (policy.OnlyReceptorCanRevert && instance.CurrentActorId.HasValue && instance.CurrentActorId.Value != actorId)
+                if (instance.CurrentActorId.HasValue && instance.CurrentActorId.Value != actorId)
                 {
                     return (false, "Política de Seguridad CTI: Únicamente el asesor receptor que aceptó la gestión tiene permiso para revertirla al titular.");
                 }
-                return (true, "Gestión revertida al titular original.");
+                return (true, "Gestión devuelta al titular original.");
 
             default:
                 return (true, "Acción sin política restrictiva.");

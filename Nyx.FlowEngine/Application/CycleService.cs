@@ -552,11 +552,25 @@ public class CycleService : ICycleService
                 allowedActions.Add(new AllowedActionDto
                 {
                     ActionCode = "CANCEL_HANDSHAKE",
-                    Label = "🛑 Cancelar Derivación",
+                    Label = "🚫 Cancelar Solicitud de Derivación",
                     ButtonStyle = "btn-danger",
                     Effect = "HANDSHAKE_CANCEL"
                 });
             }
+        }
+
+        // Si el actor es el receptor que tiene la custodia aceptada -> puede devolverla si la aceptó por error o terminó
+        if (inst.HandshakeStatus == "ACCEPTED" && inst.CurrentActorId == actorId)
+        {
+            allowedActions.Add(new AllowedActionDto
+            {
+                ActionCode = "REVERT_HANDSHAKE",
+                Label = "↩️ Devolver Gestión al Titular (Aceptado por error o finalizado)",
+                ButtonStyle = "btn-outline",
+                RequiresReason = true,
+                ReasonOptions = new List<string> { "Gestión finalizada con éxito", "Aceptada por error", "Cliente solicita hablar con titular", "Transferencia incorrecta" },
+                Effect = "HANDSHAKE_REVERT"
+            });
         }
 
         // Si el actor es el receptor del handshake y está pendiente
@@ -701,6 +715,19 @@ public class CycleService : ICycleService
                 Success = res.Success,
                 Message = res.Message,
                 ResultingState = "HANDSHAKE_REJECTED",
+                UpdatedUiContext = await GetUiContextAsync(instanceId, req.ActorId),
+                InstanceDetail = await GetInstanceDetailByIdAsync(instanceId)
+            };
+        }
+
+        if (action == "REVERT_HANDSHAKE")
+        {
+            var res = await RevertHandshakeAsync(instanceId, req.ActorId, req.Reason ?? "Devuelta al titular original (aceptada por error o finalizada)");
+            return new ExecuteActionResultDto
+            {
+                Success = res.Success,
+                Message = res.Message,
+                ResultingState = "HANDSHAKE_REVERTED",
                 UpdatedUiContext = await GetUiContextAsync(instanceId, req.ActorId),
                 InstanceDetail = await GetInstanceDetailByIdAsync(instanceId)
             };
@@ -958,20 +985,30 @@ public class CycleService : ICycleService
     // ==========================================
     // HANDSHAKE TELEFONÍA & OWNERSHIP (GOBERNADO POR POLÍTICA DE CHECKPOINT)
     // ==========================================
+    private async Task<(CheckpointPoliciesDto Policy, long? CheckpointId)> GetStageActiveHandshakePolicyAsync(long instanceId, long stageId)
+    {
+        var activeCps = await _repo.GetCheckpointInstancesForInstanceAsync(instanceId);
+        var stageCps = activeCps.Where(c => c.OpenedAtStage == stageId).ToList();
+
+        foreach (var cpInst in stageCps)
+        {
+            var catalogCp = await _repo.GetCheckpointByIdAsync(cpInst.IdCheckpoint);
+            var pol = PolicyRuleEvaluator.ParseCheckpointPolicies(catalogCp?.PoliciesJson);
+            if (pol.EnableHandshake)
+            {
+                return (pol, cpInst.IdCheckpoint);
+            }
+        }
+
+        return (new CheckpointPoliciesDto(), null);
+    }
+
     public async Task<(bool Success, string Message)> RequestHandshakeAsync(long instanceId, long targetActorId, long actorId, string? context)
     {
         var inst = await _repo.GetInstanceByIdAsync(instanceId) ?? throw new InvalidOperationException("Instancia no encontrada.");
-        
-        var activeCps = await _repo.GetCheckpointInstancesForInstanceAsync(instanceId);
-        var currentActiveCp = activeCps.FirstOrDefault(c => c.OpenedAtStage == inst.CurrentStageId && c.Status == "PENDING");
-        CheckpointPoliciesDto? checkpointPolicy = null;
-        if (currentActiveCp != null)
-        {
-            var catalogCp = await _repo.GetCheckpointByIdAsync(currentActiveCp.IdCheckpoint);
-            checkpointPolicy = PolicyRuleEvaluator.ParseCheckpointPolicies(catalogCp?.PoliciesJson);
-        }
+        var (policy, cpId) = await GetStageActiveHandshakePolicyAsync(instanceId, inst.CurrentStageId);
 
-        var validation = PolicyRuleEvaluator.ValidateHandshakeAction("REQUEST_HANDSHAKE", inst, actorId, checkpointPolicy);
+        var validation = PolicyRuleEvaluator.ValidateHandshakeAction("REQUEST_HANDSHAKE", inst, actorId, policy);
         if (!validation.Allowed) return (false, validation.Reason);
 
         inst.HandshakeStatus = "PENDING_ACCEPTANCE";
@@ -979,48 +1016,32 @@ public class CycleService : ICycleService
         inst.HandshakeRequestedAt = DateTime.UtcNow;
         await _repo.UpdateInstanceAsync(inst);
 
-        await _repo.LogAuditAsync(actorId, "HANDSHAKE_REQUESTED", instanceId, currentActiveCp?.IdCheckpoint, $"{{\"targetActorId\":{targetActorId},\"context\":\"{context}\"}}");
+        await _repo.LogAuditAsync(actorId, "HANDSHAKE_REQUESTED", instanceId, cpId, $"{{\"targetActorId\":{targetActorId},\"context\":\"{context}\"}}");
         return (true, "Derivación solicitada al receptor con confirmación.");
     }
 
     public async Task<(bool Success, string Message)> AcceptHandshakeAsync(long instanceId, long actorId)
     {
         var inst = await _repo.GetInstanceByIdAsync(instanceId) ?? throw new InvalidOperationException("Instancia no encontrada.");
-        
-        var activeCps = await _repo.GetCheckpointInstancesForInstanceAsync(instanceId);
-        var currentActiveCp = activeCps.FirstOrDefault(c => c.OpenedAtStage == inst.CurrentStageId && c.Status == "PENDING");
-        CheckpointPoliciesDto? checkpointPolicy = null;
-        if (currentActiveCp != null)
-        {
-            var catalogCp = await _repo.GetCheckpointByIdAsync(currentActiveCp.IdCheckpoint);
-            checkpointPolicy = PolicyRuleEvaluator.ParseCheckpointPolicies(catalogCp?.PoliciesJson);
-        }
+        var (policy, cpId) = await GetStageActiveHandshakePolicyAsync(instanceId, inst.CurrentStageId);
 
-        var validation = PolicyRuleEvaluator.ValidateHandshakeAction("ACCEPT_HANDSHAKE", inst, actorId, checkpointPolicy);
+        var validation = PolicyRuleEvaluator.ValidateHandshakeAction("ACCEPT_HANDSHAKE", inst, actorId, policy);
         if (!validation.Allowed) return (false, validation.Reason);
 
         inst.HandshakeStatus = "ACCEPTED";
         inst.CurrentActorId = actorId;
         await _repo.UpdateInstanceAsync(inst);
 
-        await _repo.LogAuditAsync(actorId, "HANDSHAKE_ACCEPTED", instanceId, currentActiveCp?.IdCheckpoint, $"{{\"newCurrentActor\":{actorId}}}");
+        await _repo.LogAuditAsync(actorId, "HANDSHAKE_ACCEPTED", instanceId, cpId, $"{{\"newCurrentActor\":{actorId}}}");
         return (true, "Llamada aceptada. Gestión transferida al receptor.");
     }
 
     public async Task<(bool Success, string Message)> CancelHandshakeAsync(long instanceId, long actorId)
     {
         var inst = await _repo.GetInstanceByIdAsync(instanceId) ?? throw new InvalidOperationException("Instancia no encontrada.");
-        
-        var activeCps = await _repo.GetCheckpointInstancesForInstanceAsync(instanceId);
-        var currentActiveCp = activeCps.FirstOrDefault(c => c.OpenedAtStage == inst.CurrentStageId && c.Status == "PENDING");
-        CheckpointPoliciesDto? checkpointPolicy = null;
-        if (currentActiveCp != null)
-        {
-            var catalogCp = await _repo.GetCheckpointByIdAsync(currentActiveCp.IdCheckpoint);
-            checkpointPolicy = PolicyRuleEvaluator.ParseCheckpointPolicies(catalogCp?.PoliciesJson);
-        }
+        var (policy, cpId) = await GetStageActiveHandshakePolicyAsync(instanceId, inst.CurrentStageId);
 
-        var validation = PolicyRuleEvaluator.ValidateHandshakeAction("CANCEL_HANDSHAKE", inst, actorId, checkpointPolicy);
+        var validation = PolicyRuleEvaluator.ValidateHandshakeAction("CANCEL_HANDSHAKE", inst, actorId, policy);
         if (!validation.Allowed) return (false, validation.Reason);
 
         inst.HandshakeStatus = "NONE";
@@ -1028,24 +1049,16 @@ public class CycleService : ICycleService
         inst.HandshakeRequestedAt = null;
         await _repo.UpdateInstanceAsync(inst);
 
-        await _repo.LogAuditAsync(actorId, "HANDSHAKE_CANCELLED", instanceId, currentActiveCp?.IdCheckpoint, "{}");
+        await _repo.LogAuditAsync(actorId, "HANDSHAKE_CANCELLED", instanceId, cpId, "{}");
         return (true, "Derivación cancelada por el dueño original.");
     }
 
     public async Task<(bool Success, string Message)> RejectHandshakeAsync(long instanceId, long actorId, string reason)
     {
         var inst = await _repo.GetInstanceByIdAsync(instanceId) ?? throw new InvalidOperationException("Instancia no encontrada.");
-        
-        var activeCps = await _repo.GetCheckpointInstancesForInstanceAsync(instanceId);
-        var currentActiveCp = activeCps.FirstOrDefault(c => c.OpenedAtStage == inst.CurrentStageId && c.Status == "PENDING");
-        CheckpointPoliciesDto? checkpointPolicy = null;
-        if (currentActiveCp != null)
-        {
-            var catalogCp = await _repo.GetCheckpointByIdAsync(currentActiveCp.IdCheckpoint);
-            checkpointPolicy = PolicyRuleEvaluator.ParseCheckpointPolicies(catalogCp?.PoliciesJson);
-        }
+        var (policy, cpId) = await GetStageActiveHandshakePolicyAsync(instanceId, inst.CurrentStageId);
 
-        var validation = PolicyRuleEvaluator.ValidateHandshakeAction("REJECT_HANDSHAKE", inst, actorId, checkpointPolicy);
+        var validation = PolicyRuleEvaluator.ValidateHandshakeAction("REJECT_HANDSHAKE", inst, actorId, policy);
         if (!validation.Allowed) return (false, validation.Reason);
 
         inst.HandshakeStatus = "NONE";
@@ -1053,24 +1066,16 @@ public class CycleService : ICycleService
         inst.HandshakeRequestedAt = null;
         await _repo.UpdateInstanceAsync(inst);
 
-        await _repo.LogAuditAsync(actorId, "HANDSHAKE_REJECTED", instanceId, currentActiveCp?.IdCheckpoint, $"{{\"reason\":\"{reason}\"}}");
+        await _repo.LogAuditAsync(actorId, "HANDSHAKE_REJECTED", instanceId, cpId, $"{{\"reason\":\"{reason}\"}}");
         return (true, "Llamada rechazada. La titularidad regresa al dueño original.");
     }
 
     public async Task<(bool Success, string Message)> RevertHandshakeAsync(long instanceId, long actorId, string reason)
     {
         var inst = await _repo.GetInstanceByIdAsync(instanceId) ?? throw new InvalidOperationException("Instancia no encontrada.");
-        
-        var activeCps = await _repo.GetCheckpointInstancesForInstanceAsync(instanceId);
-        var currentActiveCp = activeCps.FirstOrDefault(c => c.OpenedAtStage == inst.CurrentStageId);
-        CheckpointPoliciesDto? checkpointPolicy = null;
-        if (currentActiveCp != null)
-        {
-            var catalogCp = await _repo.GetCheckpointByIdAsync(currentActiveCp.IdCheckpoint);
-            checkpointPolicy = PolicyRuleEvaluator.ParseCheckpointPolicies(catalogCp?.PoliciesJson);
-        }
+        var (policy, cpId) = await GetStageActiveHandshakePolicyAsync(instanceId, inst.CurrentStageId);
 
-        var validation = PolicyRuleEvaluator.ValidateHandshakeAction("REVERT_HANDSHAKE", inst, actorId, checkpointPolicy);
+        var validation = PolicyRuleEvaluator.ValidateHandshakeAction("REVERT_HANDSHAKE", inst, actorId, policy);
         if (!validation.Allowed) return (false, validation.Reason);
 
         inst.CurrentActorId = inst.OwnerActorId;
@@ -1078,7 +1083,7 @@ public class CycleService : ICycleService
         inst.HandshakeTargetActorId = null;
         await _repo.UpdateInstanceAsync(inst);
 
-        await _repo.LogAuditAsync(actorId, "HANDSHAKE_REVERTED", instanceId, currentActiveCp?.IdCheckpoint, $"{{\"reason\":\"{reason}\",\"restoredTo\":{inst.OwnerActorId}}}");
+        await _repo.LogAuditAsync(actorId, "HANDSHAKE_REVERTED", instanceId, cpId, $"{{\"reason\":\"{reason}\",\"restoredTo\":{inst.OwnerActorId}}}");
         return (true, "Gestión revertida con éxito al titular original.");
     }
 
