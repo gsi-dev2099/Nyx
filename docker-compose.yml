@@ -139,8 +139,8 @@ services:
 
   flow_engine_api:
     build:
-      context: .
-      dockerfile: Nyx.FlowEngine/Dockerfile
+      context: ./Nyx.FlowEngine
+      dockerfile: Dockerfile
     container_name: flow_engine_api
     ports:
       - "5072:5072"
