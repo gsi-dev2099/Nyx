@@ -37,8 +37,9 @@ public class ApprovalRepository : IApprovalRepository
 
     public ApprovalRepository(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? throw new InvalidOperationException("DefaultConnection configuration is missing.");
+        _connectionString = configuration.GetConnectionString("ApprovalConnection")
+            ?? configuration.GetConnectionString("DefaultConnection") 
+            ?? throw new InvalidOperationException("ApprovalConnection or DefaultConnection configuration is missing.");
     }
 
     private IDbConnection CreateConnection() => new NpgsqlConnection(_connectionString);

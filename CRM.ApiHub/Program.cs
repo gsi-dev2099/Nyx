@@ -4,6 +4,8 @@ using CRM.ApiHub.Api.Hubs;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using Serilog;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +35,7 @@ builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("LoginLimit", opt =>
     {
-        opt.PermitLimit = 30;  // Increased for E2E testing (was 5)
+        opt.PermitLimit = 30;
         opt.Window = TimeSpan.FromMinutes(1);
         opt.QueueLimit = 0;
     });
@@ -41,7 +43,14 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+{
+    options.SerializerOptions.Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
+});
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
+});
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -64,22 +73,32 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// OpenTelemetry Observability
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation())
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation());
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseMiddleware<CRM.ApiHub.Api.Middlewares.GlobalExceptionHandlerMiddleware>();
 
-if (!app.Environment.IsDevelopment())
+// Configure the HTTP request pipeline.
+app.MapOpenApi();
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseHttpsRedirection();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM API v1");
+    c.RoutePrefix = "swagger";
+});
+
+app.MapGet("/health", () => Results.Ok(new { status = "Healthy", timestamp = DateTime.UtcNow }));
 
 app.UseCors("FrontendCorsPolicy");
 app.UseRateLimiter();

@@ -51,6 +51,11 @@ public interface IFlowRepository
     Task RecordStageTransitionAsync(StageTransition transition);
     Task LogAuditAsync(long actorId, string action, long? instanceId, long? checkpointId, string detailJson);
     Task<IEnumerable<FlowAuditLog>> GetAuditLogsAsync(int limit = 50);
+
+    Task<FlowStage?> GetStageByStatusAsync(int statusId, long flowId);
+    Task<bool> AreAllStepsCompletedAsync(long cpInstanceId);
+    Task<IEnumerable<StageTransitionDetailDto>> GetStageTransitionsForInstanceAsync(long instanceId);
+    Task<bool> DeleteFlowInstanceDataAsync(long instanceId);
 }
 
 public class FlowRepository : IFlowRepository
@@ -59,8 +64,9 @@ public class FlowRepository : IFlowRepository
 
     public FlowRepository(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? throw new InvalidOperationException("DefaultConnection configuration is missing.");
+        _connectionString = configuration.GetConnectionString("FlowConnection")
+            ?? configuration.GetConnectionString("DefaultConnection") 
+            ?? throw new InvalidOperationException("FlowConnection or DefaultConnection configuration is missing.");
     }
 
     private IDbConnection CreateConnection() => new NpgsqlConnection(_connectionString);
@@ -342,6 +348,12 @@ public class FlowRepository : IFlowRepository
                 trigger_stage_id = COALESCE(NULLIF(@TriggerStageId, 0), trigger_stage_id),
                 blocks_advance = @BlocksAdvance,
                 execution_order = @ExecutionOrder,
+                triggered_by_ko = @TriggeredByKo,
+                rollback_to_stage = @RollbackToStage,
+                is_recurrent = @IsRecurrent,
+                recurrence_days = @RecurrenceDays,
+                max_occurrences = @MaxOccurrences,
+                owner_dept = @OwnerDept,
                 category = @Category,
                 division = @Division,
                 approval_job_title = @ApprovalJobTitle,
@@ -353,6 +365,7 @@ public class FlowRepository : IFlowRepository
                 campaign = @Campaign,
                 provider = @Provider,
                 finalizes_cycle = @FinalizesCycle,
+                approval_status = COALESCE(NULLIF(@ApprovalStatus, ''), approval_status),
                 target_roles = @TargetRoles
             WHERE id_checkpoint = @id;";
         var rows = await db.ExecuteAsync(sql, new {
@@ -364,6 +377,12 @@ public class FlowRepository : IFlowRepository
             cp.TriggerStageId,
             cp.BlocksAdvance,
             cp.ExecutionOrder,
+            cp.TriggeredByKo,
+            cp.RollbackToStage,
+            cp.IsRecurrent,
+            cp.RecurrenceDays,
+            cp.MaxOccurrences,
+            cp.OwnerDept,
             cp.Category,
             cp.Division,
             cp.ApprovalJobTitle,
@@ -375,6 +394,7 @@ public class FlowRepository : IFlowRepository
             cp.Campaign,
             cp.Provider,
             cp.FinalizesCycle,
+            cp.ApprovalStatus,
             cp.TargetRoles
         });
         return rows > 0;
@@ -588,5 +608,62 @@ public class FlowRepository : IFlowRepository
         using var db = CreateConnection();
         const string sql = "SELECT id_log AS IdLog, id_instance AS IdInstance, id_checkpoint AS IdCheckpoint, action, actor_id AS ActorId, detail::text AS Detail, checksum, created_at AS CreatedAt FROM audit_log ORDER BY id_log DESC LIMIT @limit;";
         return await db.QueryAsync<FlowAuditLog>(sql, new { limit });
+    }
+
+    public async Task<FlowStage?> GetStageByStatusAsync(int statusId, long flowId)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            SELECT s.id_stage AS IdStage, s.id_flow AS IdFlow, s.stage_code AS StageCode, s.name, s.description, 
+                   s.order_index AS OrderIndex, s.is_terminal AS IsTerminal, s.sla_hours AS SlaHours, 
+                   s.portfolio AS Portfolio, s.campaign AS Campaign, s.metadata 
+            FROM status_stage_mapping ssm 
+            JOIN stage s ON s.id_stage = ssm.id_stage 
+            WHERE ssm.id_status = @statusId AND (s.id_flow = @flowId OR @flowId = 0)
+            LIMIT 1;";
+        return await db.QueryFirstOrDefaultAsync<FlowStage>(sql, new { statusId, flowId });
+    }
+
+    public async Task<bool> AreAllStepsCompletedAsync(long cpInstanceId)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            SELECT NOT EXISTS (
+                SELECT 1 FROM checkpoint_step cs
+                JOIN checkpoint_instance ci ON ci.id_checkpoint = cs.id_checkpoint
+                LEFT JOIN checkpoint_step_progress csp ON csp.id_cp_instance = ci.id_cp_instance AND csp.id_step = cs.id_step
+                WHERE ci.id_cp_instance = @cpInstanceId AND (csp.is_completed IS NULL OR csp.is_completed = false)
+            );";
+        return await db.ExecuteScalarAsync<bool>(sql, new { cpInstanceId });
+    }
+
+    public async Task<IEnumerable<StageTransitionDetailDto>> GetStageTransitionsForInstanceAsync(long instanceId)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            SELECT st.id_transition AS IdTransition, st.id_instance AS IdInstance, 
+                   st.from_stage_id AS FromStageId, sf.name AS FromStageName,
+                   st.to_stage_id AS ToStageId, stg.name AS ToStageName,
+                   st.direction AS Direction, st.triggered_by AS TriggeredBy, 
+                   st.actor_id AS ActorId, st.transitioned_at AS TransitionedAt
+            FROM stage_transition st
+            LEFT JOIN stage sf ON sf.id_stage = st.from_stage_id
+            JOIN stage stg ON stg.id_stage = st.to_stage_id
+            WHERE st.id_instance = @instanceId
+            ORDER BY st.id_transition DESC
+            LIMIT 20;";
+        return await db.QueryAsync<StageTransitionDetailDto>(sql, new { instanceId });
+    }
+
+    public async Task<bool> DeleteFlowInstanceDataAsync(long instanceId)
+    {
+        using var db = CreateConnection();
+        const string sql = @"
+            DELETE FROM checkpoint_step_progress WHERE id_cp_instance IN (SELECT id_cp_instance FROM checkpoint_instance WHERE id_instance = @instanceId);
+            DELETE FROM checkpoint_instance WHERE id_instance = @instanceId;
+            DELETE FROM stage_transition WHERE id_instance = @instanceId;
+            DELETE FROM flow_instance WHERE id_instance = @instanceId;";
+        await db.ExecuteAsync(sql, new { instanceId });
+        return true;
     }
 }

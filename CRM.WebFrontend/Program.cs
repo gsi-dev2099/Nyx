@@ -19,12 +19,17 @@ razorBuilder.AddInteractiveWebAssemblyComponents();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<CRM.WebFrontend.ServerAuthHandler>();
 
+builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+{
+    options.SerializerOptions.Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
+});
+
 // Add HttpClient for calling the backend API
 builder.Services.AddHttpClient("BackendApi", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5068");
-}).AddHttpMessageHandler<CRM.WebFrontend.ServerAuthHandler>()
-  .AddTransientHttpErrorPolicy(p => p.WaitAndRetryAsync(3, _ => TimeSpan.FromSeconds(2)));
+    client.Timeout = TimeSpan.FromSeconds(10);
+}).AddHttpMessageHandler<CRM.WebFrontend.ServerAuthHandler>();
 
 // Configure native Cookie Authentication for Blazor Server
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -34,10 +39,10 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.LoginPath = "/login";
         options.AccessDeniedPath = "/not-found";
         options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.Cookie.SameSite = SameSiteMode.Lax;
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
-        options.SlidingExpiration = false;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
     });
 
 builder.Services.AddAuthorization();
@@ -99,11 +104,9 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    app.UseHsts();
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();

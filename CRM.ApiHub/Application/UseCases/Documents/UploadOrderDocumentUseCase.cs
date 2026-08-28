@@ -2,8 +2,10 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using CRM.ApiHub.Application.Interfaces;
 using CRM.ApiHub.Domain.Entities;
 using CRM.ApiHub.Domain.Repositories;
+using CRM.ApiHub.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 
 namespace CRM.ApiHub.Application.UseCases.Documents;
@@ -11,12 +13,20 @@ namespace CRM.ApiHub.Application.UseCases.Documents;
 public class UploadOrderDocumentUseCase
 {
     private readonly IOrderDocumentRepository _repository;
-    private readonly IConfiguration _config;
+    private readonly IFileStorageService _fileStorageService;
+    private readonly IFlowEngineClient _flowEngineClient;
+    private readonly string _bucketName;
 
-    public UploadOrderDocumentUseCase(IOrderDocumentRepository repository, IConfiguration config)
+    public UploadOrderDocumentUseCase(
+        IOrderDocumentRepository repository, 
+        IFileStorageService fileStorageService,
+        IFlowEngineClient flowEngineClient,
+        IConfiguration config)
     {
         _repository = repository;
-        _config = config;
+        _fileStorageService = fileStorageService;
+        _flowEngineClient = flowEngineClient;
+        _bucketName = config["MinioSettings:BucketName"] ?? "nyx-crm-documents";
     }
 
     public async Task<OrderDocument> ExecuteAsync(
@@ -29,34 +39,26 @@ public class UploadOrderDocumentUseCase
         long uploadedBy,
         CancellationToken ct = default)
     {
-        // 1. Obtener la ruta configurada de manera portable
-        var storagePathConfig = _config["DocumentSettings:StoragePath"] ?? "Storage/Documents";
-        var absoluteStoragePath = Path.IsPathRooted(storagePathConfig)
-            ? storagePathConfig
-            : Path.Combine(Directory.GetCurrentDirectory(), storagePathConfig);
+        // 1. Generar clave de objeto única estructurada por orden
+        var sanitizedFileName = Path.GetFileName(originalFileName);
+        var objectKey = $"orders/{idOrder}/{Guid.NewGuid():N}_{sanitizedFileName}";
 
-        // 2. Asegurar que el directorio exista
-        if (!Directory.Exists(absoluteStoragePath))
-        {
-            Directory.CreateDirectory(absoluteStoragePath);
-        }
+        // 2. Subir archivo a MinIO / S3
+        var storedKey = await _fileStorageService.UploadFileAsync(
+            bucketName: _bucketName,
+            objectKey: objectKey,
+            content: fileStream,
+            contentType: mimeType,
+            ct: ct
+        );
 
-        // 3. Generar nombre de archivo único para evitar sobreescritura y guardar en disco
-        var uniqueFileName = $"{Guid.NewGuid()}_{originalFileName}";
-        var physicalFilePath = Path.Combine(absoluteStoragePath, uniqueFileName);
-
-        using (var destStream = new FileStream(physicalFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
-        {
-            await fileStream.CopyToAsync(destStream, ct);
-        }
-
-        // 4. Crear registro en la tabla order_document
+        // 3. Crear registro en la tabla order_document
         var doc = new OrderDocument
         {
             IdOrder = idOrder,
             DocumentType = documentType,
             FileName = originalFileName,
-            FilePath = physicalFilePath,
+            FilePath = storedKey, // Ahora almacena la clave de objeto MinIO/S3
             FileSizeKb = (int)fileSizeKb,
             MimeType = mimeType,
             VerificationStatus = "PENDING",
@@ -67,6 +69,29 @@ public class UploadOrderDocumentUseCase
 
         var docId = await _repository.UploadAsync(doc, ct);
         doc.IdDocument = docId;
+
+        // 4. Emitir Facts automáticos a Nyx.FlowEngine para auto-evaluar checkpoints
+        try
+        {
+            var facts = new System.Collections.Generic.Dictionary<string, object>
+            {
+                ["doc_uploaded"] = true,
+                ["last_doc_type"] = documentType
+            };
+
+            var upperType = documentType.ToUpperInvariant();
+            if (upperType.Contains("DNI")) facts["doc_dni_uploaded"] = true;
+            if (upperType.Contains("CONTRATO")) facts["doc_contrato_uploaded"] = true;
+            if (upperType.Contains("NOMINA")) facts["doc_nomina_uploaded"] = true;
+            if (upperType.Contains("RECIBO") || upperType.Contains("FACTURA")) facts["doc_factura_uploaded"] = true;
+
+            var factsJson = System.Text.Json.JsonSerializer.Serialize(facts);
+            await _flowEngineClient.SetEntityFactsAsync("order", idOrder, factsJson, uploadedBy);
+        }
+        catch
+        {
+            // Logging / fallback seguro: no romper subida de documento si el motor de flujos tiene latencia
+        }
 
         return doc;
     }

@@ -31,6 +31,31 @@ services:
       timeout: 3s
       retries: 5
 
+  crm_minio:
+    image: minio/minio:latest
+    container_name: crm_minio
+    hostname: crm-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-nyx_admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-NyxMinio$$2026StorageKey!}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - crm_minio_data:/data
+    networks:
+      default:
+        aliases:
+          - crm-minio
+          - minio
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   crm_apihub:
     build:
       context: .
@@ -42,12 +67,22 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - RedisSettings__ConnectionString=crm_redis:6379
       - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_crm;Username=ronald;Password=Gs1$$2099Zx23rO24M4r25
+      - ConnectionStrings__FlowConnection=Host=crm_postgres;Port=5432;Database=nyx_flow;Username=ronald;Password=Gs1$$2099Zx23rO24M4r25
+      - ConnectionStrings__ApprovalConnection=Host=crm_postgres;Port=5432;Database=nyx_approval;Username=ronald;Password=Gs1$$2099Zx23rO24M4r25
+      - ConnectionStrings__SlaConnection=Host=crm_postgres;Port=5432;Database=nyx_sla;Username=ronald;Password=Gs1$$2099Zx23rO24M4r25
+      - MinioSettings__Endpoint=http://crm-minio:9000
+      - MinioSettings__AccessKey=nyx_admin
+      - MinioSettings__SecretKey=NyxMinio$$2026StorageKey!
+      - MinioSettings__BucketName=nyx-crm-documents
+      - MinioSettings__UseSsl=false
     volumes:
       - ./storage:/app/Storage
     depends_on:
       crm_redis:
         condition: service_healthy
       crm_postgres:
+        condition: service_healthy
+      crm_minio:
         condition: service_healthy
     restart: unless-stopped
 
@@ -120,4 +155,5 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-
+volumes:
+  crm_minio_data:

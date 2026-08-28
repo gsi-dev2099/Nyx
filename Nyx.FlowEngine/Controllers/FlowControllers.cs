@@ -172,6 +172,28 @@ public class FlowController : ControllerBase
         return Ok(instance);
     }
 
+    [HttpGet("instances/{id:long}/detail")]
+    public async Task<IActionResult> GetInstanceDetail(long id)
+    {
+        var detail = await _service.GetFlowInstanceDetailByIdAsync(id);
+        if (detail == null) return NotFound(new { error = $"Flow instance #{id} not found." });
+        return Ok(detail);
+    }
+
+    [HttpGet("instances/{id:long}/validate-advance")]
+    public async Task<IActionResult> ValidateStageAdvance(long id)
+    {
+        try
+        {
+            var validation = await _service.ValidateStageAdvanceAsync(id);
+            return Ok(validation);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
     [HttpGet("instances/{id:long}/checkpoints")]
     public async Task<IActionResult> GetInstanceCheckpoints(long id)
     {
@@ -187,6 +209,44 @@ public class FlowController : ControllerBase
         return Ok(instanceWithCps);
     }
 
+    [HttpGet("instances/by-entity/{entityType}/{entityId:long}/detail")]
+    public async Task<IActionResult> GetDetailByEntity(string entityType, long entityId)
+    {
+        var detail = await _service.GetFlowInstanceDetailByEntityAsync(entityType, entityId);
+        if (detail == null) return NotFound(new { error = $"No flow instance found for {entityType} #{entityId}." });
+        return Ok(detail);
+    }
+
+    [HttpPost("instances/test-reset")]
+    public async Task<IActionResult> ResetTestFlow([FromBody] ResetTestFlowRequest req)
+    {
+        var flowCode = string.IsNullOrWhiteSpace(req.FlowCode) ? "PIPELINE_TELECOM" : req.FlowCode;
+        var entityType = string.IsNullOrWhiteSpace(req.EntityType) ? "lead_presale" : req.EntityType;
+        var detail = await _service.ResetTestFlowInstanceAsync(flowCode, entityType, req.EntityId, req.ActorId ?? 1);
+        return Ok(detail);
+    }
+
+    [HttpPost("instances/sync-status")]
+    public async Task<IActionResult> SyncStatus([FromBody] SyncStatusRequest req)
+    {
+        try
+        {
+            var result = await _service.SyncStageByStatusAsync(req.EntityType, req.EntityId, req.StatusId, req.ActorId ?? 1);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("instances/by-entity/{entityType}/{entityId:long}/facts")]
+    public async Task<IActionResult> SetEntityFacts(string entityType, long entityId, [FromBody] SetFactsRequest req)
+    {
+        await _service.SetEntityFactsAsync(entityType, entityId, req.FactsJson, req.ActorId ?? 1);
+        return Ok(new { updated = true });
+    }
+
     [HttpPost("instances/{id:long}/facts")]
     public async Task<IActionResult> SetFacts(long id, [FromBody] SetFactsRequest req)
     {
@@ -197,8 +257,19 @@ public class FlowController : ControllerBase
     [HttpPost("checkpoints/instances/{id:long}/resolve")]
     public async Task<IActionResult> ResolveCheckpoint(long id, [FromBody] ResolveCheckpointRequest req)
     {
-        var result = await _service.ResolveCheckpointAsync(id, req.Status, req.ActorId ?? 1);
-        return Ok(result);
+        try
+        {
+            var result = await _service.ResolveCheckpointAsync(id, req.Status, req.ActorId ?? 1);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpGet("checkpoints/instances/{id:long}/steps")]
@@ -218,7 +289,9 @@ public class FlowController : ControllerBase
 
 public record ApproveCheckpointRequest(string ApprovedByJson, long? ActorId);
 public record StartFlowRequest(string FlowCode, string EntityType, long EntityId, long? ActorId);
+public record ResetTestFlowRequest(string? FlowCode, string? EntityType, long EntityId, long? ActorId);
 public record AdvanceStageRequest(long? ActorId);
+public record SyncStatusRequest(string EntityType, long EntityId, int StatusId, long? ActorId);
 public record ResolveCheckpointRequest(string Status, long? ActorId);
 public record SetOrderRequest(short OrderIndex);
 public record UpdateCampaignRequest(string Campaign);

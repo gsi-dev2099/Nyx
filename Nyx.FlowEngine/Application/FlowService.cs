@@ -23,16 +23,23 @@ public interface IFlowService
     Task<IEnumerable<CheckpointStep>> GetCheckpointStepsAsync(long checkpointId);
     Task SaveCheckpointStepsAsync(long checkpointId, IEnumerable<CheckpointStep> steps);
     Task<IEnumerable<FlowAuditLog>> GetAuditLogsAsync(int limit = 50);
+
     Task<FlowInstanceWithCheckpointsDto> StartFlowInstanceAsync(string flowCode, string entityType, long entityId, long actorId);
     Task<FlowInstanceWithCheckpointsDto> AdvanceStageAsync(long instanceId, long actorId);
-    Task<CheckpointInstance> ResolveCheckpointAsync(long cpInstanceId, string status, long actorId);
+    Task<ResolveCheckpointResultDto> ResolveCheckpointAsync(long cpInstanceId, string status, long actorId);
     Task<FlowInstance?> GetFlowInstanceByIdAsync(long instanceId);
     Task<FlowInstance?> GetFlowInstanceByEntityAsync(string entityType, long entityId);
     Task<FlowInstanceWithCheckpointsDto?> GetFlowInstanceWithCheckpointsByEntityAsync(string entityType, long entityId);
+    Task<FlowInstanceDetailDto?> GetFlowInstanceDetailByIdAsync(long instanceId);
+    Task<FlowInstanceDetailDto?> GetFlowInstanceDetailByEntityAsync(string entityType, long entityId);
+    Task<FlowValidationResultDto> ValidateStageAdvanceAsync(long instanceId);
+    Task<FlowInstanceDetailDto> ResetTestFlowInstanceAsync(string flowCode, string entityType, long entityId, long actorId);
     Task<IEnumerable<CheckpointInstance>> GetCheckpointInstancesForFlowAsync(long instanceId);
     Task<IEnumerable<CheckpointStepProgress>> GetStepProgressAsync(long cpInstanceId);
     Task ToggleStepProgressAsync(long cpInstanceId, long stepId, bool isCompleted, long actorId);
     Task SetFlowInstanceFactsAsync(long instanceId, string factsJson, long actorId);
+    Task SetEntityFactsAsync(string entityType, long entityId, string factsJson, long actorId);
+    Task<FlowInstanceWithCheckpointsDto> SyncStageByStatusAsync(string entityType, long entityId, int statusId, long actorId);
 }
 
 public class FlowService : IFlowService
@@ -48,6 +55,7 @@ public class FlowService : IFlowService
 
     public async Task<IEnumerable<FlowDefinition>> GetFlowDefinitionsAsync() => await _repo.GetFlowDefinitionsAsync();
     public async Task<IEnumerable<FlowStage>> GetStagesAsync(long? flowId = null) => await _repo.GetStagesAsync(flowId);
+    
     public async Task<FlowStage> CreateStageAsync(FlowStage stage)
     {
         var id = await _repo.CreateStageAsync(stage);
@@ -145,6 +153,20 @@ public class FlowService : IFlowService
         };
     }
 
+    public async Task<FlowInstanceDetailDto?> GetFlowInstanceDetailByIdAsync(long instanceId)
+    {
+        var inst = await _repo.GetFlowInstanceByIdAsync(instanceId);
+        if (inst == null) return null;
+        return await BuildFlowInstanceDetailAsync(inst);
+    }
+
+    public async Task<FlowInstanceDetailDto?> GetFlowInstanceDetailByEntityAsync(string entityType, long entityId)
+    {
+        var inst = await _repo.GetFlowInstanceByEntityAsync(entityType, entityId);
+        if (inst == null) return null;
+        return await BuildFlowInstanceDetailAsync(inst);
+    }
+
     public async Task<IEnumerable<CheckpointInstance>> GetCheckpointInstancesForFlowAsync(long instanceId) =>
         await _repo.GetCheckpointInstancesForFlowAsync(instanceId);
 
@@ -155,12 +177,140 @@ public class FlowService : IFlowService
     {
         await _repo.UpsertStepProgressAsync(cpInstanceId, stepId, isCompleted, actorId);
         await _repo.LogAuditAsync(actorId, "STEP_TOGGLED", null, cpInstanceId, $"{{\"stepId\":{stepId},\"isCompleted\":{isCompleted.ToString().ToLower()}}}");
+
+        if (isCompleted)
+        {
+            var allCompleted = await _repo.AreAllStepsCompletedAsync(cpInstanceId);
+            if (allCompleted)
+            {
+                var cp = await _repo.GetCheckpointInstanceByIdAsync(cpInstanceId);
+                if (cp != null && (cp.Status == "PENDING" || cp.Status == "KO"))
+                {
+                    await ResolveCheckpointAsync(cpInstanceId, "APPROVED", actorId);
+                    await _repo.LogAuditAsync(actorId, "CHECKPOINT_AUTO_APPROVED_BY_STEPS", cp.IdInstance, cp.IdCheckpoint, "{\"reason\":\"ALL_STEPS_COMPLETED\"}");
+                }
+            }
+        }
+    }
+
+    public async Task SetEntityFactsAsync(string entityType, long entityId, string factsJson, long actorId)
+    {
+        var inst = await _repo.GetFlowInstanceByEntityAsync(entityType, entityId);
+        if (inst != null)
+        {
+            await SetFlowInstanceFactsAsync(inst.IdInstance, factsJson, actorId);
+        }
     }
 
     public async Task SetFlowInstanceFactsAsync(long instanceId, string factsJson, long actorId)
     {
-        await _repo.UpdateFlowInstanceFactsAsync(instanceId, factsJson);
-        await _repo.LogAuditAsync(actorId, "FLOW_FACTS_UPDATED", instanceId, null, factsJson);
+        var instance = await _repo.GetFlowInstanceByIdAsync(instanceId);
+        if (instance == null) return;
+
+        var currentFacts = new Dictionary<string, object>();
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(instance.Facts) && instance.Facts != "{}")
+            {
+                currentFacts = JsonSerializer.Deserialize<Dictionary<string, object>>(instance.Facts) ?? new();
+            }
+        }
+        catch { currentFacts = new(); }
+
+        try
+        {
+            var incomingFacts = JsonSerializer.Deserialize<Dictionary<string, object>>(factsJson) ?? new();
+            foreach (var kvp in incomingFacts)
+            {
+                currentFacts[kvp.Key] = kvp.Value;
+            }
+        }
+        catch { }
+
+        var mergedFactsJson = JsonSerializer.Serialize(currentFacts);
+        await _repo.UpdateFlowInstanceFactsAsync(instanceId, mergedFactsJson);
+        await _repo.LogAuditAsync(actorId, "FLOW_FACTS_UPDATED", instanceId, null, mergedFactsJson);
+
+        // Auto-evaluación reactiva de checkpoints pendientes según los hechos
+        var activeCps = (await _repo.GetCheckpointInstancesForFlowAsync(instanceId)).Where(c => c.Status == "PENDING").ToList();
+        var catalog = (await _repo.GetCheckpointCatalogAsync(null)).ToDictionary(c => c.IdCheckpoint);
+
+        foreach (var cpInst in activeCps)
+        {
+            if (catalog.TryGetValue(cpInst.IdCheckpoint, out var catDef) && !string.IsNullOrEmpty(catDef.PreconditionFact))
+            {
+                if (currentFacts.TryGetValue(catDef.PreconditionFact, out var val) &&
+                    (val?.ToString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true || val?.ToString() == "1"))
+                {
+                    await ResolveCheckpointAsync(cpInst.IdCpInstance, "APPROVED", actorId);
+                    await _repo.LogAuditAsync(actorId, "CHECKPOINT_AUTO_APPROVED_BY_FACT", instanceId, catDef.IdCheckpoint, 
+                        $"{{\"fact\":\"{catDef.PreconditionFact}\",\"value\":{JsonSerializer.Serialize(val)}}}");
+                }
+            }
+        }
+    }
+
+    public async Task<FlowInstanceWithCheckpointsDto> SyncStageByStatusAsync(string entityType, long entityId, int statusId, long actorId)
+    {
+        var instance = await _repo.GetFlowInstanceByEntityAsync(entityType, entityId);
+        if (instance == null)
+        {
+            var flowCode = "PIPELINE_TELECOM";
+            return await StartFlowInstanceAsync(flowCode, entityType, entityId, actorId);
+        }
+
+        var targetStage = await _repo.GetStageByStatusAsync(statusId, instance.IdFlow);
+        if (targetStage == null || targetStage.IdStage == instance.CurrentStageId)
+        {
+            return (await GetFlowInstanceWithCheckpointsByEntityAsync(entityType, entityId))!;
+        }
+
+        var allStages = (await _repo.GetFlowStagesAsync(instance.IdFlow)).OrderBy(s => s.OrderIndex).ToList();
+        var currentStage = allStages.FirstOrDefault(s => s.IdStage == instance.CurrentStageId);
+
+        bool isMovingForward = currentStage == null || targetStage.OrderIndex > currentStage.OrderIndex;
+
+        if (isMovingForward)
+        {
+            var activeCps = (await _repo.GetCheckpointInstancesForFlowAsync(instance.IdInstance)).ToList();
+            var catalog = (await _repo.GetCheckpointCatalogAsync(null)).ToDictionary(c => c.IdCheckpoint);
+
+            foreach (var cpInst in activeCps)
+            {
+                if (cpInst.Status == "PENDING" && catalog.TryGetValue(cpInst.IdCheckpoint, out var catDef))
+                {
+                    if (catDef.BlocksAdvance)
+                    {
+                        throw new InvalidOperationException(
+                            $"Transición bloqueada: Checkpoint obligatorio '{catDef.Name}' ({catDef.Code}) está PENDIENTE.");
+                    }
+                }
+            }
+        }
+
+        var fromStageId = instance.CurrentStageId;
+        instance.CurrentStageId = targetStage.IdStage;
+        instance.DayCounter++;
+        instance.Status = targetStage.IsTerminal ? "COMPLETED" : "ACTIVE";
+
+        await _repo.UpdateFlowInstanceStageAsync(instance.IdInstance, targetStage.IdStage, instance.DayCounter, instance.Status);
+
+        await _repo.RecordStageTransitionAsync(new StageTransition
+        {
+            IdInstance = instance.IdInstance,
+            FromStageId = fromStageId,
+            ToStageId = targetStage.IdStage,
+            Direction = isMovingForward ? "FORWARD" : "BACKWARD",
+            TriggeredBy = $"STATUS_SYNC:{statusId}",
+            ActorId = actorId
+        });
+
+        await TriggerCheckpointsForStageAsync(instance.IdInstance, instance.IdFlow, targetStage.IdStage, actorId);
+
+        await _repo.LogAuditAsync(actorId, "STAGE_STATUS_SYNCED", instance.IdInstance, null,
+            $"{{\"statusId\":{statusId},\"fromStage\":{fromStageId},\"toStage\":{targetStage.IdStage},\"stageCode\":\"{targetStage.StageCode}\"}}");
+
+        return (await GetFlowInstanceWithCheckpointsByEntityAsync(entityType, entityId))!;
     }
 
     public async Task<FlowInstanceWithCheckpointsDto> StartFlowInstanceAsync(string flowCode, string entityType, long entityId, long actorId)
@@ -209,13 +359,11 @@ public class FlowService : IFlowService
             ActorId = actorId
         });
 
-        // Trigger active checkpoints defined for this first stage
         await TriggerCheckpointsForStageAsync(instanceId, flow.IdFlow, firstStage.IdStage, actorId);
 
         await _repo.LogAuditAsync(actorId, "FLOW_STARTED", instanceId, null, $"{{\"flowCode\":\"{flowCode}\",\"stage\":\"{firstStage.StageCode}\"}}");
 
-        // Reload instance with freshly-created checkpoint instances as DTO
-        var dto = new FlowInstanceWithCheckpointsDto
+        return new FlowInstanceWithCheckpointsDto
         {
             IdInstance = instance.IdInstance,
             IdFlow = instance.IdFlow,
@@ -229,16 +377,69 @@ public class FlowService : IFlowService
             CreatedAt = instance.CreatedAt,
             CheckpointInstances = (await _repo.GetCheckpointInstancesForFlowAsync(instanceId)).ToList()
         };
-        return dto;
+    }
+
+    public async Task<FlowInstanceDetailDto> ResetTestFlowInstanceAsync(string flowCode, string entityType, long entityId, long actorId)
+    {
+        var existing = await _repo.GetFlowInstanceByEntityAsync(entityType, entityId);
+        if (existing != null)
+        {
+            await _repo.DeleteFlowInstanceDataAsync(existing.IdInstance);
+        }
+
+        await StartFlowInstanceAsync(flowCode, entityType, entityId, actorId);
+        var detail = await GetFlowInstanceDetailByEntityAsync(entityType, entityId);
+        return detail!;
+    }
+
+    public async Task<FlowValidationResultDto> ValidateStageAdvanceAsync(long instanceId)
+    {
+        var instance = await _repo.GetFlowInstanceByIdAsync(instanceId)
+            ?? throw new KeyNotFoundException($"Flow instance #{instanceId} not found.");
+
+        var allStages = (await _repo.GetFlowStagesAsync(instance.IdFlow)).OrderBy(s => s.OrderIndex).ToList();
+        var currentStage = allStages.FirstOrDefault(s => s.IdStage == instance.CurrentStageId);
+
+        var activeCps = (await _repo.GetCheckpointInstancesForFlowAsync(instanceId)).ToList();
+        var catalog = (await _repo.GetCheckpointCatalogAsync(null)).ToDictionary(c => c.IdCheckpoint);
+
+        var blockingPending = new List<CheckpointInstanceDetailDto>();
+        var reasons = new List<string>();
+
+        foreach (var cpInst in activeCps)
+        {
+            if (cpInst.Status == "PENDING" && catalog.TryGetValue(cpInst.IdCheckpoint, out var catDef) && catDef.BlocksAdvance)
+            {
+                blockingPending.Add(new CheckpointInstanceDetailDto
+                {
+                    IdCpInstance = cpInst.IdCpInstance,
+                    IdCheckpoint = cpInst.IdCheckpoint,
+                    Code = catDef.Code,
+                    Name = catDef.Name,
+                    BlocksAdvance = true,
+                    Status = "PENDING"
+                });
+                reasons.Add($"Checkpoint obligatorio '{catDef.Name}' ({catDef.Code}) está pendiente de resolución.");
+            }
+        }
+
+        return new FlowValidationResultDto
+        {
+            InstanceId = instanceId,
+            CurrentStageId = instance.CurrentStageId,
+            CurrentStageName = currentStage?.Name ?? $"Stage #{instance.CurrentStageId}",
+            CanAdvance = blockingPending.Count == 0,
+            PendingBlockingCount = blockingPending.Count,
+            BlockingPendingCheckpoints = blockingPending,
+            BlockingReasons = reasons
+        };
     }
 
     public async Task<FlowInstanceWithCheckpointsDto> AdvanceStageAsync(long instanceId, long actorId)
     {
-        // 1. Cargar la instancia actual
         var instance = await _repo.GetFlowInstanceByIdAsync(instanceId) 
             ?? throw new KeyNotFoundException($"Flow instance #{instanceId} not found.");
 
-        // 2. Validar checkpoints bloqueantes (catálogo completo para cubrir cross-flow)
         var activeCps = (await _repo.GetCheckpointInstancesForFlowAsync(instanceId)).ToList();
         var catalog = (await _repo.GetCheckpointCatalogAsync(null)).ToDictionary(c => c.IdCheckpoint);
 
@@ -254,7 +455,6 @@ public class FlowService : IFlowService
             }
         }
 
-        // 3. Obtener las etapas ordenadas del flow y calcular la siguiente
         var stages = (await _repo.GetFlowStagesAsync(instance.IdFlow))
             .OrderBy(s => s.OrderIndex).ToList();
 
@@ -268,14 +468,12 @@ public class FlowService : IFlowService
         var nextStage = stages[currentIdx + 1];
         var fromStageId = instance.CurrentStageId;
 
-        // 4. Persistir el cambio de etapa
         instance.CurrentStageId = nextStage.IdStage;
         instance.DayCounter++;
         instance.Status = nextStage.IsTerminal ? "COMPLETED" : "ACTIVE";
 
         await _repo.UpdateFlowInstanceStageAsync(instanceId, nextStage.IdStage, instance.DayCounter, instance.Status);
 
-        // 5. Registrar la transición
         await _repo.RecordStageTransitionAsync(new StageTransition
         {
             IdInstance = instanceId,
@@ -286,13 +484,11 @@ public class FlowService : IFlowService
             ActorId = actorId
         });
 
-        // 6. Disparar los checkpoints de la nueva etapa
         await TriggerCheckpointsForStageAsync(instanceId, instance.IdFlow, nextStage.IdStage, actorId);
 
         await _repo.LogAuditAsync(actorId, "STAGE_ADVANCED", instanceId, null, 
             $"{{\"from\":{fromStageId},\"to\":{nextStage.IdStage},\"stage\":\"{nextStage.StageCode}\"}}");
 
-        // Reload instance with freshly-created checkpoint instances as DTO
         var reloaded = await _repo.GetFlowInstanceByIdAsync(instanceId) ?? instance;
         return new FlowInstanceWithCheckpointsDto
         {
@@ -310,54 +506,72 @@ public class FlowService : IFlowService
         };
     }
 
-    public async Task<CheckpointInstance> ResolveCheckpointAsync(long cpInstanceId, string status, long actorId)
+    public async Task<ResolveCheckpointResultDto> ResolveCheckpointAsync(long cpInstanceId, string status, long actorId)
     {
         var normalizedStatus = status.ToUpperInvariant();
         await _repo.UpdateCheckpointInstanceStatusAsync(cpInstanceId, normalizedStatus, actorId);
 
-        var cpInstance = await _repo.GetCheckpointInstanceByIdAsync(cpInstanceId);
-        CheckpointCatalog? catDef = null;
-        FlowInstance? instance = null;
+        var cpInstance = await _repo.GetCheckpointInstanceByIdAsync(cpInstanceId)
+            ?? throw new KeyNotFoundException($"Checkpoint instance #{cpInstanceId} not found.");
 
-        if (cpInstance == null) goto LogAndReturn;
+        var catDef = (await _repo.GetCheckpointCatalogAsync())
+            .FirstOrDefault(c => c.IdCheckpoint == cpInstance.IdCheckpoint)
+            ?? throw new KeyNotFoundException($"Checkpoint definition #{cpInstance.IdCheckpoint} not found in catalog.");
 
-        catDef = (await _repo.GetCheckpointCatalogAsync())
-            .FirstOrDefault(c => c.IdCheckpoint == cpInstance.IdCheckpoint);
-        if (catDef == null) goto LogAndReturn;
+        var instance = await _repo.GetFlowInstanceByIdAsync(cpInstance.IdInstance)
+            ?? throw new KeyNotFoundException($"Flow instance #{cpInstance.IdInstance} not found.");
 
-        instance = await _repo.GetFlowInstanceByIdAsync(cpInstance.IdInstance);
-        if (instance == null) goto LogAndReturn;
-
-        // ── A. KO: Evaluar retroceso de etapa (Rollback) ───────────────────
-        if (normalizedStatus == "KO" && catDef.RollbackToStage.HasValue && catDef.RollbackToStage > 0)
+        var result = new ResolveCheckpointResultDto
         {
-            var rollbackStageId = catDef.RollbackToStage.Value;
-            var stages = (await _repo.GetFlowStagesAsync(instance.IdFlow)).OrderBy(s => s.OrderIndex).ToList();
-            var targetStage = stages.FirstOrDefault(s => s.IdStage == rollbackStageId);
-            if (targetStage != null)
-            {
-                var fromStageId = instance.CurrentStageId;
-                await _repo.UpdateFlowInstanceStageAsync(instance.IdInstance, rollbackStageId, instance.DayCounter + 1, "ACTIVE");
-                await _repo.RecordStageTransitionAsync(new StageTransition
-                {
-                    IdInstance = instance.IdInstance,
-                    FromStageId = fromStageId,
-                    ToStageId = rollbackStageId,
-                    Direction = "BACKWARD",
-                    TriggeredBy = $"CHECKPOINT_KO:{catDef.Code}",
-                    ActorId = actorId
-                });
-                await _repo.LogAuditAsync(actorId, "STAGE_ROLLBACK", instance.IdInstance, catDef.IdCheckpoint, 
-                    $"{{\"from\":{fromStageId},\"to\":{rollbackStageId},\"reason\":\"CHECKPOINT_KO\"}}");
-            }
-        }
+            CheckpointInstanceId = cpInstanceId,
+            IdCheckpoint = catDef.IdCheckpoint,
+            Code = catDef.Code,
+            Name = catDef.Name,
+            ResolvedStatus = normalizedStatus,
+            CurrentStageId = instance.CurrentStageId,
+            FlowStatus = instance.Status,
+            NextAction = "NONE"
+        };
 
-        // ── B. KO: Disparar checkpoints encadenados (TriggeredByKo) ────────────
+        var newlyTriggered = new List<CheckpointInstanceDetailDto>();
+
+        // ══════════════════════════════════════════════════════════════════════
+        // 1. CASO KO: EVALUACIÓN ESTRICTA (DISPARADORES -> ROLLBACK -> FIN CICLO -> BLOQUEO)
+        // ══════════════════════════════════════════════════════════════════════
         if (normalizedStatus == "KO")
         {
-            var chainedCps = (await _repo.GetCheckpointCatalogAsync(instance.IdFlow))
-                .Where(c => c.ApprovalStatus == "ACTIVE" && c.TriggeredByKo == catDef.IdCheckpoint)
+            bool chainedTriggered = false;
+
+            // ── A. Disparo Encadenado (TriggeredByKo / disparaSiKoDe) ───────
+            var allActiveCps = (await _repo.GetCheckpointCatalogAsync(instance.IdFlow))
+                .Where(c => c.ApprovalStatus == "ACTIVE")
                 .ToList();
+
+            var chainedCps = allActiveCps
+                .Where(c => c.TriggeredByKo == catDef.IdCheckpoint)
+                .ToList();
+
+            // Mapeos canónicos explícitos:
+            // CP 15 KO -> dispara CP 75
+            // CP 75 KO -> dispara CP 76
+            // CP 18 / CP 79 KO -> dispara CP 80
+            // CP 80 / CP 77 / CP 78 KO -> dispara CP 76
+            // CP 20 / CP 21 KO -> dispara CP 74
+            var targetCpIds = new List<long>();
+            if (catDef.IdCheckpoint == 15) targetCpIds.Add(75);
+            else if (catDef.IdCheckpoint == 75) targetCpIds.Add(76);
+            else if (catDef.IdCheckpoint == 79 || catDef.IdCheckpoint == 18) targetCpIds.Add(80);
+            else if (catDef.IdCheckpoint == 80 || catDef.IdCheckpoint == 77 || catDef.IdCheckpoint == 78) targetCpIds.Add(76);
+            else if (catDef.IdCheckpoint == 20 || catDef.IdCheckpoint == 21) targetCpIds.Add(74);
+
+            foreach (var tid in targetCpIds)
+            {
+                var targetCp = allActiveCps.FirstOrDefault(c => c.IdCheckpoint == tid);
+                if (targetCp != null && !chainedCps.Any(c => c.IdCheckpoint == tid))
+                {
+                    chainedCps.Add(targetCp);
+                }
+            }
 
             foreach (var chained in chainedCps)
             {
@@ -366,7 +580,7 @@ public class FlowService : IFlowService
 
                 if (!alreadyOpen)
                 {
-                    await _repo.CreateCheckpointInstanceAsync(new CheckpointInstance
+                    var newInstId = await _repo.CreateCheckpointInstanceAsync(new CheckpointInstance
                     {
                         IdInstance = instance.IdInstance,
                         IdCheckpoint = chained.IdCheckpoint,
@@ -375,13 +589,179 @@ public class FlowService : IFlowService
                         IsRetroactive = false,
                         OccurrenceNumber = 1
                     });
+
+                    chainedTriggered = true;
+                    newlyTriggered.Add(new CheckpointInstanceDetailDto
+                    {
+                        IdCpInstance = newInstId,
+                        IdCheckpoint = chained.IdCheckpoint,
+                        Code = chained.Code,
+                        Name = chained.Name,
+                        Status = "PENDING",
+                        BlocksAdvance = chained.BlocksAdvance,
+                        FinalizesCycle = chained.FinalizesCycle,
+                        TriggeredByKo = catDef.IdCheckpoint,
+                        TriggeredByKoName = catDef.Name
+                    });
+
                     await _repo.LogAuditAsync(actorId, "CHECKPOINT_CHAINED_TRIGGERED", instance.IdInstance, chained.IdCheckpoint, 
                         $"{{\"triggeredByKo\":{catDef.IdCheckpoint},\"code\":\"{chained.Code}\"}}");
                 }
             }
+
+            if (chainedTriggered)
+            {
+                result.NextAction = "CHAINED_TRIGGERED";
+                result.Message = $"Resultado KO disparó automáticamente el/los checkpoint(s) de gestión: {string.Join(", ", newlyTriggered.Select(t => t.Name))}.";
+            }
+            // ── B. Retroceso de Etapa (RollbackToStage / retrocede) ─────────
+            else if (catDef.RollbackToStage.HasValue && catDef.RollbackToStage > 0)
+            {
+                var rollbackStageId = catDef.RollbackToStage.Value;
+                var stages = (await _repo.GetFlowStagesAsync(instance.IdFlow)).OrderBy(s => s.OrderIndex).ToList();
+                var targetStage = stages.FirstOrDefault(s => s.IdStage == rollbackStageId);
+                if (targetStage != null)
+                {
+                    var fromStageId = instance.CurrentStageId;
+                    await _repo.UpdateFlowInstanceStageAsync(instance.IdInstance, rollbackStageId, instance.DayCounter + 1, "ACTIVE");
+                    await _repo.RecordStageTransitionAsync(new StageTransition
+                    {
+                        IdInstance = instance.IdInstance,
+                        FromStageId = fromStageId,
+                        ToStageId = rollbackStageId,
+                        Direction = "BACKWARD",
+                        TriggeredBy = $"CHECKPOINT_KO:{catDef.Code}",
+                        ActorId = actorId
+                    });
+
+                    await TriggerCheckpointsForStageAsync(instance.IdInstance, instance.IdFlow, rollbackStageId, actorId);
+
+                    await _repo.LogAuditAsync(actorId, "STAGE_ROLLBACK", instance.IdInstance, catDef.IdCheckpoint, 
+                        $"{{\"from\":{fromStageId},\"to\":{rollbackStageId},\"stage\":\"{targetStage.Name}\"}}");
+
+                    result.NextAction = "STAGE_ROLLBACK";
+                    result.CurrentStageId = rollbackStageId;
+                    result.CurrentStageName = targetStage.Name;
+                    result.Message = $"Resultado KO ejecutó el retroceso de etapa hacia: {targetStage.Name}.";
+                }
+            }
+            // ── C. Fin de Ciclo Irreversible (FinalizesCycle: true) ──────────
+            else if (catDef.FinalizesCycle)
+            {
+                await _repo.UpdateFlowInstanceStageAsync(instance.IdInstance, instance.CurrentStageId, instance.DayCounter, "CLOSED");
+                await _repo.LogAuditAsync(actorId, "FLOW_CYCLE_FINALIZED", instance.IdInstance, catDef.IdCheckpoint, 
+                    $"{{\"reason\":\"CHECKPOINT_FINALIZES_CYCLE\",\"code\":\"{catDef.Code}\"}}");
+
+                // Cerrar cualquier otro checkpoint pendiente
+                var pendingCps = (await _repo.GetCheckpointInstancesForFlowAsync(instance.IdInstance))
+                    .Where(ci => ci.Status == "PENDING" && ci.IdCpInstance != cpInstanceId)
+                    .ToList();
+                foreach (var pending in pendingCps)
+                {
+                    await _repo.UpdateCheckpointInstanceStatusAsync(pending.IdCpInstance, "KO", actorId);
+                }
+
+                result.NextAction = "CYCLE_FINALIZED";
+                result.FlowStatus = "CLOSED";
+                result.Message = "Resultado KO en checkpoint terminal finalizó el ciclo de forma irreversible (Expediente Descartado/Cerrado).";
+            }
+            // ── D. Bloqueo Simple ───────────────────────────────────────────
+            else if (catDef.BlocksAdvance)
+            {
+                result.NextAction = "BLOCKED";
+                result.Message = $"Resultado KO registrado en '{catDef.Name}'. Impide el avance a la siguiente etapa hasta que se resuelva.";
+            }
+            else
+            {
+                result.NextAction = "NONE";
+                result.Message = $"Resultado KO registrado en '{catDef.Name}' (No bloqueante).";
+            }
+        }
+        // ══════════════════════════════════════════════════════════════════════
+        // 2. CASO APPROVED (OK): PROGRESIÓN SECUENCIAL O AUTO-AVANCE DE ETAPA
+        // ══════════════════════════════════════════════════════════════════════
+        else if (normalizedStatus == "APPROVED")
+        {
+            // Buscar el siguiente checkpoint secuencial activo dentro de la misma etapa (no dependiente de KO)
+            var nextSequentialCp = (await _repo.GetCheckpointCatalogAsync(instance.IdFlow))
+                .Where(c => c.ApprovalStatus == "ACTIVE" 
+                         && c.TriggerStageId == instance.CurrentStageId
+                         && c.TriggeredByKo == null
+                         && c.ExecutionOrder > catDef.ExecutionOrder)
+                .OrderBy(c => c.ExecutionOrder)
+                .FirstOrDefault();
+
+            if (nextSequentialCp != null)
+            {
+                var alreadyOpen = (await _repo.GetCheckpointInstancesForFlowAsync(instance.IdInstance))
+                    .Any(ci => ci.IdCheckpoint == nextSequentialCp.IdCheckpoint && ci.Status == "PENDING");
+
+                if (!alreadyOpen)
+                {
+                    var newInstId = await _repo.CreateCheckpointInstanceAsync(new CheckpointInstance
+                    {
+                        IdInstance = instance.IdInstance,
+                        IdCheckpoint = nextSequentialCp.IdCheckpoint,
+                        Status = "PENDING",
+                        OpenedAtStage = instance.CurrentStageId,
+                        IsRetroactive = false,
+                        OccurrenceNumber = 1
+                    });
+
+                    newlyTriggered.Add(new CheckpointInstanceDetailDto
+                    {
+                        IdCpInstance = newInstId,
+                        IdCheckpoint = nextSequentialCp.IdCheckpoint,
+                        Code = nextSequentialCp.Code,
+                        Name = nextSequentialCp.Name,
+                        Status = "PENDING",
+                        BlocksAdvance = nextSequentialCp.BlocksAdvance,
+                        FinalizesCycle = nextSequentialCp.FinalizesCycle,
+                        ExecutionOrder = nextSequentialCp.ExecutionOrder,
+                        OwnerDept = nextSequentialCp.OwnerDept ?? "Asesor"
+                    });
+
+                    result.NextAction = "SEQUENTIAL_TRIGGERED";
+                    result.Message = $"Checkpoint '{catDef.Name}' aprobado. Se activó el siguiente hito: '{nextSequentialCp.Name}'.";
+                }
+                else
+                {
+                    result.NextAction = "NONE";
+                    result.Message = $"Checkpoint '{catDef.Name}' aprobado. El siguiente hito '{nextSequentialCp.Name}' ya se encuentra activo.";
+                }
+            }
+            else
+            {
+                // Si no restan checkpoints secuenciales en esta etapa, verificar si quedan checkpoints bloqueantes pendientes:
+                var remainingPendingInStage = (await _repo.GetCheckpointInstancesForFlowAsync(instance.IdInstance))
+                    .Where(ci => ci.Status == "PENDING" && ci.IdCpInstance != cpInstanceId)
+                    .ToList();
+
+                if (!remainingPendingInStage.Any())
+                {
+                    try
+                    {
+                        await AdvanceStageAsync(instance.IdInstance, actorId);
+                        result.NextAction = "STAGE_ADVANCED";
+                        result.Message = $"Todos los checkpoints requeridos de la etapa han sido aprobados. El expediente avanzó automáticamente a la siguiente etapa.";
+                    }
+                    catch (Exception ex)
+                    {
+                        result.NextAction = "NONE";
+                        result.Message = $"Checkpoint '{catDef.Name}' aprobado. Intento de auto-avance: {ex.Message}";
+                    }
+                }
+                else
+                {
+                    result.NextAction = "NONE";
+                    result.Message = $"Checkpoint '{catDef.Name}' aprobado. Quedan {remainingPendingInStage.Count} checkpoints pendientes en la etapa.";
+                }
+            }
         }
 
-        // ── C. Recurrencia: programar la siguiente ocurrencia ──────────────────
+        // ══════════════════════════════════════════════════════════════════════
+        // 3. RECURRENCIA (Si aplica)
+        // ══════════════════════════════════════════════════════════════════════
         if (catDef.IsRecurrent)
         {
             var currentOccurrence = cpInstance.OccurrenceNumber;
@@ -401,26 +781,23 @@ public class FlowService : IFlowService
                     ScheduledFor = nextScheduled
                 });
             }
-            else if (catDef.FinalizesCycle)
-            {
-                // Agotó ocurrencias y FinalizesCycle: cerrar la instancia
-                await _repo.UpdateFlowInstanceStageAsync(instance.IdInstance, instance.CurrentStageId, instance.DayCounter, "COMPLETED");
-                await _repo.LogAuditAsync(actorId, "FLOW_CLOSED_BY_RECURRENCE_EXHAUSTION", instance.IdInstance, catDef.IdCheckpoint, 
-                    $"{{\"maxOccurrences\":{catDef.MaxOccurrences},\"code\":\"{catDef.Code}\"}}");
-            }
         }
 
-        // ── D. FinalizesCycle (cierre inmediato por KO) ────────────────────────
-        if (normalizedStatus == "KO" && catDef.FinalizesCycle && !catDef.IsRecurrent)
-        {
-            await _repo.UpdateFlowInstanceStageAsync(instance.IdInstance, instance.CurrentStageId, instance.DayCounter, "COMPLETED");
-            await _repo.LogAuditAsync(actorId, "FLOW_CLOSED_BY_CHECKPOINT_KO", instance.IdInstance, catDef.IdCheckpoint, 
-                $"{{\"code\":\"{catDef.Code}\",\"reason\":\"FINALIZES_CYCLE\"}}");
-        }
+        // Recargar detalle completo para devolver al cliente
+        var reloadedInstance = await _repo.GetFlowInstanceByIdAsync(instance.IdInstance) ?? instance;
+        var detailDto = await BuildFlowInstanceDetailAsync(reloadedInstance);
 
-    LogAndReturn:
-        await _repo.LogAuditAsync(actorId, "CHECKPOINT_RESOLVED", cpInstance?.IdInstance, catDef?.IdCheckpoint, $"{{\"status\":\"{normalizedStatus}\"}}");
-        return new CheckpointInstance { IdCpInstance = cpInstanceId, Status = normalizedStatus };
+        result.TriggeredCheckpoints = newlyTriggered;
+        result.FlowInstance = detailDto;
+        result.CurrentStageId = detailDto.CurrentStageId;
+        result.CurrentStageName = detailDto.CurrentStage?.Name ?? $"Stage #{detailDto.CurrentStageId}";
+        result.FlowStatus = detailDto.Status;
+        result.CanAdvanceStage = detailDto.CanAdvanceStage;
+
+        await _repo.LogAuditAsync(actorId, "CHECKPOINT_RESOLVED", cpInstance.IdInstance, catDef.IdCheckpoint, 
+            $"{{\"status\":\"{normalizedStatus}\",\"nextAction\":\"{result.NextAction}\"}}");
+
+        return result;
     }
 
     private async Task TriggerCheckpointsForStageAsync(long instanceId, long flowId, long stageId, long actorId)
@@ -434,21 +811,24 @@ public class FlowService : IFlowService
                 : instance?.Metadata ?? "{}";
             facts = JsonSerializer.Deserialize<Dictionary<string, object>>(rawFacts);
         }
-        catch
-        {
-            facts = new();
-        }
+        catch { facts = new(); }
 
-        var catalogCheckpoints = (await _repo.GetCheckpointCatalogAsync(flowId))
+        var allStageCheckpoints = (await _repo.GetCheckpointCatalogAsync(flowId))
             .Where(c => c.ApprovalStatus == "ACTIVE" 
                      && c.TriggerStageId == stageId 
                      && c.TriggeredByKo == null
-                     && c.IdFlow == flowId)
+                     && (c.IdFlow == flowId || c.IdFlow == null))
+            .OrderBy(c => c.ExecutionOrder)
             .ToList();
 
-        foreach (var cp in catalogCheckpoints)
+        if (!allStageCheckpoints.Any()) return;
+
+        // Abrir los checkpoints de entrada (menor orden de ejecución en la etapa)
+        var minOrder = allStageCheckpoints.Min(c => c.ExecutionOrder);
+        var initialCheckpoints = allStageCheckpoints.Where(c => c.ExecutionOrder == minOrder).ToList();
+
+        foreach (var cp in initialCheckpoints)
         {
-            // Evaluar precondición condicional si existe
             if (!string.IsNullOrEmpty(cp.PreconditionFact))
             {
                 bool factMet = facts != null && facts.TryGetValue(cp.PreconditionFact, out var val) 
@@ -458,20 +838,152 @@ public class FlowService : IFlowService
                 {
                     await _repo.LogAuditAsync(actorId, "CHECKPOINT_SKIPPED_PRECONDITION", instanceId, cp.IdCheckpoint, 
                         $"{{\"fact\":\"{cp.PreconditionFact}\",\"met\":false}}");
-                    continue; // Omitir checkpoint condicional no satisfecho
+                    continue;
                 }
             }
 
-            var cpInst = new CheckpointInstance
+            var alreadyOpen = (await _repo.GetCheckpointInstancesForFlowAsync(instanceId))
+                .Any(ci => ci.IdCheckpoint == cp.IdCheckpoint && (ci.Status == "PENDING" || ci.Status == "APPROVED"));
+
+            if (!alreadyOpen)
             {
-                IdInstance = instanceId,
-                IdCheckpoint = cp.IdCheckpoint,
-                Status = "PENDING",
-                OpenedAtStage = stageId,
-                IsRetroactive = false,
-                OccurrenceNumber = 1
-            };
-            await _repo.CreateCheckpointInstanceAsync(cpInst);
+                await _repo.CreateCheckpointInstanceAsync(new CheckpointInstance
+                {
+                    IdInstance = instanceId,
+                    IdCheckpoint = cp.IdCheckpoint,
+                    Status = "PENDING",
+                    OpenedAtStage = stageId,
+                    IsRetroactive = false,
+                    OccurrenceNumber = 1
+                });
+            }
         }
+    }
+
+    private async Task<FlowInstanceDetailDto> BuildFlowInstanceDetailAsync(FlowInstance inst)
+    {
+        var stages = (await _repo.GetFlowStagesAsync(inst.IdFlow)).OrderBy(s => s.OrderIndex).ToList();
+        var currentStageEntity = stages.FirstOrDefault(s => s.IdStage == inst.CurrentStageId);
+
+        var stageDetailDto = currentStageEntity != null ? new FlowStageDetailDto
+        {
+            IdStage = currentStageEntity.IdStage,
+            IdFlow = currentStageEntity.IdFlow,
+            StageCode = currentStageEntity.StageCode,
+            Name = currentStageEntity.Name,
+            Description = currentStageEntity.Description,
+            OrderIndex = currentStageEntity.OrderIndex,
+            IsTerminal = currentStageEntity.IsTerminal,
+            SlaHours = currentStageEntity.SlaHours,
+            Portfolio = currentStageEntity.Portfolio,
+            Campaign = currentStageEntity.Campaign
+        } : null;
+
+        var catalog = (await _repo.GetCheckpointCatalogAsync(null)).ToDictionary(c => c.IdCheckpoint);
+        var cpInstances = (await _repo.GetCheckpointInstancesForFlowAsync(inst.IdInstance)).ToList();
+        var transitions = (await _repo.GetStageTransitionsForInstanceAsync(inst.IdInstance)).ToList();
+
+        var stageMap = stages.ToDictionary(s => s.IdStage, s => s.Name);
+
+        var enrichedCheckpoints = new List<CheckpointInstanceDetailDto>();
+
+        foreach (var ci in cpInstances)
+        {
+            catalog.TryGetValue(ci.IdCheckpoint, out var cat);
+
+            var steps = (await _repo.GetCheckpointStepsAsync(ci.IdCheckpoint)).OrderBy(s => s.StepOrder).ToList();
+            var progress = (await _repo.GetStepProgressAsync(ci.IdCpInstance)).ToDictionary(p => p.IdStep);
+
+            var stepDtos = steps.Select(s =>
+            {
+                progress.TryGetValue(s.IdStep, out var p);
+                return new CheckpointStepDetailDto
+                {
+                    IdStep = s.IdStep,
+                    IdCheckpoint = s.IdCheckpoint,
+                    StepOrder = s.StepOrder,
+                    Name = s.Name,
+                    IsRequired = s.IsRequired,
+                    IsCompleted = p?.IsCompleted ?? false,
+                    CompletedBy = p?.CompletedBy,
+                    CompletedAt = p?.CompletedAt
+                };
+            }).ToList();
+
+            string? rollbackStageName = null;
+            if (cat?.RollbackToStage.HasValue == true && stageMap.TryGetValue(cat.RollbackToStage.Value, out var rName))
+            {
+                rollbackStageName = rName;
+            }
+
+            string? triggeredByKoName = null;
+            if (cat?.TriggeredByKo.HasValue == true && catalog.TryGetValue(cat.TriggeredByKo.Value, out var tCat))
+            {
+                triggeredByKoName = tCat.Name;
+            }
+
+            string? openedStageName = null;
+            if (ci.OpenedAtStage.HasValue && stageMap.TryGetValue(ci.OpenedAtStage.Value, out var oName))
+            {
+                openedStageName = oName;
+            }
+
+            enrichedCheckpoints.Add(new CheckpointInstanceDetailDto
+            {
+                IdCpInstance = ci.IdCpInstance,
+                IdInstance = ci.IdInstance,
+                IdCheckpoint = ci.IdCheckpoint,
+                Code = cat?.Code ?? $"CP_{ci.IdCheckpoint}",
+                Name = cat?.Name ?? $"Checkpoint #{ci.IdCheckpoint}",
+                Description = cat?.Description,
+                Status = ci.Status,
+                OpenedAtStage = ci.OpenedAtStage,
+                OpenedAtStageName = openedStageName,
+                IsRetroactive = ci.IsRetroactive,
+                OccurrenceNumber = ci.OccurrenceNumber,
+                ScheduledFor = ci.ScheduledFor,
+                ResolvedBy = ci.ResolvedBy,
+                ResolvedAt = ci.ResolvedAt,
+                CreatedAt = ci.CreatedAt,
+                OwnerDept = cat?.OwnerDept ?? "Asesor",
+                Category = cat?.Category ?? "GENERAL",
+                Division = cat?.Division ?? "OPERACIONES",
+                BlocksAdvance = cat?.BlocksAdvance ?? true,
+                FinalizesCycle = cat?.FinalizesCycle ?? false,
+                RollbackToStage = cat?.RollbackToStage,
+                RollbackToStageName = rollbackStageName,
+                TriggeredByKo = cat?.TriggeredByKo,
+                TriggeredByKoName = triggeredByKoName,
+                ExecutionOrder = cat?.ExecutionOrder ?? 1,
+                Campaign = cat?.Campaign ?? "GENERAL",
+                Portfolio = cat?.Portfolio ?? "GENERAL",
+                Provider = cat?.Provider ?? "INTERNO",
+                ApprovalStatus = cat?.ApprovalStatus ?? "ACTIVE",
+                Steps = stepDtos
+            });
+        }
+
+        var flows = await _repo.GetFlowDefinitionsAsync();
+        var flowDef = flows.FirstOrDefault(f => f.IdFlow == inst.IdFlow);
+
+        return new FlowInstanceDetailDto
+        {
+            IdInstance = inst.IdInstance,
+            IdFlow = inst.IdFlow,
+            FlowCode = flowDef?.Code ?? "PIPELINE_TELECOM",
+            FlowName = flowDef?.Name ?? "Pipeline Telecom",
+            EntityType = inst.EntityType,
+            EntityId = inst.EntityId,
+            CurrentStageId = inst.CurrentStageId,
+            CurrentStage = stageDetailDto,
+            DayCounter = inst.DayCounter,
+            Status = inst.Status,
+            Facts = inst.Facts,
+            Metadata = inst.Metadata,
+            CreatedAt = inst.CreatedAt,
+            CompletedAt = inst.CompletedAt,
+            Checkpoints = enrichedCheckpoints,
+            RecentTransitions = transitions
+        };
     }
 }

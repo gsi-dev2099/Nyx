@@ -41,6 +41,28 @@ public class FormController : ControllerBase
         return Ok(templates);
     }
 
+    [HttpGet("campaign/{idCmpg}/stage/{idStage}/fields")]
+    public async Task<IActionResult> GetFieldsByCampaignStage(long idCmpg, long idStage)
+    {
+        var templates = await _formRepository.GetTemplatesByCampaignStageAsync(idCmpg, idStage);
+        var template = templates.FirstOrDefault();
+        if (template == null)
+        {
+            return Ok(new List<FormField>());
+        }
+        var fields = await _formRepository.GetFieldsByTemplateAsync(template.IdForm);
+        return Ok(fields);
+    }
+
+    [HttpGet("options-catalog")]
+    public async Task<IActionResult> GetOptionsCatalog([FromServices] CRM.ApiHub.Infrastructure.Persistence.IDbConnectionFactory connectionFactory)
+    {
+        using var conn = connectionFactory.CreateConnection();
+        const string sql = "SELECT category, option_key AS \"Value\", label AS \"Label\", price_delta AS \"Price\" FROM sales_service.sales_form_option_catalog WHERE is_active = true ORDER BY category, order_index;";
+        var options = await Dapper.SqlMapper.QueryAsync(conn, sql);
+        return Ok(options);
+    }
+
     [HttpGet("{idForm}/fields")]
     public async Task<IActionResult> GetFields(long idForm)
     {

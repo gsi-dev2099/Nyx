@@ -12,6 +12,7 @@ services:
       - crm_webfrontend
       - crm_apihub
       - sla_engine_api
+      - crm_minio
     restart: unless-stopped
 
   crm_redis:
@@ -33,7 +34,7 @@ services:
     container_name: crm_postgres
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-ronald}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-Gs1$2099Zx23rO24M4r25}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-Gs1_2099Zx23rO24M4r25}
       - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-nyx_crm,nx_ecosystem}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
@@ -47,6 +48,31 @@ services:
       timeout: 3s
       retries: 5
 
+  crm_minio:
+    image: minio/minio:latest
+    container_name: crm_minio
+    hostname: crm-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-nyx_admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-NyxMinio_2026StorageKey!}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - crm_minio_data:/data
+    networks:
+      default:
+        aliases:
+          - crm-minio
+          - minio
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   crm_apihub:
     build:
       context: .
@@ -56,14 +82,28 @@ services:
       - "5068"
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+      - JwtSettings__SecretKey=${JWT_SECRET_KEY:-NyxCRM_SuperSecret_JwtKey_2026_Prod_256bits_Key!}
       - RedisSettings__ConnectionString=crm_redis:6379
-      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_crm;Username=${POSTGRES_USER:-ronald};Password=${POSTGRES_PASSWORD:-Gs1$2099Zx23rO24M4r25}
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_crm;Username=${POSTGRES_USER:-ronald};Password=${POSTGRES_PASSWORD:-Gs1_2099Zx23rO24M4r25}
+      - ConnectionStrings__FlowConnection=Host=crm_postgres;Port=5432;Database=nyx_flow;Username=${POSTGRES_USER:-ronald};Password=${POSTGRES_PASSWORD:-Gs1_2099Zx23rO24M4r25}
+      - ConnectionStrings__ApprovalConnection=Host=crm_postgres;Port=5432;Database=nyx_approval;Username=${POSTGRES_USER:-ronald};Password=${POSTGRES_PASSWORD:-Gs1_2099Zx23rO24M4r25}
+      - ConnectionStrings__SlaConnection=Host=crm_postgres;Port=5432;Database=nyx_sla;Username=${POSTGRES_USER:-ronald};Password=${POSTGRES_PASSWORD:-Gs1_2099Zx23rO24M4r25}
+      - MinioSettings__Endpoint=http://crm-minio:9000
+      - MinioSettings__AccessKey=${MINIO_ROOT_USER:-nyx_admin}
+      - MinioSettings__SecretKey=${MINIO_ROOT_PASSWORD:-NyxMinio_2026StorageKey!}
+      - MinioSettings__BucketName=nyx-crm-documents
+      - MinioSettings__UseSsl=false
     volumes:
       - ./storage:/app/Storage
     depends_on:
       crm_redis:
         condition: service_healthy
       crm_postgres:
+        condition: service_healthy
+      crm_minio:
         condition: service_healthy
     restart: unless-stopped
 
@@ -76,6 +116,9 @@ services:
       - "5261"
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
       - ApiSettings__BaseUrl=http://crm_apihub:5068
       - ReverseProxy__Clusters__apiCluster__Destinations__destination1__Address=http://crm_apihub:5068
     depends_on:
@@ -91,7 +134,10 @@ services:
       - "5070"
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
-      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_sla;Username=usr_sla;Password=${SLA_DB_PASSWORD:-Sla$Nyx2026!Engine#Key}
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_sla;Username=usr_sla;Password=${SLA_DB_PASSWORD:-Sla_Nyx2026_Engine_Key}
       - RedisSettings__ConnectionString=crm_redis:6379
     depends_on:
       crm_redis:
@@ -109,7 +155,10 @@ services:
       - "5071"
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
-      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_approval;Username=usr_approval;Password=${APPROVAL_DB_PASSWORD:-Approval$Nyx2026!Secured#Key}
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_approval;Username=usr_approval;Password=${APPROVAL_DB_PASSWORD:-Approval_Nyx2026_Secured_Key}
       - RedisSettings__ConnectionString=crm_redis:6379
     depends_on:
       crm_redis:
@@ -127,7 +176,10 @@ services:
       - "5072"
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
-      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_flow;Username=usr_flow;Password=${FLOW_DB_PASSWORD:-Flow$Nyx2026!Engine#Key}
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_flow;Username=usr_flow;Password=${FLOW_DB_PASSWORD:-Flow_Nyx2026_Engine_Key}
       - RedisSettings__ConnectionString=crm_redis:6379
     depends_on:
       crm_redis:
@@ -136,7 +188,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-
 volumes:
   crm_postgres_data:
   crm_redis_data:
+  crm_minio_data:

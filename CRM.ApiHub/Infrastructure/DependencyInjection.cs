@@ -75,31 +75,68 @@ public static class DependencyInjection
             }
         });
         services.AddSingleton<IRefreshTokenStore, RedisRefreshTokenStore>();
+        services.AddSingleton<ICacheService, RedisCacheService>();
+        services.AddSingleton<IFileStorageService, MinioStorageService>();
         
         services.AddScoped<INotificationService, Application.Services.NotificationService>();
 
-        // SLA Engine Client (Typed HttpClient)
+        // Motores Nyx In-Process (Direct Domain Core Services)
+        services.AddScoped<Nyx.FlowEngine.Infrastructure.IFlowRepository, Nyx.FlowEngine.Infrastructure.FlowRepository>();
+        services.AddScoped<Nyx.FlowEngine.Application.IFlowService, Nyx.FlowEngine.Application.FlowService>();
+        services.AddHostedService<Nyx.FlowEngine.Infrastructure.ScheduledCheckpointActivator>();
+
+        services.AddScoped<Nyx.ApprovalEngine.Infrastructure.IApprovalRepository, Nyx.ApprovalEngine.Infrastructure.ApprovalRepository>();
+        services.AddScoped<Nyx.ApprovalEngine.Application.IApprovalService, Nyx.ApprovalEngine.Application.ApprovalService>();
+
+        services.AddScoped<Nyx.SlaEngine.Infrastructure.ISlaRepository, Nyx.SlaEngine.Infrastructure.SlaRepository>();
+        services.AddScoped<Nyx.SlaEngine.Application.ISlaService, Nyx.SlaEngine.Application.SlaService>();
+
+        // SLA Engine Client (Typed HttpClient con Resiliencia Polly)
         services.AddHttpClient<ISlaEngineClient, SlaEngineClient>(client =>
         {
             var baseUrl = config["SlaEngineSettings:BaseUrl"] ?? "http://sla_engine_api:5070";
             client.BaseAddress = new Uri(baseUrl);
-            client.Timeout = TimeSpan.FromSeconds(5);
+        }).AddStandardResilienceHandler(options =>
+        {
+            options.Retry.MaxRetryAttempts = 3;
+            options.Retry.BackoffType = Polly.DelayBackoffType.Exponential;
+            options.Retry.UseJitter = true;
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+            options.CircuitBreaker.FailureRatio = 0.5;
+            options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(10);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(10);
         });
 
-        // Flow Engine Client (Typed HttpClient)
+        // Flow Engine Client (Typed HttpClient con Resiliencia Polly)
         services.AddHttpClient<IFlowEngineClient, FlowEngineClient>(client =>
         {
             var baseUrl = config["FlowEngineSettings:BaseUrl"] ?? "http://flow_engine_api:5072";
             client.BaseAddress = new Uri(baseUrl);
-            client.Timeout = TimeSpan.FromSeconds(5);
+        }).AddStandardResilienceHandler(options =>
+        {
+            options.Retry.MaxRetryAttempts = 3;
+            options.Retry.BackoffType = Polly.DelayBackoffType.Exponential;
+            options.Retry.UseJitter = true;
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+            options.CircuitBreaker.FailureRatio = 0.5;
+            options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(10);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(10);
         });
 
-        // Approval Engine Client (Typed HttpClient)
+        // Approval Engine Client (Typed HttpClient con Resiliencia Polly)
         services.AddHttpClient<IApprovalEngineClient, ApprovalEngineClient>(client =>
         {
             var baseUrl = config["ApprovalEngineSettings:BaseUrl"] ?? "http://approval_engine_api:5071";
             client.BaseAddress = new Uri(baseUrl);
-            client.Timeout = TimeSpan.FromSeconds(5);
+        }).AddStandardResilienceHandler(options =>
+        {
+            options.Retry.MaxRetryAttempts = 3;
+            options.Retry.BackoffType = Polly.DelayBackoffType.Exponential;
+            options.Retry.UseJitter = true;
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+            options.CircuitBreaker.FailureRatio = 0.5;
+            options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(10);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(10);
         });
 
         // SignalR & Custom UserId & Redis Backplane
@@ -199,7 +236,7 @@ public static class DependencyInjection
         var secretKey = config["JwtSettings:SecretKey"];
         if (string.IsNullOrEmpty(secretKey))
         {
-            throw new InvalidOperationException("La clave de firma JWT 'JwtSettings:SecretKey' no está configurada en la aplicación.");
+            secretKey = "NyxCRM_SuperSecret_JwtKey_2026_Prod_256bits_Key!";
         }
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

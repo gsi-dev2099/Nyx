@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="utf-8" />
@@ -143,6 +143,149 @@
                 return [Math.max(0, Math.min(1, rx)), Math.max(0, Math.min(1, ry))];
             }
         };
+
+        window.nyxAlertSystem = {
+            audioCtx: null,
+            blinkingInterval: null,
+            originalTitle: "Información Principal - Asesor NYX CRM",
+            audioUnlocked: false,
+
+            initAudio: function() {
+                try {
+                    if (!this.audioCtx) {
+                        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                        this.audioCtx.resume();
+                    }
+                    this.audioUnlocked = true;
+                } catch(e) {
+                    console.warn("Nyx Audio init:", e);
+                }
+            },
+
+            checkAndPromptPermissions: function() {
+                this.initAudio();
+                if ("Notification" in window) {
+                    if (Notification.permission === "default") {
+                        Notification.requestPermission().then(function(permission) {
+                            if (permission === "granted") {
+                                console.log("Notificaciones de escritorio autorizadas por el usuario.");
+                            }
+                        });
+                    }
+                }
+            },
+
+            requestNotificationPermission: function() {
+                var self = this;
+                this.initAudio();
+                if (!("Notification" in window)) {
+                    alert("Tu navegador no soporta notificaciones de escritorio.");
+                    return;
+                }
+                Notification.requestPermission().then(function(permission) {
+                    if (permission === "granted") {
+                        self.playUrgentAlarm();
+                        new Notification("✅ Notificaciones Activas en NYX CRM", {
+                            body: "Recibirás alertas inmediatas cuando un asesor te derive una llamada.",
+                            icon: "/favicon.ico"
+                        });
+                    } else if (permission === "denied") {
+                        alert("Has bloqueado las notificaciones. Habilítalas desde el candado en la barra de direcciones de tu navegador para recibir alertas.");
+                    }
+                });
+            },
+
+            playUrgentAlarm: function() {
+                try {
+                    this.initAudio();
+                    if (!this.audioCtx) return;
+                    
+                    if (this.audioCtx.state === 'suspended') {
+                        this.audioCtx.resume();
+                    }
+                    
+                    var ctx = this.audioCtx;
+                    var now = ctx.currentTime;
+                    
+                    // Triple Beep / Clean Corporate Chime Sequence (880Hz -> 1760Hz)
+                    [0, 0.22, 0.44].forEach(function(delay) {
+                        var osc = ctx.createOscillator();
+                        var gain = ctx.createGain();
+                        
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(880, now + delay);
+                        osc.frequency.exponentialRampToValueAtTime(1760, now + delay + 0.15);
+                        
+                        gain.gain.setValueAtTime(0.35, now + delay);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + delay + 0.18);
+                        
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        
+                        osc.start(now + delay);
+                        osc.stop(now + delay + 0.18);
+                    });
+                } catch(e) {
+                    console.warn("Audio chime error:", e);
+                }
+            },
+
+            startUrgentBlinking: function(text) {
+                this.initAudio();
+                var self = this;
+                var isAlt = false;
+                if (this.blinkingInterval) clearInterval(this.blinkingInterval);
+                
+                this.blinkingInterval = setInterval(function() {
+                    document.title = isAlt ? "🔴 [URGENTE: DERIVACIÓN RECIBIDA]" : (text || "⚡ ¡CONFIRMAR LLAMADA AHORA!");
+                    isAlt = !isAlt;
+                }, 750);
+
+                if ("Notification" in window) {
+                    if (Notification.permission === "granted") {
+                        self.showDesktopNotification();
+                    } else if (Notification.permission === "default") {
+                        Notification.requestPermission().then(function(permission) {
+                            if (permission === "granted") {
+                                self.showDesktopNotification();
+                            }
+                        });
+                    }
+                }
+            },
+
+            showDesktopNotification: function() {
+                if ("Notification" in window && Notification.permission === "granted") {
+                    try {
+                        var notif = new Notification("🚨 ¡DERIVACIÓN URGENTE EN NYX CRM!", {
+                            body: "Tienes una llamada asignada en espera de confirmación inmediata. Haz clic para atender.",
+                            icon: "/favicon.ico",
+                            requireInteraction: true
+                        });
+                        notif.onclick = function() {
+                            window.focus();
+                            this.close();
+                        };
+                    } catch(e) {
+                        console.warn("Desktop notification error:", e);
+                    }
+                }
+            },
+
+            stopUrgentBlinking: function() {
+                if (this.blinkingInterval) {
+                    clearInterval(this.blinkingInterval);
+                    this.blinkingInterval = null;
+                }
+                document.title = this.originalTitle;
+            }
+        };
+
+        // Auto-unlock audio and check permissions on any user interaction
+        document.addEventListener("click", function() { window.nyxAlertSystem.initAudio(); }, { once: false });
+        document.addEventListener("keydown", function() { window.nyxAlertSystem.initAudio(); }, { once: false });
     </script>
 </body>
 

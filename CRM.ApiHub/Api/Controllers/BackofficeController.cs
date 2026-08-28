@@ -48,19 +48,8 @@ public class BackofficeController : ControllerBase
             return Unauthorized(new { message = "Usuario no autorizado." });
         }
 
-        if (backofficeId == -1000) backofficeId = 237;
-        else if (backofficeId == -999) backofficeId = 101;
-        else if (backofficeId == -998) backofficeId = 9;
-
-        try
-        {
-            var pagedResult = await _getAssignedOrdersUseCase.ExecuteAsync(backofficeId, userId, statusId, campaignId, dateFrom, dateTo, page, pageSize, ct);
-            return Ok(pagedResult);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al obtener las órdenes asignadas.", details = ex.Message });
-        }
+        var pagedResult = await _getAssignedOrdersUseCase.ExecuteAsync(backofficeId, userId, statusId, campaignId, dateFrom, dateTo, page, pageSize, ct);
+        return Ok(pagedResult);
     }
 
     [HttpGet("pending-docs")]
@@ -72,19 +61,8 @@ public class BackofficeController : ControllerBase
             return Unauthorized(new { message = "Usuario no autorizado." });
         }
 
-        if (backofficeId == -1000) backofficeId = 237;
-        else if (backofficeId == -999) backofficeId = 101;
-        else if (backofficeId == -998) backofficeId = 9;
-
-        try
-        {
-            var docs = await _getPendingVerificationUseCase.ExecuteAsync(backofficeId, ct);
-            return Ok(docs);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al obtener los documentos pendientes de verificación.", details = ex.Message });
-        }
+        var docs = await _getPendingVerificationUseCase.ExecuteAsync(backofficeId, ct);
+        return Ok(docs);
     }
 
     [Route("orders/{id}/status")]
@@ -102,32 +80,21 @@ public class BackofficeController : ControllerBase
             return Unauthorized(new { message = "Usuario no autorizado." });
         }
 
-        if (backofficeId == -1000) backofficeId = 237;
-        else if (backofficeId == -999) backofficeId = 101;
-        else if (backofficeId == -998) backofficeId = 9;
+        var success = await _updateBackofficeOrderStatusUseCase.ExecuteAsync(
+            id,
+            dto.ToStatusId,
+            dto.ToSubstatusId,
+            dto.Comment,
+            backofficeId,
+            ct
+        );
 
-        try
+        if (!success)
         {
-            var success = await _updateBackofficeOrderStatusUseCase.ExecuteAsync(
-                id,
-                dto.ToStatusId,
-                dto.ToSubstatusId,
-                dto.Comment,
-                backofficeId,
-                ct
-            );
-
-            if (!success)
-            {
-                return NotFound(new { message = $"No se encontró la orden con ID {id} o no se pudo actualizar su estado." });
-            }
-
-            return Ok(new { message = "Estado de orden actualizado correctamente." });
+            return NotFound(new { message = $"No se encontró la orden con ID {id} o no se pudo actualizar su estado." });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al actualizar el estado de la orden.", details = ex.Message });
-        }
+
+        return Ok(new { message = "Estado de orden actualizado correctamente." });
     }
 
     [Route("documents/{id}/verify")]
@@ -145,30 +112,19 @@ public class BackofficeController : ControllerBase
             return Unauthorized(new { message = "Usuario no autorizado." });
         }
 
-        if (backofficeId == -1000) backofficeId = 237;
-        else if (backofficeId == -999) backofficeId = 101;
-        else if (backofficeId == -998) backofficeId = 9;
+        var success = await _verifyBackofficeDocumentUseCase.ExecuteAsync(
+            id,
+            dto.Status,
+            dto.Notes,
+            backofficeId,
+            ct
+        );
 
-        try
+        if (!success)
         {
-            var success = await _verifyBackofficeDocumentUseCase.ExecuteAsync(
-                id,
-                dto.Status,
-                dto.Notes,
-                backofficeId,
-                ct
-            );
-
-            if (!success)
-            {
-                return NotFound(new { message = $"No se encontró el documento con ID {id} o no se pudo actualizar su verificación." });
-            }
-
-            return Ok(new { message = "Verificación de documento actualizada correctamente." });
+            return NotFound(new { message = $"No se encontró el documento con ID {id} o no se pudo actualizar su verificación." });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "Error al actualizar la verificación del documento.", details = ex.Message });
-        }
+
+        return Ok(new { message = "Verificación de documento actualizada correctamente." });
     }
 }
