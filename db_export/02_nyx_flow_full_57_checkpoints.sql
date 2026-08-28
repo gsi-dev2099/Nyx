@@ -5,6 +5,55 @@
 
 BEGIN;
 
+-- 0. TABLAS DE METADATOS Y CATÁLOGOS DINÁMICOS
+CREATE TABLE IF NOT EXISTS nyx_flow.meta_role (
+    id_role SERIAL PRIMARY KEY,
+    role_code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    external_system_code VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS nyx_flow.meta_portfolio (
+    id_portfolio SERIAL PRIMARY KEY,
+    portfolio_code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    external_system_code VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS nyx_flow.checkpoint_step (
+    id_step BIGSERIAL PRIMARY KEY,
+    id_checkpoint BIGINT NOT NULL REFERENCES nyx_flow.checkpoint_catalog(id_checkpoint) ON DELETE CASCADE,
+    step_order SMALLINT NOT NULL DEFAULT 1,
+    name VARCHAR(255) NOT NULL,
+    is_required BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+INSERT INTO nyx_flow.meta_role (role_code, name, description)
+VALUES 
+    ('Asesor', 'Asesor Comercial / Front', 'Gestión de primer contacto y cierre'),
+    ('Supervisor', 'Supervisor de Turno / TM', 'Gobernanza y autorizaciones'),
+    ('Backoffice', 'Mesa de Backoffice / Operaciones', 'Tramitación y validaciones'),
+    ('Calidad', 'Auditoría de Calidad', 'Revisión de llamadas y cumplimiento'),
+    ('Operaciones', 'Operaciones y Logística', 'Despacho y agendamiento'),
+    ('Postventa', 'Atención Postventa y Retenciones', 'Resolución y retención'),
+    ('Proveedor', 'Instalador / Tercero Externo', 'Técnico de campo')
+ON CONFLICT (role_code) DO NOTHING;
+
+INSERT INTO nyx_flow.meta_portfolio (portfolio_code, name, description)
+VALUES 
+    ('Telecom', 'Telecomunicaciones (Fibra / Móvil)', 'Operadores de telecomunicaciones'),
+    ('Energia', 'Energía (Luz / Gas)', 'Comercializadoras energéticas'),
+    ('Alarma', 'Seguridad y Alarmas', 'Sistemas de seguridad y domótica'),
+    ('Seguros', 'Seguros y Pólizas', 'Pólizas de salud, hogar y autos'),
+    ('ENTITY', 'Genérico / Multi-cartera', 'Ámbito transversal')
+ON CONFLICT (portfolio_code) DO NOTHING;
+
 -- 1. REGISTRO DEL CICLO DE VENTAS TELECOM
 INSERT INTO nyx_flow.cycle_definition (id_cycle, cycle_code, name, description, scope_type, is_active)
 VALUES (1, 'CYCLE_SALES_TELECOM', 'Ciclo de Ventas Telecomunicaciones', 'Pipeline comercial y técnico integral (10 Etapas, 57 Checkpoints GSI)', 'COMMERCIAL', TRUE)
