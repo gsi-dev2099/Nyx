@@ -18,4 +18,5 @@ public class SalesOrderCreateDto
     public int TotalProducts { get; set; } = 0;
     public decimal? TotalValue { get; set; }
     public bool IsAlternate { get; set; } = false;
+    public decimal DiscountPercentage { get; set; } = 0;
 }

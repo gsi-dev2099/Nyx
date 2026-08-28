@@ -1,3 +1,3 @@
 namespace CRM.ApiHub.Application.DTOs;
 
-public record LoginResponse(string Token, string RefreshToken, string Username, string? Role);
+public record LoginResponse(string Token, string RefreshToken, string Username, string? Role, string ThemeName = "theme-default");

@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
 <!-- Ambient particles for dark mode -->
@@ -177,6 +178,16 @@
         if (firstRender)
         {
             await JSRuntime.InvokeVoidAsync("galaxyTheme.init");
+
+            // Sync user theme from backend (claims)
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var username = user.FindFirst("username")?.Value ?? user.Identity.Name;
+                var theme = user.FindFirst("theme_name")?.Value ?? "theme-default";
+                await JSRuntime.InvokeVoidAsync("themeManager.syncFromBackend", theme, username);
+            }
         }
     }
 

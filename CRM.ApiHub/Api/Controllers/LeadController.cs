@@ -7,12 +7,14 @@ using CRM.ApiHub.Application.UseCases.Leads;
 using CRM.ApiHub.Domain.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 using CRM.ApiHub.Api.Filters;
 
 namespace CRM.ApiHub.Api.Controllers;
 
 [Authorize]
+[EnableRateLimiting("ApiLimit")]
 [ApiController]
 [Route("api/leads")]
 public class LeadController : ControllerBase

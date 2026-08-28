@@ -26,8 +26,18 @@ public class RefreshTokenUseCase
 
     public async Task<LoginResponse?> ExecuteAsync(RefreshTokenRequest request, string ipAddress, string userAgent, CancellationToken ct = default)
     {
-        if (!_refreshTokenStore.TryGetUserId(request.RefreshToken, ipAddress, userAgent, out long userId))
+        if (!_refreshTokenStore.TryGetTokenInfo(request.RefreshToken, ipAddress, userAgent, out long userId, out string familyId, out bool isUsed))
         {
+            return null;
+        }
+
+        if (isUsed)
+        {
+            // ALERTA DE SEGURIDAD: Token reutilizado. Revocar toda la familia.
+            if (!string.IsNullOrEmpty(familyId))
+            {
+                _refreshTokenStore.RevokeFamily(familyId);
+            }
             return null;
         }
 
@@ -37,8 +47,8 @@ public class RefreshTokenUseCase
             return null;
         }
 
-        // Rotación de Refresh Token (revocar el anterior)
-        _refreshTokenStore.RevokeToken(request.RefreshToken);
+        // Rotación de Refresh Token (marcar el anterior como usado)
+        _refreshTokenStore.MarkAsUsed(request.RefreshToken);
 
         // Obtener el rol del usuario
         var userDetail = await _userRepository.GetUserDetailByIdAsync(user.IdUser, ct);
@@ -48,7 +58,7 @@ public class RefreshTokenUseCase
         var newAccessToken = _tokenGenerator.GenerateToken(user, role);
         var newRefreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         var expiry = DateTime.UtcNow.AddDays(7);
-        _refreshTokenStore.SaveToken(newRefreshToken, user.IdUser, expiry, ipAddress, userAgent);
+        _refreshTokenStore.SaveToken(newRefreshToken, user.IdUser, familyId, false, expiry, ipAddress, userAgent);
 
         return new LoginResponse(newAccessToken, newRefreshToken, user.Username, role);
     }

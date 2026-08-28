@@ -1,0 +1,147 @@
+@page "/supervisor/approvals"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using CRM.WebFrontend.Client.Services
+@using System.Security.Claims
+
+@attribute [Authorize(Roles = "SUPERVISOR,BACKOFFICE")]
+@inject IApprovalService ApprovalService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject MudBlazor.ISnackbar Snackbar
+
+<PageTitle>Aprobaciones Pendientes</PageTitle>
+
+<div class="px-6 py-4">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Aprobaciones Pendientes</h1>
+            <p class="text-sm text-gray-500">Gestiona las solicitudes de aprobación pendientes (descuentos, excepciones).</p>
+        </div>
+        <button @onclick="LoadApprovals" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+            <i class="fas fa-sync-alt mr-2"></i>Actualizar
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <LoadingSkeletonTable Rows="5" Columns="5" />
+    }
+    else if (approvals == null || !approvals.Any())
+    {
+        <EmptyState Icon="fas fa-check-circle" Title="Sin pendientes" Message="No hay solicitudes de aprobación pendientes en tu bandeja." />
+    }
+    else
+    {
+        <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div class="overflow-x-auto" style="max-height: 600px;">
+                <table class="w-full whitespace-nowrap">
+                    <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+                        <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3">ID</th>
+                            <th class="px-6 py-3">Tipo</th>
+                            <th class="px-6 py-3">Solicitante</th>
+                            <th class="px-6 py-3">Fecha</th>
+                            <th class="px-6 py-3">Contexto</th>
+                            <th class="px-6 py-3">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        <Virtualize Items="@approvals" Context="appr">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150">
+                                <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">#@appr.IdRequest</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">@appr.EntityType (@appr.EntityId)</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">@appr.RequestedBy</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">@appr.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
+                                    <code class="text-xs bg-gray-100 dark:bg-gray-900 p-1 rounded">@appr.EntityContext</code>
+                                </td>
+                                <td class="px-6 py-4 text-sm font-medium">
+                                    <button @onclick="() => ProcessApproval(appr.IdRequest, true)" class="text-green-600 hover:text-green-900 mr-3">
+                                        <i class="fas fa-check-circle"></i> Aprobar
+                                    </button>
+                                    <button @onclick="() => ProcessApproval(appr.IdRequest, false)" class="text-red-600 hover:text-red-900">
+                                        <i class="fas fa-times-circle"></i> Rechazar
+                                    </button>
+                                </td>
+                            </tr>
+                        </Virtualize>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private List<ApprovalRequestDto>? approvals;
+    private long currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var idClaim = user.FindFirst(ClaimTypes.NameIdentifier) ?? user.FindFirst("sub") ?? user.FindFirst("id_user");
+            if (idClaim != null && long.TryParse(idClaim.Value, out long uid))
+            {
+                currentUserId = uid;
+            }
+        }
+
+        await LoadApprovals();
+    }
+
+    private async Task LoadApprovals()
+    {
+        isLoading = true;
+        try
+        {
+            // El backend ya extrae el rol y id del JWT
+            var result = await ApprovalService.GetPendingApprovalsAsync(currentUserId, "SUPERVISOR");
+            approvals = result.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar aprobaciones: {ex.Message}", MudBlazor.Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ProcessApproval(long requestId, bool isApproved)
+    {
+        var statusStr = isApproved ? "APPROVED" : "REJECTED";
+        var dto = new ApprovalPatchDto
+        {
+            Status = statusStr,
+            Comments = $"Decisión procesada desde interfaz por supervisor.",
+            AuthorizedBy = currentUserId
+        };
+
+        try
+        {
+            var success = await ApprovalService.DecideRequestAsync(requestId, dto);
+            if (success)
+            {
+                Snackbar.Add($"Solicitud {requestId} {(isApproved ? "aprobada" : "rechazada")} exitosamente.", isApproved ? MudBlazor.Severity.Success : MudBlazor.Severity.Warning);
+                await LoadApprovals(); // Reload
+            }
+            else
+            {
+                Snackbar.Add($"No se pudo procesar la solicitud {requestId}.", MudBlazor.Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", MudBlazor.Severity.Error);
+        }
+    }
+}

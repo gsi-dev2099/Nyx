@@ -6,6 +6,7 @@ using CRM.ApiHub.Application.DTOs;
 using CRM.ApiHub.Application.Interfaces;
 using CRM.ApiHub.Domain.Repositories;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace CRM.ApiHub.Application.UseCases.Auth;
 
@@ -15,17 +16,20 @@ public class LoginUseCase
     private readonly IJwtTokenGenerator _tokenGenerator;
     private readonly IRefreshTokenStore _refreshTokenStore;
     private readonly IConfiguration _configuration;
+    private readonly IUserPreferencesRepository _preferencesRepository;
 
     public LoginUseCase(
         IUserRepository userRepository, 
         IJwtTokenGenerator tokenGenerator,
         IRefreshTokenStore refreshTokenStore,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IUserPreferencesRepository preferencesRepository)
     {
         _userRepository = userRepository;
         _tokenGenerator = tokenGenerator;
         _refreshTokenStore = refreshTokenStore;
         _configuration = configuration;
+        _preferencesRepository = preferencesRepository;
     }
 
     public async Task<LoginResponse?> ExecuteAsync(LoginRequest request, string ipAddress, string userAgent, CancellationToken ct = default)
@@ -80,11 +84,21 @@ public class LoginUseCase
         // 4. Generar token JWT válido
         var token = _tokenGenerator.GenerateToken(user, role);
 
-        // 5. Generar Refresh Token
+        // 5. Generar Refresh Token y Familia
         var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        var familyId = Guid.NewGuid().ToString("N");
         var expiry = DateTime.UtcNow.AddDays(7);
-        _refreshTokenStore.SaveToken(refreshToken, user.IdUser, expiry, ipAddress, userAgent);
+        _refreshTokenStore.SaveToken(refreshToken, user.IdUser, familyId, false, expiry, ipAddress, userAgent);
 
-        return new LoginResponse(token, refreshToken, user.Username, role);
+        // 6. Get user's theme preference
+        string themeName = "theme-default";
+        try
+        {
+            var savedTheme = await _preferencesRepository.GetThemeAsync(user.IdUser, ct);
+            if (!string.IsNullOrEmpty(savedTheme)) themeName = savedTheme;
+        }
+        catch { /* Graceful fallback to default theme */ }
+
+        return new LoginResponse(token, refreshToken, user.Username, role, themeName);
     }
 }

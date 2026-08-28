@@ -706,7 +706,7 @@
 
                                             <!-- Acciones Directas de Aprobación/Rechazo por Checkpoint -->
                                             @{
-                                                bool hasUnfinishedRequired = cp.Steps.Any(s => s.IsRequired && !s.IsCompleted);
+                                                bool hasUnfinishedRequired = cp.Steps != null && cp.Steps.Any(s => s.IsRequired && !s.IsCompleted);
                                             }
                                             <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary border-opacity-10">
                                                 <div>
@@ -714,7 +714,7 @@
                                                     @if (hasUnfinishedRequired)
                                                     {
                                                         <small class="text-danger ms-2" style="font-size:10px;">
-                                                            (@cp.Steps.Count(s => s.IsRequired && !s.IsCompleted) paso(s) obligatorio(s) pendiente(s))
+                                                            (@((cp.Steps != null ? cp.Steps.Count(s => s.IsRequired && !s.IsCompleted) : 0)) paso(s) obligatorio(s) pendiente(s))
                                                         </small>
                                                     }
                                                 </div>

@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<IProviderRepository, ProviderRepository>();
         services.AddScoped<IActivationRepository, ActivationRepository>();
         services.AddScoped<IReportRepository, ReportRepository>();
+        services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
 
         // Services & Stores
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
@@ -84,7 +85,7 @@ public static class DependencyInjection
             var baseUrl = config["SlaEngineSettings:BaseUrl"] ?? "http://sla_engine_api:5070";
             client.BaseAddress = new Uri(baseUrl);
             client.Timeout = TimeSpan.FromSeconds(5);
-        });
+        }).AddStandardResilienceHandler();
 
         // Flow Engine Client (Typed HttpClient)
         services.AddHttpClient<IFlowEngineClient, FlowEngineClient>(client =>
@@ -92,7 +93,7 @@ public static class DependencyInjection
             var baseUrl = config["FlowEngineSettings:BaseUrl"] ?? "http://flow_engine_api:5072";
             client.BaseAddress = new Uri(baseUrl);
             client.Timeout = TimeSpan.FromSeconds(5);
-        });
+        }).AddStandardResilienceHandler();
 
         // Approval Engine Client (Typed HttpClient)
         services.AddHttpClient<IApprovalEngineClient, ApprovalEngineClient>(client =>
@@ -100,7 +101,7 @@ public static class DependencyInjection
             var baseUrl = config["ApprovalEngineSettings:BaseUrl"] ?? "http://approval_engine_api:5071";
             client.BaseAddress = new Uri(baseUrl);
             client.Timeout = TimeSpan.FromSeconds(5);
-        });
+        }).AddStandardResilienceHandler();
 
         // SignalR & Custom UserId & Redis Backplane
         var signalRBuilder = services.AddSignalR();

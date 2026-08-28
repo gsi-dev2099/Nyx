@@ -9,6 +9,7 @@ public interface ISlaEngineClient
     Task<SlaMeasurementDto?> ResolveMeasurementAsync(string entityType, long entityId, string policyCode, long? actorId = null);
     Task<SlaMeasurementDto?> PauseMeasurementAsync(string entityType, long entityId, string policyCode, long? actorId = null);
     Task<SlaMeasurementDto?> GetStatusAsync(string entityType, long entityId, string policyCode);
+    Task TrackStateChangeAsync(string entityType, long entityId, int targetStatus, long? custodyUserId);
 }
 
 public class SlaEngineClient : ISlaEngineClient
@@ -113,6 +114,31 @@ public class SlaEngineClient : ISlaEngineClient
         }
         return null;
     }
+
+    public async Task TrackStateChangeAsync(string entityType, long entityId, int targetStatus, long? custodyUserId)
+    {
+        try
+        {
+            var payload = new SlaTrackEventDto
+            {
+                EntityType = entityType.ToLowerInvariant(),
+                EntityId = entityId,
+                TargetStatus = targetStatus,
+                CustodyUserId = custodyUserId
+            };
+
+            var response = await _httpClient.PostAsJsonAsync("/api/sla/track", payload);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("SLA Engine returned non-success status code {StatusCode} when tracking state change for {EntityType} #{EntityId}", response.StatusCode, entityType, entityId);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Re-throw so the caller (UseCase) can catch it and log it as requested by the user
+            throw;
+        }
+    }
 }
 
 public class SlaMeasurementDto
@@ -129,4 +155,12 @@ public class SlaMeasurementDto
     public string Status { get; set; } = "RUNNING"; // RUNNING, PAUSED, WARNING, BREACHED, COMPLETED
     public DateTime? BreachAt { get; set; }
     public string Metadata { get; set; } = "{}";
+}
+
+public class SlaTrackEventDto
+{
+    public string EntityType { get; set; } = string.Empty;
+    public long EntityId { get; set; }
+    public int TargetStatus { get; set; }
+    public long? CustodyUserId { get; set; }
 }

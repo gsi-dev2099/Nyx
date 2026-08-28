@@ -218,6 +218,7 @@
     private string _role = "ASESOR";
     private string? _campaign = "General";
     private string _currentTheme = "theme-default";
+    private string? _token;
 
     protected override async Task OnInitializedAsync()
     {
@@ -226,10 +227,20 @@
 
         if (user.Identity?.IsAuthenticated == true)
         {
-            _username = user.Identity.Name ?? "usuario";
+            _username = user.FindFirst("username")?.Value ?? user.Identity.Name ?? "usuario";
             var roleClaim = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
             if (!string.IsNullOrEmpty(roleClaim)) _role = roleClaim;
+            
+            _campaign = user.FindFirst("campaign")?.Value ?? "General";
+            _token = user.FindFirst("access_token")?.Value;
             _name = _username.ToUpper();
+            
+            // Default load from token claim if available
+            var themeClaim = user.FindFirst("theme_name")?.Value;
+            if (!string.IsNullOrEmpty(themeClaim))
+            {
+                _currentTheme = themeClaim;
+            }
         }
     }
 
@@ -239,7 +250,33 @@
         {
             try
             {
-                var saved = await JS.InvokeAsync<string>("themeManager.getSavedTheme");
+                // Retrieve the latest theme from the backend to ensure it's up to date across sessions
+                if (!string.IsNullOrEmpty(_token))
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/me/preferences");
+                    request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _token);
+                    var response = await Http.SendAsync(request);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var json = await response.Content.ReadAsStringAsync();
+                        using var doc = System.Text.Json.JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("themeName", out var themeProp))
+                        {
+                            var backendTheme = themeProp.GetString();
+                            if (!string.IsNullOrEmpty(backendTheme))
+                            {
+                                _currentTheme = backendTheme;
+                                StateHasChanged();
+                                await JS.InvokeVoidAsync("themeManager.syncFromBackend", _currentTheme, _username);
+                                return;
+                            }
+                        }
+                    }
+                }
+                
+                // Fallback to JS local storage if backend call fails or no token
+                var saved = await JS.InvokeAsync<string>("themeManager.getSavedTheme", _username);
                 if (!string.IsNullOrEmpty(saved))
                 {
                     _currentTheme = saved;
@@ -258,7 +295,20 @@
         _currentTheme = themeName;
         try
         {
-            await JS.InvokeVoidAsync("themeManager.setTheme", themeName);
+            // 1. Save to local storage for immediate effect
+            await JS.InvokeVoidAsync("themeManager.setTheme", themeName, _username);
+            
+            // 2. Persist to backend
+            if (!string.IsNullOrEmpty(_token))
+            {
+                var request = new HttpRequestMessage(HttpMethod.Put, "/api/users/me/preferences");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _token);
+                
+                var payload = System.Text.Json.JsonSerializer.Serialize(new { themeName = themeName });
+                request.Content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+                
+                await Http.SendAsync(request);
+            }
         }
         catch (Exception ex)
         {

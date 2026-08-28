@@ -29,8 +29,8 @@ public class CreateLeadUseCase
             DocumentNumber = dto.DocumentNumber,
             RawData = string.IsNullOrWhiteSpace(dto.RawData) ? "{}" : dto.RawData,
             AssignedUserId = dto.AssignedUserId,
-            OwnerUserId = dto.AssignedUserId,
-            CustodyUserId = dto.AssignedUserId,
+            OwnerUserId = null,
+            CustodyUserId = null,
             CurrentStatusId = 1, // Default status (NUEVO)
             IsActive = true,
             Register = DateTime.UtcNow,

@@ -31,6 +31,39 @@ services:
       timeout: 5s
       retries: 15
 
+  crm_vault:
+    image: hashicorp/vault:latest
+    container_name: crm_vault
+    ports:
+      - "8200:8200"
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=NyxVaultRootToken2026
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+    cap_add:
+      - IPC_LOCK
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8200/v1/sys/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  vault_init:
+    image: hashicorp/vault:latest
+    container_name: vault_init
+    environment:
+      - VAULT_ADDR=http://crm_vault:8200
+      - VAULT_TOKEN=NyxVaultRootToken2026
+    depends_on:
+      crm_vault:
+        condition: service_healthy
+    command: >
+      sh -c "
+      echo 'Initializing Vault...';
+      vault kv put secret/nyxcrm/database ConnectionStrings__DefaultConnection='Host=crm_postgres;Port=5432;Database=nyx_crm;Username=ronald;Password=Gs1$$2099Zx23rO24M4r25' NYX_DB_ENCRYPTION_KEY='NyxCRMDatabaseKeySecret2026Secur' NYX_DB_ENCRYPTION_IV='NyxCRMInitVector';
+      echo 'Vault initialization complete.'
+      "
+
   crm_apihub:
     build:
       context: .
@@ -49,6 +82,8 @@ services:
         condition: service_healthy
       crm_postgres:
         condition: service_healthy
+      vault_init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   crm_webfrontend:
@@ -120,4 +155,37 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./infrastructure/loki-config.yaml:/mnt/config/loki-config.yaml
+    command: -config.file=/mnt/config/loki-config.yaml
+    restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./infrastructure/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./infrastructure/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/grafana/dashboards:/etc/grafana/dashboards
+    depends_on:
+      - loki
+      - prometheus
+    restart: unless-stopped

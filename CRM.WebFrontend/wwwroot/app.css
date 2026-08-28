@@ -534,211 +534,113 @@ p, .lead { font-size: 0.8rem; color: var(--text-muted); }
 
 /* ============================================================ */
 /* ACCESSIBILITY PALETTES (DALTONISMO & ALTO CONTRASTE)       */
+/* ONLY DESIGN COLORS — TEXT IS NEVER MODIFIED                */
 /* ============================================================ */
 
 /* 1. Protanopía / Deuteranopía (Adaptación Rojo-Verde) */
 body.theme-protanopia {
-    --bg-main: #F8FAFC;
-    --text-main: #0F172A;
-    --accent-blue: #1D4ED8;
-    --accent-gold: #D97706;
+    --primary: #1D4ED8;
+    --primary-hover: #1E40AF;
+    --secondary: #D97706;
+    --neon: #DBEAFE;
+    --neon-hover: #BFDBFE;
+}
+[data-theme="dark"] body.theme-protanopia {
+    --primary: #3B82F6;
+    --primary-hover: #60A5FA;
+    --secondary: #F59E0B;
+    --neon: #1E3A8A;
+    --neon-hover: #1E40AF;
 }
 
-body.theme-protanopia .badge-status,
-body.theme-protanopia .badge-success,
-body.theme-protanopia .text-success {
-    color: #1D4ED8 !important;
-    background-color: rgba(29, 78, 216, 0.12) !important;
-}
+body.theme-protanopia .btn-primary { background-color: var(--primary) !important; border-color: var(--primary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-protanopia .btn-primary { color: #0F172A !important; }
+body.theme-protanopia .btn-primary:hover { background-color: var(--primary-hover) !important; border-color: var(--primary-hover) !important; }
+body.theme-protanopia .form-control:focus, body.theme-protanopia .form-select:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.25) !important; }
+body.theme-protanopia .btn-outline-primary { border-color: var(--primary) !important; color: var(--primary) !important; }
+body.theme-protanopia .btn-outline-primary:hover { background-color: var(--primary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-protanopia .btn-outline-primary:hover { color: #0F172A !important; }
 
-body.theme-protanopia .badge-danger,
-body.theme-protanopia .text-danger {
-    color: #D97706 !important;
-    background-color: rgba(217, 119, 6, 0.12) !important;
-}
+body.theme-protanopia .badge-success, body.theme-protanopia .bg-success-subtle { background-color: rgba(29, 78, 216, 0.12) !important; color: var(--primary) !important; }
+body.theme-protanopia .badge-danger, body.theme-protanopia .bg-danger-subtle { background-color: rgba(217, 119, 6, 0.12) !important; color: var(--secondary) !important; }
+body.theme-protanopia .btn-success { background-color: var(--primary) !important; border-color: var(--primary) !important; color: #ffffff !important; }
+body.theme-protanopia .btn-danger { background-color: var(--secondary) !important; border-color: var(--secondary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-protanopia .btn-success { color: #0F172A !important; }
+[data-theme="dark"] body.theme-protanopia .btn-danger { color: #0F172A !important; }
+
+body.theme-protanopia .galaxy-nav-item.active { border-left-color: var(--primary) !important; background: rgba(29, 78, 216, 0.1) !important; }
+body.theme-protanopia ::-webkit-scrollbar-thumb { background: var(--primary) !important; }
+body.theme-protanopia .theme-card.active { border-color: var(--primary) !important; background: var(--neon) !important; }
 
 /* 2. Tritanopía (Adaptación Azul-Amarillo) */
 body.theme-tritanopia {
-    --bg-main: #F1F5F9;
-    --text-main: #1E293B;
-    --accent-red: #DC2626;
-    --accent-teal: #0D9488;
+    --primary: #DC2626;
+    --primary-hover: #B91C1C;
+    --secondary: #0D9488;
+    --neon: #FEE2E2;
+    --neon-hover: #FECACA;
+}
+[data-theme="dark"] body.theme-tritanopia {
+    --primary: #F87171;
+    --primary-hover: #FCA5A5;
+    --secondary: #2DD4BF;
+    --neon: #7F1D1D;
+    --neon-hover: #991B1B;
 }
 
-body.theme-tritanopia .badge-status,
-body.theme-tritanopia .badge-primary,
-body.theme-tritanopia .text-primary {
-    color: #DC2626 !important;
-    background-color: rgba(220, 38, 38, 0.12) !important;
-}
+body.theme-tritanopia .btn-primary { background-color: var(--primary) !important; border-color: var(--primary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-tritanopia .btn-primary { color: #0F172A !important; }
+body.theme-tritanopia .btn-primary:hover { background-color: var(--primary-hover) !important; border-color: var(--primary-hover) !important; }
+body.theme-tritanopia .form-control:focus, body.theme-tritanopia .form-select:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25) !important; }
+body.theme-tritanopia .btn-outline-primary { border-color: var(--primary) !important; color: var(--primary) !important; }
+body.theme-tritanopia .btn-outline-primary:hover { background-color: var(--primary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-tritanopia .btn-outline-primary:hover { color: #0F172A !important; }
 
-body.theme-tritanopia .badge-info,
-body.theme-tritanopia .text-info {
-    color: #0D9488 !important;
-    background-color: rgba(13, 148, 136, 0.12) !important;
-}
+body.theme-tritanopia .badge-primary, body.theme-tritanopia .bg-primary-subtle { background-color: rgba(220, 38, 38, 0.12) !important; color: var(--primary) !important; }
+body.theme-tritanopia .badge-info, body.theme-tritanopia .bg-info-subtle { background-color: rgba(13, 148, 136, 0.12) !important; color: var(--secondary) !important; }
+body.theme-tritanopia .btn-info { background-color: var(--secondary) !important; border-color: var(--secondary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-tritanopia .btn-info { color: #0F172A !important; }
 
-/* 3. Alto Contraste Neutro / Heterocromía (Anti-Fatiga Visual) */
+body.theme-tritanopia .galaxy-nav-item.active { border-left-color: var(--primary) !important; background: rgba(220, 38, 38, 0.1) !important; }
+body.theme-tritanopia ::-webkit-scrollbar-thumb { background: var(--primary) !important; }
+body.theme-tritanopia .theme-card.active { border-color: var(--primary) !important; background: var(--neon) !important; }
+
+/* 3. Alto Contraste (Se adapta a Claro y Oscuro) */
 body.theme-high-contrast {
-    --bg-app: #0F172A;
-    --surface: #1E293B;
-    --border-color: #334155;
-    --text-main: #F8FAFC;
-    --text-muted: #94A3B8;
-    --sidebar-bg: #1E293B;
-    --sidebar-color: #F8FAFC;
-    
-    background-color: var(--bg-app) !important;
-    color: var(--text-main) !important;
+    --hc-border: #000000;
+    --hc-btn-bg: #000000;
+    --hc-btn-text: #FFFFFF;
+    --hc-focus: #000000;
+    --neon: #E5E5E5;
+}
+[data-theme="dark"] body.theme-high-contrast {
+    --hc-border: #FFFFFF;
+    --hc-btn-bg: #FFFFFF;
+    --hc-btn-text: #000000;
+    --hc-focus: #FFFFFF;
+    --neon: #1E293B;
 }
 
-body.theme-high-contrast .custom-sidebar,
 body.theme-high-contrast .card,
 body.theme-high-contrast .panel,
-body.theme-high-contrast .mod-card,
-body.theme-high-contrast .stat-card,
 body.theme-high-contrast .modal-content,
-body.theme-high-contrast .profile-header-card,
 body.theme-high-contrast .theme-card,
-body.theme-high-contrast .search-panel,
-body.theme-high-contrast .kanban-column,
-body.theme-high-contrast .timeline-compact-pill,
-body.theme-high-contrast .timeline-preview-card,
-body.theme-high-contrast .asesor-kpi-card,
-body.theme-high-contrast .table-card,
-body.theme-high-contrast .bg-white {
-    background-color: var(--surface) !important;
-    color: var(--text-main) !important;
-    border-color: var(--border-color) !important;
+body.theme-high-contrast .form-control,
+body.theme-high-contrast .form-select,
+body.theme-high-contrast .custom-sidebar {
+    border: 2px solid var(--hc-border) !important;
 }
 
-body.theme-high-contrast .theme-card:hover {
-    border-color: #38BDF8 !important;
-}
+body.theme-high-contrast .theme-card:hover { border-color: var(--hc-border) !important; box-shadow: 4px 4px 0 var(--hc-border) !important; }
+body.theme-high-contrast .theme-card.active { background-color: var(--neon) !important; border-width: 3px !important; }
 
-body.theme-high-contrast .theme-card.active {
-    background-color: #003B5C !important;
-    border-color: #38BDF8 !important;
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25) !important;
-}
+body.theme-high-contrast .btn-primary { background-color: var(--hc-btn-bg) !important; border: 2px solid var(--hc-btn-bg) !important; color: var(--hc-btn-text) !important; font-weight: 900 !important; }
+body.theme-high-contrast .btn-primary:hover { background-color: transparent !important; color: var(--hc-border) !important; border: 2px solid var(--hc-border) !important; }
 
-body.theme-high-contrast .bg-light {
-    background-color: #334155 !important;
-}
+body.theme-high-contrast .btn-secondary, body.theme-high-contrast .btn-light { border: 2px solid var(--hc-border) !important; color: var(--hc-border) !important; font-weight: 700 !important; background-color: transparent !important; }
+body.theme-high-contrast .btn-secondary:hover, body.theme-high-contrast .btn-light:hover { background-color: var(--hc-btn-bg) !important; color: var(--hc-btn-text) !important; }
 
-body.theme-high-contrast .text-dark {
-    color: var(--text-main) !important;
-}
+body.theme-high-contrast .form-control:focus, body.theme-high-contrast .form-select:focus { border-color: var(--hc-focus) !important; box-shadow: 0 0 0 3px var(--hc-focus) !important; }
 
-body.theme-high-contrast .text-muted {
-    color: var(--text-muted) !important;
-}
-
-body.theme-high-contrast a,
-body.theme-high-contrast .nav-link {
-    color: #38BDF8 !important;
-}
-
-/* Fix for buttons in dark mode so text is readable */
-body.theme-high-contrast .btn-secondary, 
-body.theme-high-contrast .btn-light,
-[data-theme="dark"] .btn-secondary,
-[data-theme="dark"] .btn-light {
-    background-color: #1E293B !important;
-    border-color: #334155 !important;
-    color: #F8FAFC !important;
-}
-
-body.theme-high-contrast .btn-secondary:hover, 
-body.theme-high-contrast .btn-light:hover,
-[data-theme="dark"] .btn-secondary:hover,
-[data-theme="dark"] .btn-light:hover {
-    background-color: #334155 !important;
-    border-color: #475569 !important;
-    color: #F8FAFC !important;
-}
-
-body.theme-high-contrast .btn-primary,
-[data-theme="dark"] .btn-primary {
-    background-color: #0F172A !important;
-    border-color: #1E293B !important;
-    color: #F8FAFC !important;
-}
-
-body.theme-high-contrast .btn-primary:hover,
-[data-theme="dark"] .btn-primary:hover {
-    background-color: #1E293B !important;
-    border-color: #334155 !important;
-    color: #ffffff !important;
-}
-
-/* Fix outline buttons and other colored buttons in dark mode */
-body.theme-high-contrast .btn-outline-primary,
-body.theme-high-contrast .btn-outline-secondary,
-body.theme-high-contrast .btn-outline-warning,
-body.theme-high-contrast .btn-outline-danger,
-body.theme-high-contrast .btn-outline-info,
-body.theme-high-contrast .btn-outline-success,
-[data-theme="dark"] .btn-outline-primary,
-[data-theme="dark"] .btn-outline-secondary,
-[data-theme="dark"] .btn-outline-warning,
-[data-theme="dark"] .btn-outline-danger,
-[data-theme="dark"] .btn-outline-info,
-[data-theme="dark"] .btn-outline-success {
-    background-color: #0F172A !important;
-    color: #F8FAFC !important;
-    border-color: #334155 !important;
-}
-
-body.theme-high-contrast .btn-outline-primary:hover,
-body.theme-high-contrast .btn-outline-secondary:hover,
-body.theme-high-contrast .btn-outline-warning:hover,
-body.theme-high-contrast .btn-outline-danger:hover,
-body.theme-high-contrast .btn-outline-info:hover,
-body.theme-high-contrast .btn-outline-success:hover,
-[data-theme="dark"] .btn-outline-primary:hover,
-[data-theme="dark"] .btn-outline-secondary:hover,
-[data-theme="dark"] .btn-outline-warning:hover,
-[data-theme="dark"] .btn-outline-danger:hover,
-[data-theme="dark"] .btn-outline-info:hover,
-[data-theme="dark"] .btn-outline-success:hover {
-    background-color: #1E293B !important;
-    color: #F8FAFC !important;
-    border-color: #475569 !important;
-}
-
-body.theme-high-contrast .btn-success { background-color: #064E3B !important; border-color: #064E3B !important; color: #F8FAFC !important; }
-body.theme-high-contrast .btn-success:hover { background-color: #047857 !important; border-color: #047857 !important; }
-body.theme-high-contrast .btn-warning { background-color: #78350F !important; border-color: #78350F !important; color: #F8FAFC !important; }
-body.theme-high-contrast .btn-warning:hover { background-color: #92400E !important; border-color: #92400E !important; }
-body.theme-high-contrast .btn-danger { background-color: #7F1D1D !important; border-color: #7F1D1D !important; color: #F8FAFC !important; }
-body.theme-high-contrast .btn-danger:hover { background-color: #991B1B !important; border-color: #991B1B !important; }
-
-/* Notifications dark mode fixes */
-body.theme-high-contrast .notification-panel {
-    background: var(--surface) !important;
-    border-color: var(--border-color) !important;
-}
-body.theme-high-contrast .notification-panel-header {
-    background: var(--bg-app) !important;
-    border-color: var(--border-color) !important;
-}
-body.theme-high-contrast .notification-item.read {
-    background-color: var(--surface) !important;
-    border-color: var(--border-color) !important;
-}
-body.theme-high-contrast .notification-item.unread {
-    background-color: #0F172A !important;
-    border-color: var(--border-color) !important;
-}
-body.theme-high-contrast .notification-item:hover {
-    background-color: #334155 !important;
-}
-body.theme-high-contrast .notification-icon {
-    background-color: #334155 !important;
-    color: var(--text-main) !important;
-}
-body.theme-high-contrast .notification-item h6,
-body.theme-high-contrast .notification-item .text-dark {
-    color: var(--text-main) !important;
-}
+body.theme-high-contrast .galaxy-nav-item.active { border-left: 4px solid var(--hc-border) !important; background: var(--neon) !important; font-weight: 900 !important; }
+body.theme-high-contrast ::-webkit-scrollbar-thumb { background: var(--hc-border) !important; }

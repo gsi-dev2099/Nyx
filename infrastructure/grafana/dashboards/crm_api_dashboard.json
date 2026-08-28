@@ -1,0 +1,56 @@
+{
+  "title": "CRM ApiHub Observability",
+  "tags": ["crm", "apihub"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP Request Rate",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(http_requests_received_total{job=\"nyx_crm_apihub\"}[1m])",
+          "legendFormat": "{{code}} - {{method}} - {{controller}}",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "type": "timeseries",
+      "title": "API Hub Memory & CPU Usage",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "process_working_set_bytes{job=\"nyx_crm_apihub\"}",
+          "legendFormat": "Memory (Working Set)",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"nyx_crm_apihub\"}[1m])",
+          "legendFormat": "CPU Usage (Rate)",
+          "refId": "B"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "type": "logs",
+      "title": "Live Logs - CRM ApiHub",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "{job=\"nyx_crm_apihub\"} |= ``",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Loki",
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true
+      }
+    }
+  ],
+  "schemaVersion": 38
+}

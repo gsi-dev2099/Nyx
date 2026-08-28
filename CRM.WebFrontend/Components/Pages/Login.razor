@@ -696,6 +696,9 @@
 
 <script>
     (function () {
+        // Force-remove any custom theme classes to protect login UI
+        document.body.classList.remove('theme-default', 'theme-protanopia', 'theme-tritanopia', 'theme-high-contrast');
+
         const s = document.getElementById('nightSky');
         if (s) {
             for (let i = 0; i < 90; i++) {
