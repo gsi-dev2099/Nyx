@@ -81,9 +81,9 @@ public static class DependencyInjection
         services.AddScoped<INotificationService, Application.Services.NotificationService>();
 
         // Motores Nyx In-Process (Direct Domain Core Services)
-        services.AddScoped<Nyx.FlowEngine.Infrastructure.IFlowRepository, Nyx.FlowEngine.Infrastructure.FlowRepository>();
-        services.AddScoped<Nyx.FlowEngine.Application.IFlowService, Nyx.FlowEngine.Application.FlowService>();
-        services.AddHostedService<Nyx.FlowEngine.Infrastructure.ScheduledCheckpointActivator>();
+        services.AddScoped<Nyx.FlowEngine.Infrastructure.ICycleRepository, Nyx.FlowEngine.Infrastructure.CycleRepository>();
+        services.AddScoped<Nyx.FlowEngine.Application.ICycleService, Nyx.FlowEngine.Application.CycleService>();
+        services.AddHostedService<Nyx.FlowEngine.Infrastructure.ScheduledCheckpointWorker>();
 
         services.AddScoped<Nyx.ApprovalEngine.Infrastructure.IApprovalRepository, Nyx.ApprovalEngine.Infrastructure.ApprovalRepository>();
         services.AddScoped<Nyx.ApprovalEngine.Application.IApprovalService, Nyx.ApprovalEngine.Application.ApprovalService>();
