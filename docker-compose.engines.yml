@@ -1,0 +1,85 @@
+name: nyx_engines
+
+services:
+  crm_redis:
+    image: redis:7-alpine
+    container_name: crm_redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - crm_redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  crm_postgres:
+    image: postgres:16-alpine
+    container_name: crm_postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-ronald}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-Gs1_2099Zx23rO24M4r25}
+      - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-nyx_crm,nx_ecosystem,nyx_flow,nyx_sla}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - crm_postgres_data:/var/lib/postgresql/data
+      - ./db_export:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ronald}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  sla_engine_api:
+    build:
+      context: .
+      dockerfile: Nyx.SlaEngine/Dockerfile
+    container_name: sla_engine_api
+    ports:
+      - "5070:5070"
+    expose:
+      - "5070"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_sla;Username=usr_sla;Password=${SLA_DB_PASSWORD:-Sla_Nyx2026_Engine_Key}
+      - RedisSettings__ConnectionString=crm_redis:6379
+    depends_on:
+      crm_redis:
+        condition: service_healthy
+      crm_postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  flow_engine_api:
+    build:
+      context: ./Nyx.FlowEngine
+      dockerfile: Dockerfile
+    container_name: flow_engine_api
+    ports:
+      - "5072:5072"
+    expose:
+      - "5072"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+      - ConnectionStrings__DefaultConnection=Host=crm_postgres;Port=5432;Database=nyx_flow;Username=usr_flow;Password=${FLOW_DB_PASSWORD:-Flow_Nyx2026_Engine_Key}
+      - RedisSettings__ConnectionString=crm_redis:6379
+    depends_on:
+      crm_redis:
+        condition: service_healthy
+      crm_postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  crm_postgres_data:
+  crm_redis_data:

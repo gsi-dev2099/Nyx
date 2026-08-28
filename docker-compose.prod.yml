@@ -130,6 +130,8 @@ services:
       context: .
       dockerfile: Nyx.SlaEngine/Dockerfile
     container_name: sla_engine_api
+    ports:
+      - "5070:5070"
     expose:
       - "5070"
     environment:
