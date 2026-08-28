@@ -6,9 +6,12 @@
 @attribute [Authorize(Roles = "ASESOR,BACKOFFICE,SUPERVISOR,COORDINADOR,ADMIN_CRM,ADMINISTRADOR")]
 @using CRM.WebFrontend.Services
 @using CRM.WebFrontend.Client.Helpers
+@using CRM.WebFrontend.Components.Common
+@using Nyx.FlowEngine.Domain.Entities
 @using System.Text.RegularExpressions
 @using System.Text.Json
 @inject ISalesOrderService SalesOrderService
+@inject IFlowEngineZeroLogicClient FlowEngineClient
 @inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
@@ -234,6 +237,7 @@
     else
     {
         <!-- Cabecera de la Orden -->
+        <!-- Cabecera de la Orden -->
         <div class="premium-panel mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-1">
@@ -253,8 +257,8 @@
                 <div class="text-end">
                     <span class="d-block text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Estado & Motor</span>
                     <div class="d-flex align-items-center gap-2 mt-1">
-                        <span class="badge bg-dark fs-6 px-3 py-1">@_order.Status</span>
-                        <span class="badge bg-secondary text-white rounded-pill px-2 py-1" style="font-size: 11px;" title="Gobernado por Nyx.FlowEngine Capa 1/Capa 2">
+                        <span class="badge bg-dark fs-6 px-3 py-1">@(_flowUiContext?.CurrentStage?.Name ?? _order.Status)</span>
+                        <span class="badge bg-secondary text-white rounded-pill px-2 py-1" style="font-size: 11px;" title="Gobernado por Nyx.FlowEngine Zero-Logic UI">
                             <i class="bi bi-shield-lock-fill me-1"></i>Motor Nyx
                         </span>
                     </div>
@@ -262,26 +266,13 @@
                 <button class="btn btn-outline-dark btn-sm mt-3 fw-bold rounded-pill shadow-sm" @onclick="OpenTimelineModal">
                     <i class="bi bi-clock-history me-1"></i> Línea de Tiempo
                 </button>
-                @if (_order.IdStatus == 1 && _isEditable)
-                {
-                    <button class="btn btn-premium btn-sm mt-3" @onclick="SendToSupervisor" disabled="@_isSaving">
-                        Enviar a Supervisor
-                    </button>
-                }
-                else if (_order.IdStatus == 2)
-                {
-                    <button class="btn btn-secondary btn-sm mt-3" disabled title="Esta orden ya fue enviada al supervisor y se encuentra en revisión.">
-                        ✓ Enviado a Supervisor
-                    </button>
-                }
-                else if (_order.IdStatus.HasValue && _order.IdStatus.Value >= 3)
-                {
-                    <button class="btn btn-outline-secondary btn-sm mt-3" disabled>
-                        En Etapa Posterior (@(_order.Status ?? "Procesada"))
-                    </button>
-                }
             </div>
         </div>
+
+        <!-- BARRA DE ACCIONES ZERO-LOGIC PROVISTA POR EL MOTOR DE FLUJO -->
+        <NyxEngineActionToolbar Context="@_flowUiContext" 
+                                CurrentActorId="@_currentUserId" 
+                                OnActionExecuted="HandleFlowActionExecuted" />
 
         <div class="row g-4">
             <!-- COLUMNA UNIFICADA: FICHA, ALTERNA Y DOCUMENTOS -->
@@ -293,7 +284,7 @@
                         int currentIdx = GetCurrentStageIndex();
                     }
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="section-title mb-0">Progreso de la Orden</h6>
+                        <h6 class="section-title mb-0">Progreso del Ciclo de Vida</h6>
                         <span class="badge bg-light text-dark border px-2 py-1" style="font-size:11px;">
                             📣 Campaña: <strong>@(GetCampaignNameById(_order?.IdCmpg ?? 1))</strong>
                         </span>
@@ -314,90 +305,13 @@
                     </div>
                 </div>
 
-                <!-- PANEL DE CHECKPOINTS Y VALIDACIONES ACTIVAS DE LA ETAPA (NYX FLOW) -->
-                @if (_orderCheckpoints.Any())
+                <!-- PANEL DINÁMICO DE CHECKPOINTS GOBERNADOS POR NYX FLOW ENGINE -->
+                @if (_flowUiContext?.ActiveCheckpoints != null && _flowUiContext.ActiveCheckpoints.Any())
                 {
-                    <div class="premium-panel mb-4" style="border-left: 4px solid #0F172A;">
-                        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                            <div>
-                                <h6 class="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
-                                    <i class="bi bi-shield-check text-primary"></i> Checkpoints y Requisitos de la Etapa Actual
-                                    <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size:10px;">Nyx Flow Engine</span>
-                                </h6>
-                                <p class="text-muted small mb-0">Requisitos y validaciones obligatorias para avanzar la orden en el ciclo de vida.</p>
-                            </div>
-                            <button class="btn btn-sm btn-outline-secondary rounded-pill" @onclick="ReloadCheckpointsAsync">
-                                <i class="bi bi-arrow-clockwise me-1"></i> Actualizar Checkpoints
-                            </button>
-                        </div>
-
-                        <div class="row g-3">
-                            @foreach (var cp in _orderCheckpoints)
-                            {
-                                bool isApproved = cp.Status == "APPROVED" || cp.Status == "SUBSANADO";
-                                bool isKo = cp.Status == "KO";
-                                bool isPending = cp.Status == "PENDING";
-
-                                <div class="col-12 col-md-6 col-lg-4">
-                                    <div class="p-3 rounded-3 border h-100 @(isApproved ? "bg-success-subtle border-success" : (isKo ? "bg-danger-subtle border-danger" : "bg-light border-secondary-subtle"))">
-                                        <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
-                                            <div>
-                                                <span class="fw-bold d-block text-dark" style="font-size: 13px;">@cp.Name</span>
-                                                <span class="text-muted text-uppercase" style="font-size: 10px; font-family: monospace;">@cp.Code</span>
-                                            </div>
-                                            <div>
-                                                @if (isApproved)
-                                                {
-                                                    <span class="badge bg-success text-white rounded-pill px-2 py-1" style="font-size: 10px;">
-                                                        <i class="bi bi-check-circle-fill me-1"></i> Cumplido
-                                                    </span>
-                                                }
-                                                else if (isKo)
-                                                {
-                                                    <span class="badge bg-danger text-white rounded-pill px-2 py-1" style="font-size: 10px;">
-                                                        <i class="bi bi-x-circle-fill me-1"></i> Rechazado
-                                                    </span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge @(cp.BlocksAdvance ? "bg-warning text-dark" : "bg-secondary text-white") rounded-pill px-2 py-1" style="font-size: 10px;">
-                                                        @(cp.BlocksAdvance ? "⚠️ Bloqueante" : "Informativo")
-                                                    </span>
-                                                }
-                                            </div>
-                                        </div>
-
-                                        @if (!string.IsNullOrEmpty(cp.Description))
-                                        {
-                                            <p class="text-muted mb-2" style="font-size: 11px;">@cp.Description</p>
-                                        }
-
-                                        @if (cp.Steps.Any())
-                                        {
-                                            <div class="mt-2 pt-2 border-top">
-                                                <span class="d-block fw-bold text-muted mb-1" style="font-size: 10px; text-transform: uppercase;">Pasos Requeridos:</span>
-                                                <div class="d-flex flex-column gap-1">
-                                                    @foreach (var step in cp.Steps)
-                                                    {
-                                                        <div class="form-check form-check-sm mb-0">
-                                                            <input class="form-check-input" type="checkbox" id="@($"chk_{cp.IdCpInstance}_{step.IdStep}")"
-                                                                   checked="@step.IsCompleted"
-                                                                   disabled="@(!_isEditable || isApproved)"
-                                                                   @onchange="@((ChangeEventArgs e) => ToggleStepAsync(cp, step, (bool)(e.Value ?? false)))" />
-                                                            <label class="form-check-label @(step.IsCompleted ? "text-decoration-line-through text-muted" : "text-dark")" 
-                                                                   for="@($"chk_{cp.IdCpInstance}_{step.IdStep}")" style="font-size: 11px;">
-                                                                @step.StepName
-                                                            </label>
-                                                        </div>
-                                                    }
-                                                </div>
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
+                    <NyxCheckpointsCard Checkpoints="@_flowUiContext.ActiveCheckpoints" 
+                                        IsReadOnly="@(!_isEditable)" 
+                                        CurrentActorId="@_currentUserId" 
+                                        OnCheckpointUpdated="ReloadFlowContextAsync" />
                 }
 
                 <div class="premium-panel mb-4">
@@ -1025,6 +939,39 @@
         public string Status { get; set; } = "ACTIVE";
     }
 
+    private UiContextDto? _flowUiContext;
+
+    private async Task ReloadFlowContextAsync()
+    {
+        if (_order == null) return;
+        try
+        {
+            _flowUiContext = await FlowEngineClient.GetUiContextByEntityAsync("order", _order.IdOrder, _currentUserId);
+            if (_flowUiContext != null)
+            {
+                _isCustodied = _flowUiContext.Ownership.IsMyTurn;
+                _isEditable = !_flowUiContext.UiHints.IsReadOnly;
+                _currentFlowStageIndex = Math.Max(0, (int)_flowUiContext.CurrentStage.OrderIndex - 1);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AsesorOrderDetail] Error loading flow UI context: {ex.Message}");
+        }
+    }
+
+    private async Task HandleFlowActionExecuted(ExecuteActionResultDto result)
+    {
+        if (result.UpdatedUiContext != null)
+        {
+            _flowUiContext = result.UpdatedUiContext;
+            _isCustodied = _flowUiContext.Ownership.IsMyTurn;
+            _isEditable = !_flowUiContext.UiHints.IsReadOnly;
+            _currentFlowStageIndex = Math.Max(0, (int)_flowUiContext.CurrentStage.OrderIndex - 1);
+        }
+        await LoadOrderDetails();
+    }
+
     private async Task LoadOrderDetails()
     {
         _isLoading = true;
@@ -1034,17 +981,14 @@
             _order = await SalesOrderService.GetOrderByIdAsync(Id);
             if (_order != null)
             {
-                // Verificar si el usuario actual es custodio y si la orden está en estado 1 (BORRADOR)
-                _isCustodied = _order.CustodyUserId == _currentUserId || _order.IdUser == _currentUserId;
-                
-                // Si la orden ya fue enviada a revisión (estado != 1), se bloquea obligatoriamente la edición para el asesor
-                if (_order.IdStatus == 1 && _isCustodied)
+                // Consultar contexto dinámico en Nyx.FlowEngine (Zero-Logic UI Contract)
+                await ReloadFlowContextAsync();
+
+                // Si no se obtuvo contexto de flujo remoto, aplicar fallback básico
+                if (_flowUiContext == null)
                 {
-                    _isEditable = await SalesOrderService.CheckPermissionAsync("sales.order.edit.field", _order.IdStatus.Value);
-                }
-                else
-                {
-                    _isEditable = false;
+                    _isCustodied = _order.CustodyUserId == _currentUserId || _order.IdUser == _currentUserId;
+                    _isEditable = _order.IdStatus == 1 && _isCustodied;
                 }
 
                 // 2. Cargar plantilla de formulario y campos
@@ -1103,30 +1047,6 @@
                     _alternateProfile = new AlternateProfileViewModel { IdOrder = _order.IdOrder };
                     _showAlternate = false;
                 }
-
-                // 6. Consultar estado real en el Motor de Flujos (FlowEngine)
-                try
-                {
-                    var client = HttpClientFactory.CreateClient("BackendApi");
-                    var flowInst = await client.GetFromJsonAsync<FlowInstanceApiDto>($"/api/engines/flow/instances/by-entity/order/{_order.IdOrder}");
-                    if (flowInst != null)
-                    {
-                        var flowId = flowInst.IdFlow > 0 ? flowInst.IdFlow : ResolveFlowId(_order.IdCmpg);
-                        var stagesForFlow = _stageObjects.Where(s => s.IdFlow == flowId).OrderBy(s => s.OrderIndex).ToList();
-                        var matchIdx = stagesForFlow.FindIndex(s => s.IdStage == flowInst.CurrentStageId);
-                        if (matchIdx >= 0)
-                        {
-                            _currentFlowStageIndex = matchIdx;
-                        }
-                    }
-                }
-                catch
-                {
-                    // Fallback to CRM status mapping
-                }
-
-                // 7. Cargar checkpoints del flujo para esta orden
-                await ReloadCheckpointsAsync();
             }
         }
         catch (Exception ex)

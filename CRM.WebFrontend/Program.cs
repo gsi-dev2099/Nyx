@@ -75,6 +75,7 @@ builder.Services.AddScoped<ISalesOrderService, SalesOrderService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IActivationService, ActivationService>();
+builder.Services.AddScoped<IFlowEngineZeroLogicClient, FlowEngineZeroLogicClient>();
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.NotificationService>();
 
 

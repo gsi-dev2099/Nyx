@@ -255,7 +255,7 @@ public class FlowController : ControllerBase
     }
 
     [HttpPost("checkpoints/instances/{id:long}/resolve")]
-    public async Task<IActionResult> ResolveCheckpoint(long id, [FromBody] ResolveCheckpointRequest req)
+    public async Task<IActionResult> ResolveCheckpoint(long id, [FromBody] FlowResolveCheckpointRequest req)
     {
         try
         {
@@ -292,7 +292,7 @@ public record StartFlowRequest(string FlowCode, string EntityType, long EntityId
 public record ResetTestFlowRequest(string? FlowCode, string? EntityType, long EntityId, long? ActorId);
 public record AdvanceStageRequest(long? ActorId);
 public record SyncStatusRequest(string EntityType, long EntityId, int StatusId, long? ActorId);
-public record ResolveCheckpointRequest(string Status, long? ActorId);
+public record FlowResolveCheckpointRequest(string Status, long? ActorId);
 public record SetOrderRequest(short OrderIndex);
 public record UpdateCampaignRequest(string Campaign);
 public record UpdatePortfolioRequest(string Portfolio);

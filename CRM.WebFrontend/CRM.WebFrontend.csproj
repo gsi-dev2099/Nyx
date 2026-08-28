@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CRM.WebFrontend.Client\CRM.WebFrontend.Client.csproj" />
+    <ProjectReference Include="..\Nyx.FlowEngine\Nyx.FlowEngine.csproj" />
   </ItemGroup>
 
 </Project>

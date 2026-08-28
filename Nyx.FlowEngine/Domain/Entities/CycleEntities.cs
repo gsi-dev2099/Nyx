@@ -41,18 +41,23 @@ public class CheckpointCatalog
 {
     public long IdCheckpoint { get; set; }
     public long IdCycle { get; set; }
+    public long? IdFlow { get; set; }
     public long? TriggerStageId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string Origin { get; set; } = "INTERNAL"; // INTERNAL, EXTERNAL, Data, Shirley+Dayana...
     public string Scope { get; set; } = "ENTITY"; // ENTITY, ITEM, ADVISOR, Telecom, Alarma...
+    public string[] Blocks { get; set; } = Array.Empty<string>();
     public bool BlocksAdvance { get; set; } = true;
     public bool FinalizesCycle { get; set; } = false;
     public long? TriggeredByKo { get; set; } // disparaSiKoDe
     public long? RollbackToStage { get; set; } // retrocede
+    public string? RollbackToCheckpointCode { get; set; }
+    public int? RollbackToStepOrder { get; set; }
     public bool IsRecurrent { get; set; } = false;
     public short? RecurrenceDays { get; set; }
+    public short? MaxOccurrences { get; set; }
     public string ActivationTrigger { get; set; } = "IMMEDIATE"; // IMMEDIATE, DELAYED_DAYS, SCHEDULED_DATE, CRON
     public int? DelayDays { get; set; }
     public string? PreconditionFact { get; set; }
@@ -62,10 +67,20 @@ public class CheckpointCatalog
     public string AllowedActionsJson { get; set; } = "[]";
     public string BranchingRulesJson { get; set; } = "{}";
     public string Category { get; set; } = "GENERAL";
+    public string Division { get; set; } = "OPERACIONES";
     public string OwnerDept { get; set; } = "Asesor"; // Asesor, Supervisor, Backoffice, Calidad, etc.
+    public string ApprovalJobTitle { get; set; } = "SUPERVISOR";
+    public string[] Satellites { get; set; } = Array.Empty<string>();
+    public string Portfolio { get; set; } = "GENERAL";
+    public string Campaign { get; set; } = "GENERAL";
+    public string Provider { get; set; } = "INTERNO";
+    public string TargetRoles { get; set; } = "SUPERVISOR,BACKOFFICE";
+    public string ApprovalStatus { get; set; } = "PROPOSED";
+    public string ApprovedBy { get; set; } = "[]";
     public int ExecutionOrder { get; set; } = 1;
     public bool IsActive { get; set; } = true;
     public int Version { get; set; } = 1;
+    public long CreatedBy { get; set; } = 1;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
@@ -87,7 +102,9 @@ public class CheckpointStep
     public long IdStep { get; set; }
     public long IdCheckpoint { get; set; }
     public short StepOrder { get; set; } = 1;
-    public string Name { get; set; } = string.Empty;
+    private string _name = string.Empty;
+    public string Name { get => _name; set => _name = value; }
+    public string Instruction { get => _name; set => _name = value; }
     public bool IsRequired { get; set; } = true;
 }
 
@@ -138,6 +155,8 @@ public class CheckpointInstance
     public long IdCheckpoint { get; set; }
     public string Status { get; set; } = "PENDING"; // PENDING, APPROVED, KO, REJECTED, SCHEDULED
     public long? OpenedAtStage { get; set; }
+    public bool IsRetroactive { get; set; }
+    public short OccurrenceNumber { get; set; } = 1;
     public DateTime? ScheduledFor { get; set; }
     public long? ResolvedBy { get; set; }
     public DateTime? ResolvedAt { get; set; }
@@ -226,6 +245,20 @@ public class CheckpointCatalogDetailDto : CheckpointCatalog
     public List<CheckpointStep> Steps { get; set; } = new();
 }
 
+public class CheckpointStepDetailDto
+{
+    public long IdStep { get; set; }
+    public long IdCheckpoint { get; set; }
+    public short StepOrder { get; set; }
+    private string _name = string.Empty;
+    public string Name { get => _name; set => _name = value; }
+    public string Instruction { get => _name; set => _name = value; }
+    public bool IsRequired { get; set; }
+    public bool IsCompleted { get; set; }
+    public long? CompletedBy { get; set; }
+    public DateTime? CompletedAt { get; set; }
+}
+
 public class CheckpointInstanceDetailDto
 {
     public long IdCpInstance { get; set; }
@@ -238,27 +271,32 @@ public class CheckpointInstanceDetailDto
     public bool BlocksAdvance { get; set; } = true;
     public bool FinalizesCycle { get; set; } = false;
     public long? TriggeredByKo { get; set; }
+    public string? TriggeredByKoName { get; set; }
     public string OwnerDept { get; set; } = "Asesor";
+    public string Category { get; set; } = "GENERAL";
+    public string Division { get; set; } = "OPERACIONES";
     public string ProvidersJson { get; set; } = "[\"Genérico\"]";
     public long? OpenedAtStage { get; set; }
     public string? OpenedAtStageName { get; set; }
+    public long? RollbackToStage { get; set; }
+    public string? RollbackToStageName { get; set; }
+    public bool IsRetroactive { get; set; }
+    public short OccurrenceNumber { get; set; } = 1;
     public DateTime? ScheduledFor { get; set; }
     public long? ResolvedBy { get; set; }
     public DateTime? ResolvedAt { get; set; }
     public string TemplateSchemaJson { get; set; } = "{}";
     public string AnswersJson { get; set; } = "{}";
+    public int ExecutionOrder { get; set; } = 1;
+    public string Campaign { get; set; } = "GENERAL";
+    public string Portfolio { get; set; } = "GENERAL";
+    public string Provider { get; set; } = "INTERNO";
+    public string ApprovalStatus { get; set; } = "ACTIVE";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public List<CheckpointStepDetailDto> Steps { get; set; } = new();
+    public int TotalStepsCount => Steps.Count;
+    public int CompletedStepsCount => Steps.Count(s => s.IsCompleted);
     public bool AllRequiredStepsCompleted => Steps.Where(s => s.IsRequired).All(s => s.IsCompleted);
-}
-
-public class CheckpointStepDetailDto
-{
-    public long IdStep { get; set; }
-    public long IdCheckpoint { get; set; }
-    public short StepOrder { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public bool IsRequired { get; set; }
-    public bool IsCompleted { get; set; }
 }
 
 public class CycleInstanceDetailDto
@@ -382,8 +420,21 @@ public class ExecuteActionResultDto
 
 public class ResolveCheckpointResultDto
 {
-    public bool Success { get; set; }
+    public long CheckpointInstanceId { get; set; }
+    public long IdCheckpoint { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string ResolvedStatus { get; set; } = string.Empty; // "APPROVED" | "KO"
+    public string NextAction { get; set; } = string.Empty; // "STAGE_ADVANCED" | "CHAINED_TRIGGERED" | "STAGE_ROLLBACK" | "CYCLE_FINALIZED" | "SEQUENTIAL_TRIGGERED" | "BLOCKED" | "NONE"
     public string Message { get; set; } = string.Empty;
+    public long CurrentStageId { get; set; }
+    public string CurrentStageName { get; set; } = string.Empty;
+    public string FlowStatus { get; set; } = "ACTIVE";
+    public bool IsCycleClosed => FlowStatus == "CLOSED" || FlowStatus == "COMPLETED";
+    public bool CanAdvanceStage { get; set; }
+    public List<CheckpointInstanceDetailDto> TriggeredCheckpoints { get; set; } = new();
+    public FlowInstanceDetailDto? FlowInstance { get; set; }
+    public bool Success { get; set; }
     public string NewStatus { get; set; } = string.Empty;
     public bool StageCompleted { get; set; }
     public bool AutoAdvancedToNextStage { get; set; }

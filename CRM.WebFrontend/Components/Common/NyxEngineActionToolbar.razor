@@ -1,0 +1,308 @@
+@using Nyx.FlowEngine.Domain.Entities
+@using CRM.WebFrontend.Services
+@inject IFlowEngineZeroLogicClient FlowClient
+@inject ISnackbar Snackbar
+
+@if (Context != null)
+{
+    <div class="nyx-flow-action-card p-3 rounded-4 bg-white border shadow-sm mb-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <!-- Info de Estado y Custodia provista por el Motor -->
+            <div class="d-flex align-items-center gap-3">
+                <div class="flow-stage-indicator">
+                    <span class="text-muted small uppercase fw-bold d-block" style="font-size: 0.72rem; letter-spacing: 0.5px;">Etapa Actual</span>
+                    <span class="fw-bold text-dark fs-6">@Context.CurrentStage.Name</span>
+                    @if (Context.CurrentStage.SlaHours.HasValue)
+                    {
+                        <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.7rem;">SLA: @Context.CurrentStage.SlaHours h</span>
+                    }
+                </div>
+
+                <div class="vr mx-1" style="height: 30px; opacity: 0.15;"></div>
+
+                <div>
+                    <span class="text-muted small uppercase fw-bold d-block" style="font-size: 0.72rem; letter-spacing: 0.5px;">Estado de Gestión</span>
+                    <span class="badge bg-@GetBadgeClass(Context.UiHints.BadgeColor) px-2 py-1 rounded-pill" style="font-size: 0.75rem;">
+                        @Context.UiHints.BadgeStatus
+                    </span>
+                </div>
+            </div>
+
+            <!-- Botones de Acción Gobernados 100% por el Motor de Flujo -->
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                @if (_isProcessing)
+                {
+                    <div class="d-flex align-items-center gap-2 text-muted small px-3">
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        <span>Procesando acción...</span>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var action in Context.AllowedActions)
+                    {
+                        <button type="button" 
+                                class="btn btn-sm rounded-pill px-3 fw-semibold shadow-sm @GetActionBtnClass(action.ButtonStyle)"
+                                @onclick="() => HandleActionClick(action)">
+                            @action.Label
+                        </button>
+                    }
+                }
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Context.UiHints.WarningMessage))
+        {
+            <div class="alert alert-warning py-2 px-3 mt-3 mb-0 rounded-3 d-flex align-items-center gap-2 small" role="alert">
+                <i class="bi bi-exclamation-triangle-fill fs-6 text-warning"></i>
+                <span>@Context.UiHints.WarningMessage</span>
+            </div>
+        }
+
+        @if (Context.UiHints.BlockingReasons.Any() && !Context.UiHints.CanAdvanceStage)
+        {
+            <div class="mt-2 pt-2 border-top">
+                <span class="text-muted small fw-semibold">Requisitos pendientes para avanzar:</span>
+                <ul class="mb-0 ps-3 text-secondary small">
+                    @foreach (var reason in Context.UiHints.BlockingReasons)
+                    {
+                        <li>@reason</li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+}
+
+<!-- Modal para Motivo de Rechazo / KO / Handshake Revert -->
+@if (_showReasonModal && _pendingAction != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-bottom pb-3">
+                    <h5 class="fw-bold mb-0 text-dark">
+                        <i class="bi bi-chat-left-text me-2 text-danger"></i>
+                        <span>Motivo requerido: @_pendingAction.Label</span>
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="() => _showReasonModal = false"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <label class="form-label text-muted small fw-bold uppercase">Selecciona el motivo</label>
+                    <select class="form-select rounded-3 mb-3" @bind="_selectedReason">
+                        <option value="">-- Seleccionar motivo --</option>
+                        @foreach (var opt in _pendingAction.ReasonOptions)
+                        {
+                            <option value="@opt">@opt</option>
+                        }
+                        <option value="OTRO">Otro motivo (especificar abajo)</option>
+                    </select>
+
+                    @if (_selectedReason == "OTRO" || !_pendingAction.ReasonOptions.Any())
+                    {
+                        <label class="form-label text-muted small fw-bold uppercase">Detalle del motivo</label>
+                        <textarea class="form-control rounded-3" rows="3" placeholder="Describe el motivo..." @bind="_customReasonText"></textarea>
+                    }
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-3" @onclick="() => _showReasonModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-danger rounded-pill px-4 fw-semibold" @onclick="ConfirmReasonAction" disabled="@string.IsNullOrWhiteSpace(GetFinalReason())">
+                        Confirmar Acción
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para Selección de Agente Destino (Handshake / Transferencia) -->
+@if (_showActorSelectionModal && _pendingAction != null && Context?.TargetActors != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-bottom pb-3">
+                    <h5 class="fw-bold mb-0 text-dark">
+                        <i class="bi bi-telephone-outbound me-2 text-primary"></i>
+                        <span>Transferencia Telefónica (Handshake de Custodia)</span>
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="() => _showActorSelectionModal = false"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <p class="text-muted small mb-3">
+                        Selecciona el departamento o agente al que deseas transferir la custodia activa de esta gestión:
+                    </p>
+
+                    <div class="row g-3">
+                        <!-- Supervisores -->
+                        <div class="col-md-6">
+                            <h6 class="text-secondary small uppercase fw-bold mb-2">Supervisores</h6>
+                            <div class="list-group rounded-3">
+                                @foreach (var actor in Context.TargetActors.Supervisors)
+                                {
+                                    <button type="button" 
+                                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(_selectedTargetActorId == actor.ActorId ? "active text-white bg-dark" : "")"
+                                            @onclick="() => _selectedTargetActorId = actor.ActorId">
+                                        <div>
+                                            <div class="fw-bold" style="font-size: 0.85rem;">@actor.Name</div>
+                                            <small class="text-muted d-block" style="font-size: 0.72rem;">@actor.Role</small>
+                                        </div>
+                                        <span class="badge bg-success rounded-pill" style="font-size: 0.65rem;">@actor.Status</span>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Asesores Pares -->
+                        <div class="col-md-6">
+                            <h6 class="text-secondary small uppercase fw-bold mb-2">Asesores / Especialistas</h6>
+                            <div class="list-group rounded-3">
+                                @foreach (var actor in Context.TargetActors.PeerAdvisors)
+                                {
+                                    <button type="button" 
+                                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(_selectedTargetActorId == actor.ActorId ? "active text-white bg-dark" : "")"
+                                            @onclick="() => _selectedTargetActorId = actor.ActorId">
+                                        <div>
+                                            <div class="fw-bold" style="font-size: 0.85rem;">@actor.Name</div>
+                                            <small class="text-muted d-block" style="font-size: 0.72rem;">@actor.Department</small>
+                                        </div>
+                                        <span class="badge bg-primary rounded-pill" style="font-size: 0.65rem;">@actor.Status</span>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-3" @onclick="() => _showActorSelectionModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-dark rounded-pill px-4 fw-semibold" @onclick="ConfirmActorSelectionAction" disabled="@(_selectedTargetActorId == null || _selectedTargetActorId <= 0)">
+                        Transferir Custodia
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public UiContextDto? Context { get; set; }
+
+    [Parameter]
+    public long CurrentActorId { get; set; } = 101;
+
+    [Parameter]
+    public EventCallback<ExecuteActionResultDto> OnActionExecuted { get; set; }
+
+    private bool _isProcessing = false;
+    private bool _showReasonModal = false;
+    private bool _showActorSelectionModal = false;
+    private AllowedActionDto? _pendingAction;
+    private string _selectedReason = string.Empty;
+    private string _customReasonText = string.Empty;
+    private long? _selectedTargetActorId;
+
+    private async Task HandleActionClick(AllowedActionDto action)
+    {
+        _pendingAction = action;
+
+        if (action.RequiresReason)
+        {
+            _selectedReason = string.Empty;
+            _customReasonText = string.Empty;
+            _showReasonModal = true;
+            return;
+        }
+
+        if (action.RequiresActorSelection)
+        {
+            _selectedTargetActorId = null;
+            _showActorSelectionModal = true;
+            return;
+        }
+
+        await ExecuteActionDirectAsync(action, null, null);
+    }
+
+    private async Task ConfirmReasonAction()
+    {
+        if (_pendingAction == null) return;
+        var reason = GetFinalReason();
+        _showReasonModal = false;
+        await ExecuteActionDirectAsync(_pendingAction, reason, null);
+    }
+
+    private async Task ConfirmActorSelectionAction()
+    {
+        if (_pendingAction == null || !_selectedTargetActorId.HasValue) return;
+        _showActorSelectionModal = false;
+        await ExecuteActionDirectAsync(_pendingAction, null, _selectedTargetActorId);
+    }
+
+    private string GetFinalReason()
+    {
+        if (_selectedReason == "OTRO") return _customReasonText;
+        if (!string.IsNullOrEmpty(_selectedReason)) return _selectedReason;
+        return _customReasonText;
+    }
+
+    private async Task ExecuteActionDirectAsync(AllowedActionDto action, string? reason, long? targetActorId)
+    {
+        if (Context == null) return;
+        _isProcessing = true;
+        try
+        {
+            var req = new ExecuteActionRequest
+            {
+                ActorId = CurrentActorId,
+                ActionCode = action.ActionCode,
+                CheckpointInstanceId = action.CheckpointInstanceId,
+                Reason = reason,
+                TargetActorId = targetActorId,
+                AnswersJson = "{}"
+            };
+
+            var result = await FlowClient.ExecuteActionAsync(Context.InstanceId, req);
+            if (result != null && result.Success)
+            {
+                Snackbar.Add(result.Message ?? "Acción procesada correctamente por el motor.", Severity.Success);
+                if (result.UpdatedUiContext != null)
+                {
+                    Context = result.UpdatedUiContext;
+                }
+                await OnActionExecuted.InvokeAsync(result);
+            }
+            else
+            {
+                Snackbar.Add(result?.Message ?? "Error al procesar la acción en el motor.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private string GetBadgeClass(string? badgeColor) => badgeColor switch
+    {
+        "success" => "success",
+        "danger" => "danger",
+        "warning" => "warning text-dark",
+        "primary" => "primary",
+        _ => "secondary"
+    };
+
+    private string GetActionBtnClass(string? style) => style switch
+    {
+        "btn-success" => "btn-success",
+        "btn-danger" => "btn-danger",
+        "btn-warning" => "btn-warning text-dark",
+        "btn-secondary" => "btn-secondary",
+        "btn-outline" => "btn-outline-secondary",
+        _ => "btn-dark"
+    };
+}

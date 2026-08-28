@@ -1,0 +1,140 @@
+@using Nyx.FlowEngine.Domain.Entities
+@using CRM.WebFrontend.Services
+@inject IFlowEngineZeroLogicClient FlowClient
+@inject ISnackbar Snackbar
+
+<div class="nyx-checkpoints-card premium-panel p-4 rounded-4 bg-white border shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h6 class="section-title mb-1 fw-bold text-dark d-flex align-items-center gap-2">
+                <i class="bi bi-shield-check text-primary fs-5"></i>
+                <span>Checkpoints de Control y Políticas Activas</span>
+            </h6>
+            <p class="text-muted small mb-0">
+                Puntos de control requeridos y gobernados por el Motor de Flujo para esta fase.
+            </p>
+        </div>
+        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">
+            @Checkpoints.Count(c => c.Status == "APPROVED") / @Checkpoints.Count Completados
+        </span>
+    </div>
+
+    @if (!Checkpoints.Any())
+    {
+        <div class="text-center py-4 text-muted small bg-light rounded-3">
+            <i class="bi bi-info-circle fs-4 d-block mb-1 opacity-50"></i>
+            No hay checkpoints activos requeridos en esta etapa.
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-column gap-3">
+            @foreach (var cp in Checkpoints)
+            {
+                var isApproved = cp.Status == "APPROVED";
+                var isKo = cp.Status == "KO";
+                var isPending = cp.Status == "PENDING";
+                var isScheduled = cp.Status == "SCHEDULED";
+
+                var borderClass = isApproved ? "border-success bg-success-subtle" : 
+                                  (isKo ? "border-danger bg-danger-subtle" : 
+                                  (isScheduled ? "border-info bg-info-subtle" : "border-warning bg-light"));
+
+                var badgeClass = isApproved ? "bg-success text-white" :
+                                 (isKo ? "bg-danger text-white" :
+                                 (isScheduled ? "bg-info text-white" : "bg-warning text-dark"));
+
+                <div class="card border rounded-3 p-3 shadow-none @borderClass">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="fw-bold text-dark" style="font-size: 0.9rem;">@cp.Name</span>
+                                <span class="badge @badgeClass rounded-pill" style="font-size: 0.68rem;">@cp.Status</span>
+                                @if (cp.BlocksAdvance)
+                                {
+                                    <span class="badge bg-secondary text-white rounded-pill" style="font-size: 0.65rem;" title="Bloquea el avance a la siguiente etapa hasta ser aprobado">
+                                        <i class="bi bi-lock-fill me-1"></i>Bloqueante
+                                    </span>
+                                }
+                            </div>
+                            <small class="text-muted d-block" style="font-size: 0.75rem;">
+                                Código: <code>@cp.Code</code> | Departamento: <strong>@cp.OwnerDept</strong>
+                            </small>
+                            @if (!string.IsNullOrEmpty(cp.Description))
+                            {
+                                <p class="text-secondary small mb-0 mt-1" style="font-size: 0.8rem;">@cp.Description</p>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Pasos Interactivos del Checkpoint -->
+                    @if (cp.Steps != null && cp.Steps.Any())
+                    {
+                        <div class="mt-3 pt-2 border-top">
+                            <span class="text-muted small fw-bold uppercase d-block mb-2" style="font-size: 0.68rem; letter-spacing: 0.5px;">Pasos de Verificación Requeridos:</span>
+                            <div class="d-flex flex-column gap-2">
+                                @foreach (var step in cp.Steps)
+                                {
+                                    <div class="form-check d-flex align-items-center gap-2">
+                                        <input class="form-check-input" 
+                                               type="checkbox" 
+                                               id="step_@(cp.IdCpInstance)_@(step.IdStep)"
+                                               checked="@step.IsCompleted"
+                                               disabled="@(IsReadOnly || isApproved || isKo)"
+                                               @onchange="(e) => ToggleStep(cp, step, (bool)(e.Value ?? false))" />
+                                        <label class="form-check-label small @(step.IsCompleted ? "text-decoration-line-through text-muted" : "text-dark fw-medium")" 
+                                               for="step_@(cp.IdCpInstance)_@(step.IdStep)">
+                                            @step.Name
+                                            @if (step.IsRequired)
+                                            {
+                                                <span class="text-danger ms-1" title="Obligatorio">*</span>
+                                            }
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public List<CheckpointInstanceDetailDto> Checkpoints { get; set; } = new();
+
+    [Parameter]
+    public bool IsReadOnly { get; set; } = false;
+
+    [Parameter]
+    public long CurrentActorId { get; set; } = 101;
+
+    [Parameter]
+    public EventCallback OnCheckpointUpdated { get; set; }
+
+    private async Task ToggleStep(CheckpointInstanceDetailDto cp, CheckpointStepDetailDto step, bool isChecked)
+    {
+        step.IsCompleted = isChecked;
+        try
+        {
+            var success = await FlowClient.ToggleStepProgressAsync(cp.IdCpInstance, step.IdStep, isChecked, CurrentActorId);
+            if (success)
+            {
+                Snackbar.Add($"Paso '{step.Name}' actualizado.", Severity.Success);
+                await OnCheckpointUpdated.InvokeAsync();
+            }
+            else
+            {
+                step.IsCompleted = !isChecked;
+                Snackbar.Add("No se pudo actualizar el paso.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            step.IsCompleted = !isChecked;
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+}
