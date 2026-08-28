@@ -128,20 +128,46 @@ public class CycleService : ICycleService
     public async Task<IEnumerable<CheckpointCatalog>> GetCheckpointsByCycleAsync(long cycleId, bool includeInactive = false) => await _repo.GetCheckpointsByCycleAsync(cycleId, includeInactive);
     public async Task<IEnumerable<CheckpointCatalogDetailDto>> GetFullCheckpointsByCycleAsync(long cycleId, bool includeInactive = false) => await _repo.GetFullCheckpointsByCycleAsync(cycleId, includeInactive);
     public async Task<CheckpointCatalog?> GetCheckpointByIdAsync(long id) => await _repo.GetCheckpointByIdAsync(id);
+    public async Task<CheckpointCatalogDetailDto?> GetFullCheckpointByIdAsync(long id) => await _repo.GetFullCheckpointByIdAsync(id);
 
-    public async Task<CheckpointCatalog> CreateCheckpointAsync(CheckpointCatalog cp)
+    public async Task<CheckpointCatalog> CreateCheckpointAsync(SaveCheckpointDto cp)
     {
         var id = await _repo.CreateCheckpointAsync(cp);
         cp.IdCheckpoint = id;
-        await _repo.LogAuditAsync(1, "CHECKPOINT_CREATED", null, id, $"{{\"code\":\"{cp.Code}\",\"cycleId\":{cp.IdCycle}}}");
+
+        if (cp.Steps != null && cp.Steps.Any())
+        {
+            short order = 1;
+            foreach (var s in cp.Steps)
+            {
+                s.StepOrder = order++;
+                s.IdCheckpoint = id;
+            }
+            await _repo.SaveCheckpointStepsAsync(id, cp.Steps);
+        }
+
+        await _repo.LogAuditAsync(1, "CHECKPOINT_CREATED", null, id, $"{{\"code\":\"{cp.Code}\",\"cycleId\":{cp.IdCycle},\"stepsCount\":{cp.Steps?.Count ?? 0}}}");
         return cp;
     }
 
-    public async Task<bool> UpdateCheckpointAsync(long id, CheckpointCatalog cp)
+    public async Task<bool> UpdateCheckpointAsync(long id, SaveCheckpointDto cp)
     {
         cp.IdCheckpoint = id;
         var ok = await _repo.UpdateCheckpointAsync(cp);
-        if (ok) await _repo.LogAuditAsync(1, "CHECKPOINT_UPDATED", null, id, $"{{\"id\":{id},\"name\":\"{cp.Name}\"}}");
+        if (ok)
+        {
+            if (cp.Steps != null)
+            {
+                short order = 1;
+                foreach (var s in cp.Steps)
+                {
+                    s.StepOrder = order++;
+                    s.IdCheckpoint = id;
+                }
+                await _repo.SaveCheckpointStepsAsync(id, cp.Steps);
+            }
+            await _repo.LogAuditAsync(1, "CHECKPOINT_UPDATED", null, id, $"{{\"id\":{id},\"name\":\"{cp.Name}\",\"stepsCount\":{cp.Steps?.Count ?? 0}}}");
+        }
         return ok;
     }
 
@@ -169,6 +195,29 @@ public class CycleService : ICycleService
     {
         await _repo.UpdateCheckpointCanvasSchemaAsync(checkpointId, canvasSchemaJson);
         await _repo.LogAuditAsync(1, "CANVAS_SCHEMA_UPDATED", null, checkpointId, "{}");
+    }
+
+    // ==========================================
+    // METADATOS Y CONCILIACIÓN (ROLES Y CARTERAS)
+    // ==========================================
+    public async Task<IEnumerable<MetaRole>> GetMetaRolesAsync() => await _repo.GetMetaRolesAsync();
+
+    public async Task<MetaRole> CreateMetaRoleAsync(MetaRole role)
+    {
+        var id = await _repo.CreateMetaRoleAsync(role);
+        role.IdRole = id;
+        await _repo.LogAuditAsync(1, "META_ROLE_SAVED", null, null, $"{{\"roleCode\":\"{role.RoleCode}\",\"name\":\"{role.Name}\"}}");
+        return role;
+    }
+
+    public async Task<IEnumerable<MetaPortfolio>> GetMetaPortfoliosAsync() => await _repo.GetMetaPortfoliosAsync();
+
+    public async Task<MetaPortfolio> CreateMetaPortfolioAsync(MetaPortfolio portfolio)
+    {
+        var id = await _repo.CreateMetaPortfolioAsync(portfolio);
+        portfolio.IdPortfolio = id;
+        await _repo.LogAuditAsync(1, "META_PORTFOLIO_SAVED", null, null, $"{{\"portfolioCode\":\"{portfolio.PortfolioCode}\",\"name\":\"{portfolio.Name}\"}}");
+        return portfolio;
     }
 
     // ==========================================

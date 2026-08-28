@@ -102,12 +102,12 @@ public class CycleController : ControllerBase
     [HttpGet("checkpoints/{cpId:long}")]
     public async Task<IActionResult> GetCheckpointById(long cpId)
     {
-        var cp = await _service.GetCheckpointByIdAsync(cpId);
+        var cp = await _service.GetFullCheckpointByIdAsync(cpId);
         return cp != null ? Ok(cp) : NotFound();
     }
 
     [HttpPost("{id:long}/checkpoints")]
-    public async Task<IActionResult> CreateCheckpoint(long id, [FromBody] CheckpointCatalog cp)
+    public async Task<IActionResult> CreateCheckpoint(long id, [FromBody] SaveCheckpointDto cp)
     {
         cp.IdCycle = id;
         var created = await _service.CreateCheckpointAsync(cp);
@@ -115,7 +115,7 @@ public class CycleController : ControllerBase
     }
 
     [HttpPut("checkpoints/{cpId:long}")]
-    public async Task<IActionResult> UpdateCheckpoint(long cpId, [FromBody] CheckpointCatalog cp)
+    public async Task<IActionResult> UpdateCheckpoint(long cpId, [FromBody] SaveCheckpointDto cp)
     {
         var ok = await _service.UpdateCheckpointAsync(cpId, cp);
         return ok ? Ok(new { updated = true }) : NotFound();
@@ -140,6 +140,37 @@ public class CycleController : ControllerBase
     {
         await _service.SaveCheckpointStepsAsync(cpId, steps);
         return Ok(new { saved = true });
+    }
+
+    // ==========================================
+    // METADATOS Y CONCILIACIÓN (ROLES Y CARTERAS)
+    // ==========================================
+    [HttpGet("meta/roles")]
+    public async Task<IActionResult> GetRoles()
+    {
+        var roles = await _service.GetMetaRolesAsync();
+        return Ok(roles);
+    }
+
+    [HttpPost("meta/roles")]
+    public async Task<IActionResult> CreateRole([FromBody] MetaRole role)
+    {
+        var created = await _service.CreateMetaRoleAsync(role);
+        return Ok(created);
+    }
+
+    [HttpGet("meta/portfolios")]
+    public async Task<IActionResult> GetPortfolios()
+    {
+        var portfolios = await _service.GetMetaPortfoliosAsync();
+        return Ok(portfolios);
+    }
+
+    [HttpPost("meta/portfolios")]
+    public async Task<IActionResult> CreatePortfolio([FromBody] MetaPortfolio portfolio)
+    {
+        var created = await _service.CreateMetaPortfolioAsync(portfolio);
+        return Ok(created);
     }
 
     [HttpPost("checkpoints/{cpId:long}/canvas")]

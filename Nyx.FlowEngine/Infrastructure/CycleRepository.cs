@@ -188,6 +188,19 @@ public class CycleRepository : ICycleRepository
         return await conn.QueryFirstOrDefaultAsync<CheckpointCatalog>(sql, new { id });
     }
 
+    public async Task<CheckpointCatalogDetailDto?> GetFullCheckpointByIdAsync(long id)
+    {
+        using var conn = CreateConnection();
+        const string sql = "SELECT * FROM nyx_flow.checkpoint_catalog WHERE id_checkpoint = @id;";
+        var cp = await conn.QueryFirstOrDefaultAsync<CheckpointCatalogDetailDto>(sql, new { id });
+        if (cp == null) return null;
+
+        const string stepSql = "SELECT * FROM nyx_flow.checkpoint_step WHERE id_checkpoint = @id ORDER BY step_order ASC;";
+        var steps = await conn.QueryAsync<CheckpointStep>(stepSql, new { id });
+        cp.Steps = steps.ToList();
+        return cp;
+    }
+
     public async Task<CheckpointCatalog?> GetCheckpointByCodeAsync(string code)
     {
         using var conn = CreateConnection();
@@ -336,6 +349,45 @@ public class CycleRepository : ICycleRepository
         const string sql = "UPDATE nyx_flow.checkpoint_catalog SET template_schema_json = CAST(@canvasSchemaJson AS jsonb) WHERE id_checkpoint = @checkpointId;";
         var rows = await conn.ExecuteAsync(sql, new { checkpointId, canvasSchemaJson });
         return rows > 0;
+    }
+
+    // ==========================================
+    // METADATOS Y CONCILIACIÓN (ROLES Y CARTERAS)
+    // ==========================================
+    public async Task<IEnumerable<MetaRole>> GetMetaRolesAsync()
+    {
+        using var conn = CreateConnection();
+        const string sql = "SELECT * FROM nyx_flow.meta_role WHERE is_active = true ORDER BY name ASC;";
+        return await conn.QueryAsync<MetaRole>(sql);
+    }
+
+    public async Task<long> CreateMetaRoleAsync(MetaRole role)
+    {
+        using var conn = CreateConnection();
+        const string sql = @"
+            INSERT INTO nyx_flow.meta_role (role_code, name, description, external_system_code, is_active, created_at)
+            VALUES (@RoleCode, @Name, @Description, @ExternalSystemCode, @IsActive, @CreatedAt)
+            ON CONFLICT (role_code) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, external_system_code = EXCLUDED.external_system_code, is_active = EXCLUDED.is_active
+            RETURNING id_role;";
+        return await conn.ExecuteScalarAsync<long>(sql, role);
+    }
+
+    public async Task<IEnumerable<MetaPortfolio>> GetMetaPortfoliosAsync()
+    {
+        using var conn = CreateConnection();
+        const string sql = "SELECT * FROM nyx_flow.meta_portfolio WHERE is_active = true ORDER BY name ASC;";
+        return await conn.QueryAsync<MetaPortfolio>(sql);
+    }
+
+    public async Task<long> CreateMetaPortfolioAsync(MetaPortfolio portfolio)
+    {
+        using var conn = CreateConnection();
+        const string sql = @"
+            INSERT INTO nyx_flow.meta_portfolio (portfolio_code, name, description, external_system_code, is_active, created_at)
+            VALUES (@PortfolioCode, @Name, @Description, @ExternalSystemCode, @IsActive, @CreatedAt)
+            ON CONFLICT (portfolio_code) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, external_system_code = EXCLUDED.external_system_code, is_active = EXCLUDED.is_active
+            RETURNING id_portfolio;";
+        return await conn.ExecuteScalarAsync<long>(sql, portfolio);
     }
 
     // ==========================================

@@ -24,6 +24,7 @@ public interface ICycleRepository
     Task<IEnumerable<CheckpointCatalog>> GetCheckpointsByCycleAsync(long cycleId, bool includeInactive = false);
     Task<IEnumerable<CheckpointCatalogDetailDto>> GetFullCheckpointsByCycleAsync(long cycleId, bool includeInactive = false);
     Task<CheckpointCatalog?> GetCheckpointByIdAsync(long id);
+    Task<CheckpointCatalogDetailDto?> GetFullCheckpointByIdAsync(long id);
     Task<CheckpointCatalog?> GetCheckpointByCodeAsync(string code);
     Task<long> CreateCheckpointAsync(CheckpointCatalog cp);
     Task<bool> UpdateCheckpointAsync(CheckpointCatalog cp);
@@ -33,6 +34,12 @@ public interface ICycleRepository
     Task SaveCheckpointStepsAsync(long checkpointId, IEnumerable<CheckpointStep> steps);
     Task<bool> UpdateCheckpointCanvasSchemaAsync(long checkpointId, string canvasSchemaJson);
     Task BulkUpsertCheckpointsAsync(long cycleId, IEnumerable<CheckpointCatalog> checkpoints);
+
+    // Metadatos y Conciliación (Roles y Carteras)
+    Task<IEnumerable<MetaRole>> GetMetaRolesAsync();
+    Task<long> CreateMetaRoleAsync(MetaRole role);
+    Task<IEnumerable<MetaPortfolio>> GetMetaPortfoliosAsync();
+    Task<long> CreateMetaPortfolioAsync(MetaPortfolio portfolio);
 
     // Políticas
     Task<IEnumerable<CyclePolicyRule>> GetPoliciesAsync(long? cycleId);

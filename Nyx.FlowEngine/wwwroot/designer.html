@@ -72,7 +72,7 @@
         .stage-box { background: #182234; border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; position: relative; }
         .stage-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem; }
 
-        .checkpoint-card { background: #111827; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+        .checkpoint-card { background: #111827; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.1rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
         .checkpoint-card:hover { border-color: var(--cyan); background: #161f30; }
         .checkpoint-card.inactive { opacity: 0.5; border-style: dashed; }
 
@@ -84,6 +84,7 @@
         .badge-cyan { background: rgba(6, 182, 212, 0.15); color: var(--cyan); }
         .badge-policy { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
         .badge-inactive { background: rgba(156, 163, 175, 0.2); color: var(--text-muted); }
+        .badge-steps { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
 
         .btn { padding: 0.5rem 1rem; border-radius: 10px; border: none; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; transition: all 0.2s; }
         .btn-primary { background: var(--primary); color: #fff; }
@@ -92,9 +93,13 @@
         .btn-outline { background: transparent; border: 1px solid var(--border-color); color: #fff; }
         .btn-outline:hover { background: rgba(255,255,255,0.05); }
 
+        /* Step Builder */
+        .step-row { display: flex; align-items: center; gap: 0.6rem; background: #161f30; padding: 0.6rem 0.85rem; border-radius: 10px; margin-bottom: 0.5rem; border: 1px solid var(--border-color); }
+        .step-row:hover { border-color: var(--primary); }
+
         /* Modal */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 300; }
-        .modal-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; width: 680px; max-width: 95%; max-height: 90vh; overflow-y: auto; padding: 2rem; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+        .modal-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; width: 720px; max-width: 95%; max-height: 90vh; overflow-y: auto; padding: 2rem; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
         .form-group { margin-bottom: 1.15rem; }
         .form-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.4rem; }
         .form-control { width: 100%; background: #161f30; border: 1px solid var(--border-color); border-radius: 10px; padding: 0.65rem 0.85rem; color: #fff; font-size: 0.88rem; }
@@ -107,7 +112,7 @@
             <div class="brand-icon">Ω</div>
             <div>
                 <div class="brand-title">NYX CYCLE STUDIO — DISEÑADOR</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Configuración Visual de Ciclos, Etapas & Checkpoints con Soft-Delete</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Creación 1 a 1 de Pasos, Roles & Carteras Dinámicas y Disparo KO Visual</div>
             </div>
         </div>
         <nav class="top-nav">
@@ -146,14 +151,15 @@
                             <i class="bi bi-trash"></i> Desactivar
                         </button>
                     </div>
-                    <p id="activeCycleDesc" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Jerarquía: CICLOS ➔ ETAPAS ➔ CHECKPOINTS</p>
+                    <p id="activeCycleDesc" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.2rem;">Jerarquía: CICLOS ➔ ETAPAS ➔ CHECKPOINTS (con Pasos 1 a 1)</p>
                 </div>
                 <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+                    <button class="btn btn-outline" onclick="openCatalogsModal()"><i class="bi bi-sliders"></i> Catálogos & Roles</button>
                     <label style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
                         <input type="checkbox" id="chkShowInactive" onchange="toggleShowInactive()"> Mostrar Inactivos
                     </label>
-                    <button class="btn btn-outline" onclick="openImportModal()"><i class="bi bi-upload"></i> Importar GSI JSON</button>
-                    <button class="btn btn-outline" onclick="exportJson()"><i class="bi bi-download"></i> Exportar JSON</button>
+                    <button class="btn btn-outline" onclick="openImportModal()"><i class="bi bi-upload"></i> Importar GSI</button>
+                    <button class="btn btn-outline" onclick="exportJson()"><i class="bi bi-download"></i> Exportar</button>
                     <button class="btn btn-primary" onclick="openNewStageModal()"><i class="bi bi-plus-circle"></i> + Nueva Etapa</button>
                 </div>
             </div>
@@ -207,14 +213,11 @@
                     <textarea id="cycleDesc" class="form-control" rows="2" placeholder="Flujo de venta, verificación y contratación..."></textarea>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Ámbito / Cartera (Scope)</label>
-                    <select id="cycleScope" class="form-control">
-                        <option value="Telecom">Telecomunicaciones (Fibra / Móvil)</option>
-                        <option value="Alarma">Seguridad & Alarmas</option>
-                        <option value="Energia">Energía (Luz / Gas)</option>
-                        <option value="Seguros">Seguros & Pólizas</option>
-                        <option value="ENTITY">Genérico</option>
-                    </select>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                        <label class="form-label" style="margin-bottom:0;">Ámbito / Cartera (Scope)</label>
+                        <a href="javascript:void(0)" onclick="quickCreatePortfolio()" style="font-size:0.75rem; color:var(--cyan); text-decoration:none;">+ Nueva Cartera</a>
+                    </div>
+                    <select id="cycleScope" class="form-control"></select>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
                     <button type="button" class="btn btn-outline" onclick="closeModal('cycleModal')">Cancelar</button>
@@ -266,7 +269,7 @@
         </div>
     </div>
 
-    <!-- Modal Checkpoint con Políticas Integradas -->
+    <!-- Modal Checkpoint con Pasos 1 a 1, Roles, Carteras y Disparo KO en Combo -->
     <div class="modal-overlay" id="checkpointModal">
         <div class="modal-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -289,30 +292,39 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Pasos / Descripción de Actuación</label>
-                    <textarea id="cpDesc" class="form-control" rows="2" placeholder="Pasos a ejecutar durante el checkpoint..."></textarea>
+                    <label class="form-label">Descripción General / Propósito</label>
+                    <textarea id="cpDesc" class="form-control" rows="2" placeholder="Instrucción general del hito..."></textarea>
+                </div>
+
+                <!-- SECCIÓN: PASOS DE ACTUACIÓN 1 A 1 -->
+                <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 14px; padding: 1.2rem; margin: 1.25rem 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--success); display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="bi bi-list-check"></i> Pasos de Actuación (Creados 1 a 1 para evitar errores)
+                        </h4>
+                        <button type="button" class="btn btn-outline" style="padding: 0.25rem 0.65rem; font-size: 0.75rem; color: var(--success); border-color: var(--success);" onclick="addStepRow()">
+                            <i class="bi bi-plus-lg"></i> + Añadir Paso
+                        </button>
+                    </div>
+                    <div id="stepsContainer">
+                        <!-- Filas de pasos dinámicas -->
+                    </div>
                 </div>
 
                 <div class="form-grid">
                     <div class="form-group">
-                        <label class="form-label">Rol / Dueño Responsable</label>
-                        <select id="cpOwner" class="form-control">
-                            <option value="Asesor">Asesor</option>
-                            <option value="Supervisor">Supervisor</option>
-                            <option value="Backoffice">Backoffice</option>
-                            <option value="Operaciones">Operaciones</option>
-                            <option value="Calidad">Calidad</option>
-                            <option value="Postventa">Postventa</option>
-                            <option value="Proveedor">Proveedor</option>
-                        </select>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label class="form-label" style="margin-bottom:0;">Rol / Dueño Responsable</label>
+                            <a href="javascript:void(0)" onclick="quickCreateRole()" style="font-size:0.75rem; color:var(--primary); text-decoration:none;">+ Nuevo Rol</a>
+                        </div>
+                        <select id="cpOwner" class="form-control"></select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Ámbito / Cartera</label>
-                        <select id="cpScope" class="form-control">
-                            <option value="Telecom">Telecom</option>
-                            <option value="Alarma">Alarma</option>
-                            <option value="ENTITY">Genérico</option>
-                        </select>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label class="form-label" style="margin-bottom:0;">Ámbito / Cartera</label>
+                            <a href="javascript:void(0)" onclick="quickCreatePortfolio()" style="font-size:0.75rem; color:var(--cyan); text-decoration:none;">+ Nueva Cartera</a>
+                        </div>
+                        <select id="cpScope" class="form-control"></select>
                     </div>
                 </div>
 
@@ -321,7 +333,7 @@
                         <label class="form-label">Bloquea Avance de Etapa</label>
                         <select id="cpBlocks" class="form-control">
                             <option value="true">Sí (Bloquea si no está Aprobado)</option>
-                            <option value="false">No (Informativo)</option>
+                            <option value="false">No (Informativo / Opcional)</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -333,13 +345,16 @@
                     </div>
                 </div>
 
+                <!-- SELECTOR COMBO DISPARO KO (EN VEZ DE ID MANUAL) -->
                 <div class="form-grid">
                     <div class="form-group">
-                        <label class="form-label">🔗 Se dispara si sale KO de (ID Checkpoint)</label>
-                        <input type="number" id="cpTriggeredByKo" class="form-control" placeholder="Ej. 12 (Disparado por CP12)">
+                        <label class="form-label">🔗 Disparar si sale KO de este Checkpoint:</label>
+                        <select id="cpTriggeredByKo" class="form-control">
+                            <option value="">No aplica (Sin contingencia KO previa)</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">⏪ Si sale KO, Retrocede a Etapa</label>
+                        <label class="form-label">⏪ Si sale KO, Retrocede a Etapa:</label>
                         <select id="cpRollbackStage" class="form-control">
                             <option value="">No aplica (Sin retroceso)</option>
                         </select>
@@ -362,7 +377,7 @@
                     </div>
                 </div>
 
-                <!-- POLÍTICAS DEL CHECKPOINT (Fácil, Visual y Directo) -->
+                <!-- POLÍTICAS DEL CHECKPOINT -->
                 <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 14px; padding: 1.2rem; margin: 1.25rem 0;">
                     <h4 style="font-size: 0.9rem; font-weight: 700; color: #818cf8; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
                         <i class="bi bi-shield-check"></i> Políticas y Gobernanza de este Checkpoint
@@ -413,6 +428,93 @@
         </div>
     </div>
 
+    <!-- Modal Catálogos y Conciliación de Roles & Carteras -->
+    <div class="modal-overlay" id="catalogsModal">
+        <div class="modal-card" style="width: 780px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.25rem; font-weight: 700;"><i class="bi bi-sliders text-primary me-2"></i> Gestión & Conciliación de Catálogos</h3>
+                <button onclick="closeModal('catalogsModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer;">&times;</button>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.2rem;">
+                Administra los Roles y Carteras disponibles en el motor, con sus códigos de homologación externa para conciliar con sistemas CRM / ERP si aplica.
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <!-- Roles -->
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                        <h4 style="font-size:0.95rem; font-weight:700; color:var(--primary);"><i class="bi bi-person-badge me-1"></i> Roles</h4>
+                        <button class="btn btn-primary" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="quickCreateRole()">+ Rol</button>
+                    </div>
+                    <div id="rolesListTable" style="max-height: 250px; overflow-y: auto; background: #161f30; border-radius: 10px; padding: 0.5rem;"></div>
+                </div>
+
+                <!-- Carteras -->
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                        <h4 style="font-size:0.95rem; font-weight:700; color:var(--cyan);"><i class="bi bi-briefcase me-1"></i> Carteras</h4>
+                        <button class="btn btn-primary" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="quickCreatePortfolio()">+ Cartera</button>
+                    </div>
+                    <div id="portfoliosListTable" style="max-height: 250px; overflow-y: auto; background: #161f30; border-radius: 10px; padding: 0.5rem;"></div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-outline" onclick="closeModal('catalogsModal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Rápido: Crear Rol -->
+    <div class="modal-overlay" id="quickRoleModal">
+        <div class="modal-card" style="width: 480px; z-index: 350;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1.2rem;">Crear Nuevo Rol</h3>
+            <form onsubmit="saveQuickRole(event)">
+                <div class="form-group">
+                    <label class="form-label">Código del Rol (ej. MesaFraude, Backoffice2)</label>
+                    <input type="text" id="newRoleCode" class="form-control" required placeholder="MesaFraude">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre del Rol</label>
+                    <input type="text" id="newRoleName" class="form-control" required placeholder="Mesa de Detección de Fraude">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Código Conciliación Sistema Externo (Opcional)</label>
+                    <input type="text" id="newRoleExtCode" class="form-control" placeholder="CRM_ROLE_FRAUD_01">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('quickRoleModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar Rol</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Rápido: Crear Cartera -->
+    <div class="modal-overlay" id="quickPortfolioModal">
+        <div class="modal-card" style="width: 480px; z-index: 350;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1.2rem;">Crear Nueva Cartera / Ámbito</h3>
+            <form onsubmit="saveQuickPortfolio(event)">
+                <div class="form-group">
+                    <label class="form-label">Código de la Cartera (ej. Solar, Hipotecas)</label>
+                    <input type="text" id="newPortCode" class="form-control" required placeholder="Solar">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre de la Cartera</label>
+                    <input type="text" id="newPortName" class="form-control" required placeholder="Autoconsumo Solar y Baterías">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Código Conciliación Sistema Externo (Opcional)</label>
+                    <input type="text" id="newPortExtCode" class="form-control" placeholder="ERP_PORTFOLIO_SOLAR">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('quickPortfolioModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar Cartera</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal Import GSI JSON -->
     <div class="modal-overlay" id="importModal">
         <div class="modal-card">
@@ -432,7 +534,7 @@
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 0.8rem;">
                 <button type="button" class="btn btn-outline" onclick="closeModal('importModal')">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="processImport()"><i class="bi bi-cloud-upload"></i> Importar al Ciclo</button>
+                <button type="submit" class="btn btn-success" onclick="processImport()"><i class="bi bi-cloud-upload"></i> Importar al Ciclo</button>
             </div>
         </div>
     </div>
@@ -441,6 +543,8 @@
         let currentCycleId = 1;
         let currentCycleData = null;
         let showInactive = false;
+        let cachedRoles = [];
+        let cachedPortfolios = [];
 
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -455,6 +559,178 @@
             showInactive = document.getElementById('chkShowInactive').checked;
             loadCyclesSidebar();
             loadCycleDetail(currentCycleId);
+        }
+
+        // ==========================================
+        // CATÁLOGOS DINÁMICOS: ROLES Y CARTERAS
+        // ==========================================
+        async function loadMetaCatalogs() {
+            try {
+                const [rolesRes, portsRes] = await Promise.all([
+                    fetch('/api/cycles/meta/roles'),
+                    fetch('/api/cycles/meta/portfolios')
+                ]);
+                cachedRoles = await rolesRes.json();
+                cachedPortfolios = await portsRes.json();
+
+                populateSelectOptions();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function populateSelectOptions() {
+            // Populate cpOwner
+            const ownerSelect = document.getElementById('cpOwner');
+            ownerSelect.innerHTML = cachedRoles.map(r => `
+                <option value="${r.roleCode}">${r.name} (${r.roleCode})</option>
+            `).join('');
+
+            // Populate cpScope & cycleScope
+            const scopeSelect = document.getElementById('cpScope');
+            const cycleScopeSelect = document.getElementById('cycleScope');
+            const portOptions = cachedPortfolios.map(p => `
+                <option value="${p.portfolioCode}">${p.name} (${p.portfolioCode})</option>
+            `).join('');
+
+            scopeSelect.innerHTML = portOptions;
+            cycleScopeSelect.innerHTML = portOptions;
+        }
+
+        function quickCreateRole() {
+            document.getElementById('newRoleCode').value = '';
+            document.getElementById('newRoleName').value = '';
+            document.getElementById('newRoleExtCode').value = '';
+            openModal('quickRoleModal');
+        }
+
+        async function saveQuickRole(e) {
+            e.preventDefault();
+            const payload = {
+                roleCode: document.getElementById('newRoleCode').value.trim(),
+                name: document.getElementById('newRoleName').value.trim(),
+                externalSystemCode: document.getElementById('newRoleExtCode').value.trim() || null,
+                isActive: true
+            };
+            try {
+                const res = await fetch('/api/cycles/meta/roles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    closeModal('quickRoleModal');
+                    await loadMetaCatalogs();
+                    document.getElementById('cpOwner').value = payload.roleCode;
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        function quickCreatePortfolio() {
+            document.getElementById('newPortCode').value = '';
+            document.getElementById('newPortName').value = '';
+            document.getElementById('newPortExtCode').value = '';
+            openModal('quickPortfolioModal');
+        }
+
+        async function saveQuickPortfolio(e) {
+            e.preventDefault();
+            const payload = {
+                portfolioCode: document.getElementById('newPortCode').value.trim(),
+                name: document.getElementById('newPortName').value.trim(),
+                externalSystemCode: document.getElementById('newPortExtCode').value.trim() || null,
+                isActive: true
+            };
+            try {
+                const res = await fetch('/api/cycles/meta/portfolios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    closeModal('quickPortfolioModal');
+                    await loadMetaCatalogs();
+                    document.getElementById('cpScope').value = payload.portfolioCode;
+                    document.getElementById('cycleScope').value = payload.portfolioCode;
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        function openCatalogsModal() {
+            renderCatalogsTables();
+            openModal('catalogsModal');
+        }
+
+        function renderCatalogsTables() {
+            document.getElementById('rolesListTable').innerHTML = cachedRoles.map(r => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.8rem;">
+                    <div>
+                        <strong style="color:#fff;">${r.name}</strong> <code>${r.roleCode}</code>
+                        ${r.externalSystemCode ? `<div style="font-size:0.7rem; color:#818cf8;">🔗 Sistema Ext: ${r.externalSystemCode}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('portfoliosListTable').innerHTML = cachedPortfolios.map(p => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.8rem;">
+                    <div>
+                        <strong style="color:#fff;">${p.name}</strong> <code>${p.portfolioCode}</code>
+                        ${p.externalSystemCode ? `<div style="font-size:0.7rem; color:var(--cyan);">🔗 Sistema Ext: ${p.externalSystemCode}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==========================================
+        // GESTIÓN DE PASOS (STEPS) 1 A 1
+        // ==========================================
+        function addStepRow(name = '', isRequired = true) {
+            const container = document.getElementById('stepsContainer');
+            const rowId = `step_row_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+            const stepNum = container.children.length + 1;
+
+            const div = document.createElement('div');
+            div.className = 'step-row';
+            div.id = rowId;
+            div.innerHTML = `
+                <span class="badge badge-cyan" style="font-size:0.72rem;">#${stepNum}</span>
+                <input type="text" class="form-control step-name-input" value="${name}" placeholder="Instrucción de este paso..." style="flex-grow:1; padding:0.45rem 0.75rem;" required>
+                <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.75rem; color:var(--text-muted); white-space:nowrap; cursor:pointer;">
+                    <input type="checkbox" class="step-req-check" ${isRequired ? 'checked' : ''}> Obligatorio
+                </label>
+                <button type="button" class="btn btn-outline" style="padding:0.3rem 0.5rem; font-size:0.75rem; color:var(--danger); border-color:transparent;" onclick="removeStepRow('${rowId}')" title="Quitar paso">
+                    <i class="bi bi-trash"></i>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeStepRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+            renumberSteps();
+        }
+
+        function renumberSteps() {
+            const container = document.getElementById('stepsContainer');
+            Array.from(container.children).forEach((row, idx) => {
+                const badge = row.querySelector('.badge-cyan');
+                if (badge) badge.innerText = `#${idx + 1}`;
+            });
+        }
+
+        function getStepsData() {
+            const container = document.getElementById('stepsContainer');
+            const rows = Array.from(container.children);
+            return rows.map((r, idx) => ({
+                stepOrder: idx + 1,
+                name: r.querySelector('.step-name-input').value.trim(),
+                isRequired: r.querySelector('.step-req-check').checked
+            })).filter(s => s.name.length > 0);
         }
 
         // ==========================================
@@ -570,23 +846,26 @@
                             ${stageCps.length ? stageCps.map(cp => {
                                 let pol = {};
                                 try { pol = typeof cp.policiesJson === 'string' ? JSON.parse(cp.policiesJson) : cp.policiesJson || {}; } catch(e){}
+                                const steps = cp.steps || [];
+                                const koTriggerCp = cp.triggeredByKo ? checkpoints.find(c => c.idCheckpoint === cp.triggeredByKo) : null;
                                 return `
                                 <div class="checkpoint-card ${!cp.isActive ? 'inactive' : ''}">
-                                    <div>
+                                    <div style="flex-grow:1; margin-right:1rem;">
                                         <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem; flex-wrap:wrap;">
                                             <span style="font-family:'JetBrains Mono'; font-weight:700; color:var(--cyan); font-size:0.82rem;">${cp.code}</span>
                                             <strong style="font-size:0.92rem;">${cp.name}</strong>
                                             ${!cp.isActive ? '<span class="badge badge-inactive">INACTIVO</span>' : ''}
                                             ${cp.finalizesCycle ? '<span class="badge badge-final">⛔ Cierre KO</span>' : ''}
                                             ${cp.blocksAdvance ? '<span class="badge badge-block">Bloqueante</span>' : '<span class="badge badge-optional">Opcional</span>'}
-                                            ${cp.triggeredByKo ? `<span class="badge badge-chain">⚡ KO de #${cp.triggeredByKo}</span>` : ''}
+                                            ${koTriggerCp ? `<span class="badge badge-chain">⚡ KO de ${koTriggerCp.code}</span>` : ''}
                                             ${pol.requiresSupervisorApproval ? '<span class="badge badge-policy">👔 Req. Supervisor</span>' : ''}
                                             ${pol.autoAdvanceOnApproval ? '<span class="badge badge-policy">⚡ Auto-Avanza</span>' : ''}
                                             ${pol.handshakeTimeoutMinutes ? `<span class="badge badge-cyan"><i class="bi bi-stopwatch"></i> ${pol.handshakeTimeoutMinutes}m</span>` : ''}
+                                            <span class="badge badge-steps"><i class="bi bi-list-check me-1"></i>${steps.length} pasos</span>
                                         </div>
-                                        <div style="font-size:0.8rem; color:var(--text-muted);">${cp.description || 'Sin pasos especificados.'}</div>
+                                        <div style="font-size:0.8rem; color:var(--text-muted);">${cp.description || 'Sin descripción.'}</div>
                                         <div style="font-size:0.75rem; color:#818cf8; margin-top:0.3rem;">
-                                            <i class="bi bi-person-badge me-1"></i>Dueño: ${cp.ownerDept} | CTI Handshake: ${pol.enableHandshake !== false ? 'Habilitado' : 'Desactivado'}
+                                            <i class="bi bi-person-badge me-1"></i>Dueño: <strong>${cp.ownerDept}</strong> | Cartera: <strong>${cp.scope}</strong> | CTI Handshake: ${pol.enableHandshake !== false ? 'Habilitado' : 'Desactivado'}
                                         </div>
                                     </div>
                                     <div style="display:flex; gap:0.35rem;">
@@ -606,14 +885,14 @@
         }
 
         // ==========================================
-        // CRUD CICLOS (Soft Delete)
+        // CRUD CICLOS
         // ==========================================
         function openNewCycleModal() {
             document.getElementById('cycleId').value = '';
             document.getElementById('cycleCode').value = `CYCLE_${Math.floor(100 + Math.random() * 900)}`;
             document.getElementById('cycleName').value = '';
             document.getElementById('cycleDesc').value = '';
-            document.getElementById('cycleScope').value = 'Telecom';
+            if (cachedPortfolios.length) document.getElementById('cycleScope').value = cachedPortfolios[0].portfolioCode;
             document.getElementById('modalCycleTitle').innerText = 'Crear Nuevo Ciclo';
             openModal('cycleModal');
         }
@@ -786,8 +1065,18 @@
         }
 
         // ==========================================
-        // CRUD CHECKPOINTS (Soft Delete / Toggle)
+        // CRUD CHECKPOINTS (Pasos 1 a 1, Roles & Disparo KO Combo)
         // ==========================================
+        function populateKoTriggerOptions(currentCpId, selectedKoId) {
+            const select = document.getElementById('cpTriggeredByKo');
+            const allCps = currentCycleData?.checkpoints || [];
+            const availableCps = allCps.filter(c => c.idCheckpoint !== currentCpId);
+
+            select.innerHTML = '<option value="">No aplica (Sin contingencia KO previa)</option>' + availableCps.map(c => `
+                <option value="${c.idCheckpoint}" ${c.idCheckpoint === selectedKoId ? 'selected' : ''}>[${c.code}] ${c.name}</option>
+            `).join('');
+        }
+
         function openNewCheckpointModal(stageId) {
             document.getElementById('cpId').value = '';
             document.getElementById('cpStageId').value = stageId;
@@ -796,8 +1085,11 @@
             document.getElementById('cpDesc').value = '';
             document.getElementById('cpBlocks').value = 'true';
             document.getElementById('cpFinalizes').value = 'false';
-            document.getElementById('cpTriggeredByKo').value = '';
             
+            // Steps 1 a 1 (Inicializa con 1 paso por defecto)
+            document.getElementById('stepsContainer').innerHTML = '';
+            addStepRow('Validación y registro de actuación', true);
+
             // Default policies
             document.getElementById('polEnableHandshake').value = 'true';
             document.getElementById('polReqSupervisor').value = 'false';
@@ -805,6 +1097,7 @@
             document.getElementById('polTimeoutSelect').value = 'none';
             toggleTimeoutField();
 
+            populateKoTriggerOptions(null, null);
             populateRollbackStages();
             openModal('checkpointModal');
         }
@@ -824,9 +1117,20 @@
                 document.getElementById('cpScope').value = cp.scope || 'Telecom';
                 document.getElementById('cpBlocks').value = cp.blocksAdvance ? 'true' : 'false';
                 document.getElementById('cpFinalizes').value = cp.finalizesCycle ? 'true' : 'false';
-                document.getElementById('cpTriggeredByKo').value = cp.triggeredByKo || '';
                 document.getElementById('cpTriggerType').value = cp.activationTrigger || 'IMMEDIATE';
                 document.getElementById('cpDelayDays').value = cp.delayDays || '';
+
+                // Pasos 1 a 1
+                document.getElementById('stepsContainer').innerHTML = '';
+                const steps = cp.steps || [];
+                if (steps.length) {
+                    steps.forEach(s => addStepRow(s.name, s.isRequired));
+                } else {
+                    addStepRow('Paso 1 de verificación', true);
+                }
+
+                // Disparo KO en Combo
+                populateKoTriggerOptions(cp.idCheckpoint, cp.triggeredByKo);
 
                 // Políticas
                 let pol = {};
@@ -857,6 +1161,8 @@
             const id = document.getElementById('cpId').value;
             const enableHs = document.getElementById('polEnableHandshake').value === 'true';
             const timeoutVal = document.getElementById('polTimeoutSelect').value;
+            const triggeredByKoVal = document.getElementById('cpTriggeredByKo').value;
+            const stepsData = getStepsData();
 
             const policiesObj = {
                 enableHandshake: enableHs,
@@ -877,12 +1183,13 @@
                 scope: document.getElementById('cpScope').value,
                 blocksAdvance: document.getElementById('cpBlocks').value === 'true',
                 finalizesCycle: document.getElementById('cpFinalizes').value === 'true',
-                triggeredByKo: parseInt(document.getElementById('cpTriggeredByKo').value) || null,
+                triggeredByKo: triggeredByKoVal ? parseInt(triggeredByKoVal) : null,
                 rollbackToStage: parseInt(document.getElementById('cpRollbackStage').value) || null,
                 activationTrigger: document.getElementById('cpTriggerType').value,
                 delayDays: parseInt(document.getElementById('cpDelayDays').value) || null,
                 policiesJson: JSON.stringify(policiesObj),
-                isActive: true
+                isActive: true,
+                steps: stepsData
             };
 
             const url = id ? `/api/cycles/checkpoints/${id}` : `/api/cycles/${currentCycleId}/checkpoints`;
@@ -964,7 +1271,7 @@
         }
 
         // Inicialización
-        loadCyclesSidebar().then(() => loadCycleDetail(currentCycleId));
+        Promise.all([loadMetaCatalogs(), loadCyclesSidebar()]).then(() => loadCycleDetail(currentCycleId));
     </script>
 </body>
 </html>

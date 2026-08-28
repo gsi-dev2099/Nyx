@@ -188,6 +188,33 @@ public class CycleDefinitionDetailDto : CycleDefinition
     public List<CheckpointCatalogDetailDto> Checkpoints { get; set; } = new();
 }
 
+public class MetaRole
+{
+    public long IdRole { get; set; }
+    public string RoleCode { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? ExternalSystemCode { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class MetaPortfolio
+{
+    public long IdPortfolio { get; set; }
+    public string PortfolioCode { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? ExternalSystemCode { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class SaveCheckpointDto : CheckpointCatalog
+{
+    public List<CheckpointStep>? Steps { get; set; }
+}
+
 public class CycleStageDetailDto : CycleStage
 {
     public List<CheckpointCatalogDetailDto> Checkpoints { get; set; } = new();
