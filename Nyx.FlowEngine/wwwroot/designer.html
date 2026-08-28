@@ -411,7 +411,7 @@
                             </div>
                             <div class="form-group" style="margin-bottom:0.6rem;">
                                 <label class="form-label">↩️ ¿Receptor puede devolver si aceptó por error?</label>
-                                <select id="polAllowRevert" class="form-control">
+                                <select id="polAllowReceptorRevert" class="form-control">
                                     <option value="false">No (Custodia permanente)</option>
                                     <option value="true">Sí (Puede devolver al titular si fue por error)</option>
                                 </select>
@@ -1295,7 +1295,15 @@
         }
 
         // Inicialización
-        Promise.all([loadMetaCatalogs(), loadCyclesSidebar()]).then(() => loadCycleDetail(currentCycleId));
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryCycleId = urlParams.get('id') || urlParams.get('cycleId');
+        if (queryCycleId && !isNaN(parseInt(queryCycleId))) {
+            currentCycleId = parseInt(queryCycleId);
+        }
+
+        Promise.all([loadMetaCatalogs(), loadCyclesSidebar()]).then(() => {
+            if (currentCycleId) loadCycleDetail(currentCycleId);
+        });
     </script>
 </body>
 </html>
