@@ -173,6 +173,20 @@ public class CycleController : ControllerBase
         return Ok(created);
     }
 
+    [HttpGet("meta/campaigns")]
+    public async Task<IActionResult> GetCampaigns()
+    {
+        var campaigns = await _service.GetMetaCampaignsAsync();
+        return Ok(campaigns);
+    }
+
+    [HttpPost("meta/campaigns")]
+    public async Task<IActionResult> CreateCampaign([FromBody] MetaCampaign campaign)
+    {
+        var created = await _service.CreateMetaCampaignAsync(campaign);
+        return Ok(created);
+    }
+
     [HttpPost("checkpoints/{cpId:long}/canvas")]
     public async Task<IActionResult> SaveCanvasSchema(long cpId, [FromBody] CanvasSchemaPayload payload)
     {

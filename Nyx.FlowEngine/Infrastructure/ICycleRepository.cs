@@ -35,11 +35,13 @@ public interface ICycleRepository
     Task<bool> UpdateCheckpointCanvasSchemaAsync(long checkpointId, string canvasSchemaJson);
     Task BulkUpsertCheckpointsAsync(long cycleId, IEnumerable<CheckpointCatalog> checkpoints);
 
-    // Metadatos y Conciliación (Roles y Carteras)
+    // Metadatos y Conciliación (Roles, Carteras y Campañas)
     Task<IEnumerable<MetaRole>> GetMetaRolesAsync();
     Task<long> CreateMetaRoleAsync(MetaRole role);
     Task<IEnumerable<MetaPortfolio>> GetMetaPortfoliosAsync();
     Task<long> CreateMetaPortfolioAsync(MetaPortfolio portfolio);
+    Task<IEnumerable<MetaCampaign>> GetMetaCampaignsAsync();
+    Task<long> CreateMetaCampaignAsync(MetaCampaign campaign);
 
     // Políticas
     Task<IEnumerable<CyclePolicyRule>> GetPoliciesAsync(long? cycleId);

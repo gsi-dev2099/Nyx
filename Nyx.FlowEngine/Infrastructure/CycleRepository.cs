@@ -390,6 +390,24 @@ public class CycleRepository : ICycleRepository
         return await conn.ExecuteScalarAsync<long>(sql, portfolio);
     }
 
+    public async Task<IEnumerable<MetaCampaign>> GetMetaCampaignsAsync()
+    {
+        using var conn = CreateConnection();
+        const string sql = "SELECT * FROM nyx_flow.meta_campaign WHERE is_active = true ORDER BY name ASC;";
+        return await conn.QueryAsync<MetaCampaign>(sql);
+    }
+
+    public async Task<long> CreateMetaCampaignAsync(MetaCampaign campaign)
+    {
+        using var conn = CreateConnection();
+        const string sql = @"
+            INSERT INTO nyx_flow.meta_campaign (campaign_code, name, description, external_system_code, is_active, created_at)
+            VALUES (@CampaignCode, @Name, @Description, @ExternalSystemCode, @IsActive, @CreatedAt)
+            ON CONFLICT (campaign_code) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, external_system_code = EXCLUDED.external_system_code, is_active = EXCLUDED.is_active
+            RETURNING id_campaign;";
+        return await conn.ExecuteScalarAsync<long>(sql, campaign);
+    }
+
     // ==========================================
     // POLÍTICAS
     // ==========================================

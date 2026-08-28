@@ -293,8 +293,36 @@
         let currentInstanceId = 1;
         let currentUiContext = null;
 
+        async function loadSimulatorCycles() {
+            try {
+                const res = await fetch('/api/cycles?includeInactive=false');
+                if (!res.ok) return;
+                const cycles = await res.json();
+                const select = document.getElementById('simCycleSelect');
+                if (!cycles || !cycles.length) {
+                    select.innerHTML = '<option value="">No hay ciclos disponibles</option>';
+                    return;
+                }
+                const urlParams = new URLSearchParams(window.location.search);
+                const queryCode = urlParams.get('cycleCode') || urlParams.get('code');
+                const queryId = urlParams.get('id') || urlParams.get('cycleId');
+
+                select.innerHTML = cycles.map(c => `
+                    <option value="${c.cycleCode}" ${(queryCode === c.cycleCode || (queryId && parseInt(queryId) === c.idCycle)) ? 'selected' : ''}>
+                        [${c.cycleCode}] ${c.name}
+                    </option>
+                `).join('');
+            } catch (err) {
+                console.error('Error al cargar ciclos para el simulador:', err);
+            }
+        }
+
         async function startNewInstance() {
             const cycleCode = document.getElementById('simCycleSelect').value;
+            if (!cycleCode) {
+                alert('Selecciona un ciclo válido primero.');
+                return;
+            }
             const entityId = parseInt(document.getElementById('simEntityId').value) || 9901;
             const actorId = parseInt(document.getElementById('simActorSelect').value) || 101;
 
@@ -504,7 +532,7 @@
         }
 
         // Init
-        refreshUiContext();
+        loadSimulatorCycles().then(() => refreshUiContext());
     </script>
 </body>
 </html>

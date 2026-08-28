@@ -30,11 +30,13 @@ public interface ICycleService
     Task SaveCheckpointStepsAsync(long checkpointId, IEnumerable<CheckpointStep> steps);
     Task SaveCheckpointCanvasSchemaAsync(long checkpointId, string canvasSchemaJson);
 
-    // Metadatos y Conciliación (Roles y Carteras)
+    // Metadatos y Conciliación (Roles, Carteras y Campañas)
     Task<IEnumerable<MetaRole>> GetMetaRolesAsync();
     Task<MetaRole> CreateMetaRoleAsync(MetaRole role);
     Task<IEnumerable<MetaPortfolio>> GetMetaPortfoliosAsync();
     Task<MetaPortfolio> CreateMetaPortfolioAsync(MetaPortfolio portfolio);
+    Task<IEnumerable<MetaCampaign>> GetMetaCampaignsAsync();
+    Task<MetaCampaign> CreateMetaCampaignAsync(MetaCampaign campaign);
 
     // Políticas
     Task<IEnumerable<CyclePolicyRule>> GetPoliciesAsync(long? cycleId);

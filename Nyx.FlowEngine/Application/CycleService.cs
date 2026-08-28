@@ -220,6 +220,16 @@ public class CycleService : ICycleService
         return portfolio;
     }
 
+    public async Task<IEnumerable<MetaCampaign>> GetMetaCampaignsAsync() => await _repo.GetMetaCampaignsAsync();
+
+    public async Task<MetaCampaign> CreateMetaCampaignAsync(MetaCampaign campaign)
+    {
+        var id = await _repo.CreateMetaCampaignAsync(campaign);
+        campaign.IdCampaign = id;
+        await _repo.LogAuditAsync(1, "META_CAMPAIGN_SAVED", null, null, $"{{\"campaignCode\":\"{campaign.CampaignCode}\",\"name\":\"{campaign.Name}\"}}");
+        return campaign;
+    }
+
     // ==========================================
     // POLÍTICAS
     // ==========================================

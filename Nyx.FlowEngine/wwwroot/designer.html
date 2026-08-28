@@ -311,20 +311,27 @@
                     </div>
                 </div>
 
-                <div class="form-grid">
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
                     <div class="form-group">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                            <label class="form-label" style="margin-bottom:0;">Rol / Dueño Responsable</label>
-                            <a href="javascript:void(0)" onclick="quickCreateRole()" style="font-size:0.75rem; color:var(--primary); text-decoration:none;">+ Nuevo Rol</a>
+                            <label class="form-label" style="margin-bottom:0;">Rol / Dueño</label>
+                            <a href="javascript:void(0)" onclick="quickCreateRole()" style="font-size:0.75rem; color:var(--primary); text-decoration:none;">+ Rol</a>
                         </div>
                         <select id="cpOwner" class="form-control"></select>
                     </div>
                     <div class="form-group">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                             <label class="form-label" style="margin-bottom:0;">Ámbito / Cartera</label>
-                            <a href="javascript:void(0)" onclick="quickCreatePortfolio()" style="font-size:0.75rem; color:var(--cyan); text-decoration:none;">+ Nueva Cartera</a>
+                            <a href="javascript:void(0)" onclick="quickCreatePortfolio()" style="font-size:0.75rem; color:var(--cyan); text-decoration:none;">+ Cartera</a>
                         </div>
                         <select id="cpScope" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label class="form-label" style="margin-bottom:0;">Campaña</label>
+                            <a href="javascript:void(0)" onclick="quickCreateCampaign()" style="font-size:0.75rem; color:var(--warning); text-decoration:none;">+ Campaña</a>
+                        </div>
+                        <select id="cpCampaign" class="form-control"></select>
                     </div>
                 </div>
 
@@ -447,22 +454,22 @@
         </div>
     </div>
 
-    <!-- Modal Catálogos y Conciliación de Roles & Carteras -->
+    <!-- Modal Catálogos y Conciliación de Roles, Carteras & Campañas -->
     <div class="modal-overlay" id="catalogsModal">
-        <div class="modal-card" style="width: 780px;">
+        <div class="modal-card" style="width: 950px; max-width: 95%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h3 style="font-size: 1.25rem; font-weight: 700;"><i class="bi bi-sliders text-primary me-2"></i> Gestión & Conciliación de Catálogos</h3>
                 <button onclick="closeModal('catalogsModal')" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer;">&times;</button>
             </div>
             <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.2rem;">
-                Administra los Roles y Carteras disponibles en el motor, con sus códigos de homologación externa para conciliar con sistemas CRM / ERP si aplica.
+                Administra los Roles, Carteras y Campañas Comerciales disponibles en el motor, con sus códigos de homologación externa para conciliar con sistemas CRM / ERP si aplica.
             </p>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.2rem;">
                 <!-- Roles -->
                 <div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-                        <h4 style="font-size:0.95rem; font-weight:700; color:var(--primary);"><i class="bi bi-person-badge me-1"></i> Roles</h4>
+                        <h4 style="font-size:0.92rem; font-weight:700; color:var(--primary);"><i class="bi bi-person-badge me-1"></i> Roles</h4>
                         <button class="btn btn-primary" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="quickCreateRole()">+ Rol</button>
                     </div>
                     <div id="rolesListTable" style="max-height: 250px; overflow-y: auto; background: #161f30; border-radius: 10px; padding: 0.5rem;"></div>
@@ -471,10 +478,19 @@
                 <!-- Carteras -->
                 <div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-                        <h4 style="font-size:0.95rem; font-weight:700; color:var(--cyan);"><i class="bi bi-briefcase me-1"></i> Carteras</h4>
+                        <h4 style="font-size:0.92rem; font-weight:700; color:var(--cyan);"><i class="bi bi-briefcase me-1"></i> Carteras</h4>
                         <button class="btn btn-primary" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="quickCreatePortfolio()">+ Cartera</button>
                     </div>
                     <div id="portfoliosListTable" style="max-height: 250px; overflow-y: auto; background: #161f30; border-radius: 10px; padding: 0.5rem;"></div>
+                </div>
+
+                <!-- Campañas -->
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                        <h4 style="font-size:0.92rem; font-weight:700; color:var(--warning);"><i class="bi bi-megaphone me-1"></i> Campañas</h4>
+                        <button class="btn btn-primary" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="quickCreateCampaign()">+ Campaña</button>
+                    </div>
+                    <div id="campaignsListTable" style="max-height: 250px; overflow-y: auto; background: #161f30; border-radius: 10px; padding: 0.5rem;"></div>
                 </div>
             </div>
 
@@ -534,6 +550,31 @@
         </div>
     </div>
 
+    <!-- Modal Rápido: Crear Campaña -->
+    <div class="modal-overlay" id="quickCampaignModal">
+        <div class="modal-card" style="width: 480px; z-index: 350;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1.2rem;">Crear Nueva Campaña Comercial</h3>
+            <form onsubmit="saveQuickCampaign(event)">
+                <div class="form-group">
+                    <label class="form-label">Código de la Campaña (ej. FIBRA_FLASH, RETENCION_INBOUND)</label>
+                    <input type="text" id="newCampCode" class="form-control" required placeholder="FIBRA_FLASH">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nombre de la Campaña</label>
+                    <input type="text" id="newCampName" class="form-control" required placeholder="Campaña Fibra Flash 1Gbps">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Código Conciliación Sistema Externo (Opcional)</label>
+                    <input type="text" id="newCampExtCode" class="form-control" placeholder="CRM_CAMP_FLASH_2026">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('quickCampaignModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar Campaña</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal Import GSI JSON -->
     <div class="modal-overlay" id="importModal">
         <div class="modal-card">
@@ -564,6 +605,7 @@
         let showInactive = false;
         let cachedRoles = [];
         let cachedPortfolios = [];
+        let cachedCampaigns = [];
 
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -581,29 +623,33 @@
         }
 
         // ==========================================
-        // CATÁLOGOS DINÁMICOS: ROLES Y CARTERAS
+        // CATÁLOGOS DINÁMICOS: ROLES, CARTERAS & CAMPAÑAS
         // ==========================================
         async function loadMetaCatalogs() {
             try {
-                const [rolesRes, portsRes] = await Promise.all([
+                const [rolesRes, portsRes, campsRes] = await Promise.all([
                     fetch('/api/cycles/meta/roles'),
-                    fetch('/api/cycles/meta/portfolios')
+                    fetch('/api/cycles/meta/portfolios'),
+                    fetch('/api/cycles/meta/campaigns')
                 ]);
                 cachedRoles = await rolesRes.json();
                 cachedPortfolios = await portsRes.json();
+                cachedCampaigns = await campsRes.json();
 
                 populateSelectOptions();
             } catch (err) {
-                console.error(err);
+                console.error('Error cargando catálogos:', err);
             }
         }
 
         function populateSelectOptions() {
             // Populate cpOwner
             const ownerSelect = document.getElementById('cpOwner');
-            ownerSelect.innerHTML = cachedRoles.map(r => `
-                <option value="${r.roleCode}">${r.name} (${r.roleCode})</option>
-            `).join('');
+            if (ownerSelect) {
+                ownerSelect.innerHTML = cachedRoles.map(r => `
+                    <option value="${r.roleCode}">${r.name} (${r.roleCode})</option>
+                `).join('');
+            }
 
             // Populate cpScope & cycleScope
             const scopeSelect = document.getElementById('cpScope');
@@ -612,8 +658,16 @@
                 <option value="${p.portfolioCode}">${p.name} (${p.portfolioCode})</option>
             `).join('');
 
-            scopeSelect.innerHTML = portOptions;
-            cycleScopeSelect.innerHTML = portOptions;
+            if (scopeSelect) scopeSelect.innerHTML = portOptions;
+            if (cycleScopeSelect) cycleScopeSelect.innerHTML = portOptions;
+
+            // Populate cpCampaign
+            const campSelect = document.getElementById('cpCampaign');
+            if (campSelect) {
+                campSelect.innerHTML = cachedCampaigns.map(c => `
+                    <option value="${c.campaignCode}">${c.name} (${c.campaignCode})</option>
+                `).join('');
+            }
         }
 
         function quickCreateRole() {
@@ -679,6 +733,39 @@
             }
         }
 
+        function quickCreateCampaign() {
+            document.getElementById('newCampCode').value = '';
+            document.getElementById('newCampName').value = '';
+            document.getElementById('newCampExtCode').value = '';
+            openModal('quickCampaignModal');
+        }
+
+        async function saveQuickCampaign(e) {
+            e.preventDefault();
+            const payload = {
+                campaignCode: document.getElementById('newCampCode').value.trim(),
+                name: document.getElementById('newCampName').value.trim(),
+                externalSystemCode: document.getElementById('newCampExtCode').value.trim() || null,
+                isActive: true
+            };
+            try {
+                const res = await fetch('/api/cycles/meta/campaigns', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    closeModal('quickCampaignModal');
+                    await loadMetaCatalogs();
+                    if (document.getElementById('cpCampaign')) {
+                        document.getElementById('cpCampaign').value = payload.campaignCode;
+                    }
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
         function openCatalogsModal() {
             renderCatalogsTables();
             openModal('catalogsModal');
@@ -699,6 +786,15 @@
                     <div>
                         <strong style="color:#fff;">${p.name}</strong> <code>${p.portfolioCode}</code>
                         ${p.externalSystemCode ? `<div style="font-size:0.7rem; color:var(--cyan);">🔗 Sistema Ext: ${p.externalSystemCode}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('campaignsListTable').innerHTML = cachedCampaigns.map(c => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.8rem;">
+                    <div>
+                        <strong style="color:#fff;">${c.name}</strong> <code>${c.campaignCode}</code>
+                        ${c.externalSystemCode ? `<div style="font-size:0.7rem; color:var(--warning);">🔗 Sistema Ext: ${c.externalSystemCode}</div>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -884,7 +980,7 @@
                                         </div>
                                         <div style="font-size:0.8rem; color:var(--text-muted);">${cp.description || 'Sin descripción.'}</div>
                                         <div style="font-size:0.75rem; color:#818cf8; margin-top:0.3rem;">
-                                            <i class="bi bi-person-badge me-1"></i>Dueño: <strong>${cp.ownerDept}</strong> | Cartera: <strong>${cp.scope}</strong> | CTI Handshake: ${pol.enableHandshake !== false ? 'Habilitado' : 'Desactivado'}
+                                            <i class="bi bi-person-badge me-1"></i>Dueño: <strong>${cp.ownerDept}</strong> | Cartera: <strong>${cp.scope}</strong> | Campaña: <strong style="color:var(--warning);">${cp.category || 'GENERAL'}</strong> | CTI: ${pol.enableHandshake !== false ? 'Habilitado' : 'Desactivado'}
                                         </div>
                                     </div>
                                     <div style="display:flex; gap:0.35rem;">
@@ -1104,6 +1200,9 @@
             document.getElementById('cpDesc').value = '';
             document.getElementById('cpBlocks').value = 'true';
             document.getElementById('cpFinalizes').value = 'false';
+            if (cachedCampaigns.length && document.getElementById('cpCampaign')) {
+                document.getElementById('cpCampaign').value = cachedCampaigns[0].campaignCode;
+            }
             
             // Steps 1 a 1 (Inicializa con 1 paso por defecto)
             document.getElementById('stepsContainer').innerHTML = '';
@@ -1136,6 +1235,9 @@
                 document.getElementById('cpDesc').value = cp.description || '';
                 document.getElementById('cpOwner').value = cp.ownerDept || 'Asesor';
                 document.getElementById('cpScope').value = cp.scope || 'Telecom';
+                if (document.getElementById('cpCampaign')) {
+                    document.getElementById('cpCampaign').value = cp.category || (cachedCampaigns.length ? cachedCampaigns[0].campaignCode : 'GENERAL');
+                }
                 document.getElementById('cpBlocks').value = cp.blocksAdvance ? 'true' : 'false';
                 document.getElementById('cpFinalizes').value = cp.finalizesCycle ? 'true' : 'false';
                 document.getElementById('cpTriggerType').value = cp.activationTrigger || 'IMMEDIATE';
@@ -1186,6 +1288,7 @@
             const timeoutVal = document.getElementById('polTimeoutSelect').value;
             const triggeredByKoVal = document.getElementById('cpTriggeredByKo').value;
             const stepsData = getStepsData();
+            const campVal = document.getElementById('cpCampaign') ? document.getElementById('cpCampaign').value : 'GENERAL';
 
             const policiesObj = {
                 enableHandshake: enableHs,
@@ -1205,6 +1308,7 @@
                 description: document.getElementById('cpDesc').value.trim(),
                 ownerDept: document.getElementById('cpOwner').value,
                 scope: document.getElementById('cpScope').value,
+                category: campVal,
                 blocksAdvance: document.getElementById('cpBlocks').value === 'true',
                 finalizesCycle: document.getElementById('cpFinalizes').value === 'true',
                 triggeredByKo: triggeredByKoVal ? parseInt(triggeredByKoVal) : null,

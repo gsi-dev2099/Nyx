@@ -1,5 +1,5 @@
 -- ==========================================================
--- NYX FLOW ENGINE STANDALONE — DDL MULTI-NIVEL
+-- NYX FLOW ENGINE STANDALONE — DDL & MASTER DATA
 -- JERARQUÍA OFICIAL: CICLOS -> ETAPAS -> CHECKPOINTS -> CANVAS
 -- ==========================================================
 
@@ -75,7 +75,38 @@ CREATE TABLE IF NOT EXISTS nyx_flow.checkpoint_step (
     is_required BOOLEAN NOT NULL DEFAULT TRUE
 );
 
--- 5. TABLA: POLÍTICAS Y REGLAS DE ACTUACIÓN
+-- 5. TABLA: CATÁLOGOS DINÁMICOS DE METADATOS
+CREATE TABLE IF NOT EXISTS nyx_flow.meta_role (
+    id_role SERIAL PRIMARY KEY,
+    role_code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    external_system_code VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS nyx_flow.meta_portfolio (
+    id_portfolio SERIAL PRIMARY KEY,
+    portfolio_code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    external_system_code VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS nyx_flow.meta_campaign (
+    id_campaign SERIAL PRIMARY KEY,
+    campaign_code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    external_system_code VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. TABLA: POLÍTICAS Y REGLAS DE ACTUACIÓN
 CREATE TABLE IF NOT EXISTS nyx_flow.cycle_policy_rule (
     id_rule BIGSERIAL PRIMARY KEY,
     rule_code VARCHAR(50) NOT NULL UNIQUE,
@@ -89,7 +120,7 @@ CREATE TABLE IF NOT EXISTS nyx_flow.cycle_policy_rule (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 6. TABLA: INSTANCIAS ACTIVAS DE CICLO
+-- 7. TABLA: INSTANCIAS ACTIVAS DE CICLO
 CREATE TABLE IF NOT EXISTS nyx_flow.cycle_instance (
     id_instance BIGSERIAL PRIMARY KEY,
     id_cycle BIGINT NOT NULL REFERENCES nyx_flow.cycle_definition(id_cycle),
@@ -109,7 +140,7 @@ CREATE TABLE IF NOT EXISTS nyx_flow.cycle_instance (
     completed_at TIMESTAMPTZ DEFAULT NULL
 );
 
--- 7. TABLA: INSTANCIAS DE CHECKPOINT
+-- 8. TABLA: INSTANCIAS DE CHECKPOINT
 CREATE TABLE IF NOT EXISTS nyx_flow.checkpoint_instance (
     id_cp_instance BIGSERIAL PRIMARY KEY,
     id_instance BIGINT NOT NULL REFERENCES nyx_flow.cycle_instance(id_instance) ON DELETE CASCADE,
@@ -123,7 +154,18 @@ CREATE TABLE IF NOT EXISTS nyx_flow.checkpoint_instance (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 8. TABLA: TRANSICIONES DE ETAPA
+-- 9. TABLA: PROGRESO DE PASOS
+CREATE TABLE IF NOT EXISTS nyx_flow.checkpoint_step_progress (
+    id_progress BIGSERIAL PRIMARY KEY,
+    id_cp_instance BIGINT NOT NULL REFERENCES nyx_flow.checkpoint_instance(id_cp_instance) ON DELETE CASCADE,
+    id_step BIGINT NOT NULL REFERENCES nyx_flow.checkpoint_step(id_step) ON DELETE CASCADE,
+    is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_by BIGINT DEFAULT NULL,
+    completed_at TIMESTAMPTZ DEFAULT NULL,
+    CONSTRAINT uk_cp_instance_step UNIQUE (id_cp_instance, id_step)
+);
+
+-- 10. TABLA: TRANSICIONES DE ETAPA
 CREATE TABLE IF NOT EXISTS nyx_flow.stage_transition (
     id_transition BIGSERIAL PRIMARY KEY,
     id_instance BIGINT NOT NULL REFERENCES nyx_flow.cycle_instance(id_instance) ON DELETE CASCADE,
@@ -135,7 +177,7 @@ CREATE TABLE IF NOT EXISTS nyx_flow.stage_transition (
     transitioned_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 9. TABLA: LOG DE AUDITORÍA SHA-512
+-- 11. TABLA: LOG DE AUDITORÍA SHA-512
 CREATE TABLE IF NOT EXISTS nyx_flow.cycle_audit_log (
     id_log BIGSERIAL PRIMARY KEY,
     id_instance BIGINT REFERENCES nyx_flow.cycle_instance(id_instance) ON DELETE SET NULL,
@@ -148,8 +190,37 @@ CREATE TABLE IF NOT EXISTS nyx_flow.cycle_audit_log (
 );
 
 -- ==========================================================
--- SEED INICIAL: CICLO DE VENTAS TELECOM & POLÍTICAS
+-- DATOS SEMILLA (METADATOS, CICLO Y ETAPAS)
 -- ==========================================================
+INSERT INTO nyx_flow.meta_role (role_code, name, description)
+VALUES 
+    ('Asesor', 'Asesor Comercial / Front', 'Gestión de primer contacto y cierre'),
+    ('Supervisor', 'Supervisor de Turno / TM', 'Gobernanza y autorizaciones'),
+    ('Backoffice', 'Mesa de Backoffice / Operaciones', 'Tramitación y validaciones'),
+    ('Calidad', 'Auditoría de Calidad', 'Revisión de llamadas y cumplimiento'),
+    ('Operaciones', 'Operaciones y Logística', 'Despacho y agendamiento'),
+    ('Postventa', 'Atención Postventa y Retenciones', 'Resolución y retención'),
+    ('Proveedor', 'Instalador / Tercero Externo', 'Técnico de campo')
+ON CONFLICT (role_code) DO NOTHING;
+
+INSERT INTO nyx_flow.meta_portfolio (portfolio_code, name, description)
+VALUES 
+    ('Telecom', 'Telecomunicaciones (Fibra / Móvil)', 'Operadores de telecomunicaciones'),
+    ('Energia', 'Energía (Luz / Gas)', 'Comercializadoras energéticas'),
+    ('Alarma', 'Seguridad y Alarmas', 'Sistemas de seguridad y domótica'),
+    ('Seguros', 'Seguros y Pólizas', 'Pólizas de salud, hogar y autos'),
+    ('ENTITY', 'Genérico / Multi-cartera', 'Ámbito transversal')
+ON CONFLICT (portfolio_code) DO NOTHING;
+
+INSERT INTO nyx_flow.meta_campaign (campaign_code, name, description)
+VALUES 
+    ('GENERAL', 'Campaña General / Transversal', 'Campaña comercial estándar'),
+    ('PORTABILIDAD_FIBRA', 'Portabilidad Fibra + Móvil', 'Campañas de captación y portabilidad fija/móvil'),
+    ('RETENCION_INBOUND', 'Retención Inbound', 'Campañas de fidelización y retención'),
+    ('RENOVACION_UPGRADE', 'Renovación y Upgrade', 'Mejora de velocidad y terminales'),
+    ('ENERGIA_DUAL', 'Dual Luz + Gas Residencial', 'Campañas de suministro de energía')
+ON CONFLICT (campaign_code) DO NOTHING;
+
 INSERT INTO nyx_flow.cycle_definition (id_cycle, cycle_code, name, description, scope_type, is_active)
 VALUES (1, 'CYCLE_SALES_TELECOM', 'Ciclo de Ventas Telecomunicaciones', 'Pipeline integral de prospección, venta y verificación de servicios telecom', 'COMMERCIAL', TRUE)
 ON CONFLICT (cycle_code) DO NOTHING;
@@ -170,17 +241,5 @@ INSERT INTO nyx_flow.checkpoint_catalog (
     (12, 1, 2, 'CP12_CALL_HANDSHAKE', 'CP#12 Handshake Telefónico', 'Confirmación de recepción de llamada y titularidad', TRUE, 'CTI', 'Asesor', 2),
     (13, 1, 3, 'CP13_FIBER_COVERAGE', 'CP#13 Factibilidad Técnica Fibra', 'Validación CTO y velocidad de puerto GPON', TRUE, 'TECNICA', 'Backoffice', 3),
     (14, 1, 4, 'CP14_DIGITAL_SIGN', 'CP#14 Firma Digital del Contrato', 'Firma OTP vía SMS o Canvas Pad', TRUE, 'LEGAL', 'Asesor', 4),
-    (15, 1, 5, 'CP15_POST_D30_AUDIT', 'CP#15 Auditoría D+30 Calidad', 'Verificación de primera factura pagada', FALSE, 'CALIDAD', 'Auditoría', 5)
+    (15, 1, 5, 'CP15_POST_D30_AUDIT', 'CP#15 Auditoría D+30 Calidad', 'Verificación de primera factura pagada', FALSE, 'CALIDAD', 'Calidad', 5)
 ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO nyx_flow.cycle_policy_rule (rule_code, id_cycle, name, description, entity_type, action_trigger, rule_definition_json)
-VALUES (
-    'POLICY_CALL_HANDSHAKE_TELECOM', 
-    1, 
-    'Política de Transferencia y Retorno Estricto de Llamadas',
-    'Permite al dueño cancelar antes de aceptar y asegura que solo el receptor pueda revertir tras la aceptación',
-    'lead_presale',
-    'CALL_HANDSHAKE',
-    '{"handshake":{"requireExplicitAcceptance":true,"allowOwnerCancelBeforeAccept":true,"onlyReceptorCanRevertAfterAccept":true,"allowSupervisorOverride":true,"timeoutMinutes":15}}'
-)
-ON CONFLICT (rule_code) DO NOTHING;
