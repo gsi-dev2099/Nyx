@@ -172,6 +172,8 @@ services:
       context: .
       dockerfile: Nyx.FlowEngine/Dockerfile
     container_name: flow_engine_api
+    ports:
+      - "5072:5072"
     expose:
       - "5072"
     environment:
