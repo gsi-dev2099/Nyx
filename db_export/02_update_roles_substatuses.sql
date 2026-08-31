@@ -6,7 +6,7 @@ BEGIN;
 -- 1. Insertar subestado 23 (POR_CORREGIR_ASESOR) si no existe
 INSERT INTO sales_service.order_substatus (id_substatus, id_status, code, name, description) 
 OVERRIDING SYSTEM VALUE
-VALUES (23, 11, 'POR_CORREGIR_ASESOR', 'Por corregir por Asesor', 'Incidencia observada devuelta para corrección por el asesor') 
+VALUES (23, 11, 'POR_CORREGIR_ASESOR', 'Por corregir por Asesor', 'Incidencia observada devuelta para correcciÃƒÂ³n por el asesor') 
 ON CONFLICT (id_substatus) DO UPDATE SET name = EXCLUDED.name;
 
 -- 2. Asegurar mapeos de roles para usuarios de pruebas

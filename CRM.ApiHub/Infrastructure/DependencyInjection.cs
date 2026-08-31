@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<IProviderRepository, ProviderRepository>();
         services.AddScoped<IActivationRepository, ActivationRepository>();
         services.AddScoped<IReportRepository, ReportRepository>();
+        services.AddScoped<IUserPreferencesRepository, UserPreferencesRepository>();
 
         // Services & Stores
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
@@ -96,6 +97,7 @@ public static class DependencyInjection
         {
             var baseUrl = config["SlaEngineSettings:BaseUrl"] ?? "http://sla_engine_api:5070";
             client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(5);
         }).AddStandardResilienceHandler(options =>
         {
             options.Retry.MaxRetryAttempts = 3;
@@ -112,6 +114,7 @@ public static class DependencyInjection
         {
             var baseUrl = config["FlowEngineSettings:BaseUrl"] ?? "http://flow_engine_api:5072";
             client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(5);
         }).AddStandardResilienceHandler(options =>
         {
             options.Retry.MaxRetryAttempts = 3;
@@ -128,6 +131,7 @@ public static class DependencyInjection
         {
             var baseUrl = config["ApprovalEngineSettings:BaseUrl"] ?? "http://approval_engine_api:5071";
             client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(5);
         }).AddStandardResilienceHandler(options =>
         {
             options.Retry.MaxRetryAttempts = 3;

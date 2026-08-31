@@ -82,6 +82,7 @@ builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IKbService, CRM.WebFr
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.ICommissionService, CRM.WebFrontend.Client.Services.CommissionService>();
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IActivationService, CRM.WebFrontend.Client.Services.ActivationService>();
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IMaintenanceService, CRM.WebFrontend.Client.Services.MaintenanceService>();
+builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IApprovalService, CRM.WebFrontend.Client.Services.ApprovalService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<CRM.WebFrontend.ServerAuthHandler>();
 builder.Services.AddScoped(sp =>
@@ -157,6 +158,13 @@ app.MapPost("/login-endpoint", async (HttpContext httpContext, IHttpClientFactor
         var token = root.GetProperty("token").GetString();
         var refreshToken = root.GetProperty("refreshToken").GetString();
 
+        // Get user's theme preference from login response
+        var themeName = "theme-default";
+        if (root.TryGetProperty("themeName", out var themeNameProp))
+        {
+            themeName = themeNameProp.GetString() ?? "theme-default";
+        }
+
         // Get user details from /api/auth/me to know their name and role
         var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
         meRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
@@ -196,7 +204,8 @@ app.MapPost("/login-endpoint", async (HttpContext httpContext, IHttpClientFactor
             new System.Security.Claims.Claim(ClaimTypes.Role, role),
             new System.Security.Claims.Claim("access_token", token ?? ""),
             new System.Security.Claims.Claim("refresh_token", refreshToken ?? ""),
-            new System.Security.Claims.Claim("campaign", campaignName)
+            new System.Security.Claims.Claim("campaign", campaignName),
+            new System.Security.Claims.Claim("theme_name", themeName)
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

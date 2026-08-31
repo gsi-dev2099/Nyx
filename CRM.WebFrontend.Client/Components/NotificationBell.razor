@@ -199,6 +199,8 @@
 
     .notification-panel-header {
         background: #fafbfd;
+        border-top-left-radius: calc(1rem - 1px);
+        border-top-right-radius: calc(1rem - 1px);
     }
 
     .notification-panel-body {
@@ -237,6 +239,62 @@
             width: calc(100vw - 24px);
             right: -60px;
         }
+    }
+
+    /* ========================================= */
+    /* DARK MODE SUPPORT FOR NOTIFICATIONS       */
+    /* ========================================= */
+    [data-theme="dark"] .notification-panel {
+        background-color: var(--bg-card-galaxy, #111827) !important;
+        border-color: rgba(255,255,255,0.08) !important;
+    }
+    
+    [data-theme="dark"] .notification-panel-header {
+        background-color: var(--bg-app-galaxy, #0B0F1A) !important;
+        border-color: rgba(255,255,255,0.08) !important;
+        color: var(--text-primary-galaxy, #F1F5F9) !important;
+    }
+    
+    [data-theme="dark"] .notification-panel-header span,
+    [data-theme="dark"] .notification-panel-body span {
+        color: var(--text-primary-galaxy, #F1F5F9) !important;
+    }
+    
+    [data-theme="dark"] .notification-panel-body .text-muted {
+        color: var(--text-secondary-galaxy, #94A3B8) !important;
+    }
+
+    [data-theme="dark"] .notification-item.read {
+        background-color: var(--bg-card-galaxy, #111827) !important;
+        border-color: rgba(255,255,255,0.08) !important;
+    }
+    
+    [data-theme="dark"] .notification-item.unread {
+        background-color: rgba(37, 99, 235, 0.15) !important;
+        border-color: rgba(255,255,255,0.08) !important;
+    }
+    
+    [data-theme="dark"] .notification-item:hover {
+        background-color: rgba(255,255,255,0.05) !important;
+    }
+    
+    [data-theme="dark"] .notification-icon {
+        background-color: rgba(255,255,255,0.1) !important;
+    }
+    
+    [data-theme="dark"] .notification-bell-btn:hover, 
+    [data-theme="dark"] .notification-bell-btn.active {
+        background-color: rgba(255,255,255,0.1) !important;
+        color: #fff !important;
+    }
+
+    [data-theme="dark"] .modal-content {
+        background-color: var(--bg-card-galaxy, #111827) !important;
+        color: var(--text-primary-galaxy, #F1F5F9) !important;
+    }
+    [data-theme="dark"] .modal-body h6, 
+    [data-theme="dark"] .modal-body p {
+        color: var(--text-primary-galaxy, #F1F5F9) !important;
     }
 </style>
 

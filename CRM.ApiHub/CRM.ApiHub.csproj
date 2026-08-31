@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>cc1b78e1-eeea-485e-8ea6-85c6900f92af</UserSecretsId>
     <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
 
@@ -13,19 +14,22 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.9.0" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.0.2" />
     <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     <PackageReference Include="Serilog.Enrichers.Thread" Version="4.0.0" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Serilog.Sinks.Grafana.Loki" Version="9.0.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.2" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
+    <PackageReference Include="VaultSharp" Version="1.17.5.1" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.400.34" />
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.2.0" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.1" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.11.0" />

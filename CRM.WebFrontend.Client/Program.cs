@@ -22,5 +22,7 @@ builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IKbService, CRM.WebFr
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.ICommissionService, CRM.WebFrontend.Client.Services.CommissionService>();
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IActivationService, CRM.WebFrontend.Client.Services.ActivationService>();
 builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IMaintenanceService, CRM.WebFrontend.Client.Services.MaintenanceService>();
+builder.Services.AddScoped<CRM.WebFrontend.Client.Services.ILeadService, CRM.WebFrontend.Client.Services.LeadService>();
+builder.Services.AddScoped<CRM.WebFrontend.Client.Services.IApprovalService, CRM.WebFrontend.Client.Services.ApprovalService>();
 
 await builder.Build().RunAsync();

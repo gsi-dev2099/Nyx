@@ -23,6 +23,7 @@ public interface IFlowEngineClient
     Task<bool> ToggleStepProgressAsync(long cpInstanceId, long stepId, bool isCompleted, long? actorId = null);
     Task<IEnumerable<CheckpointStepProgressDto>> GetStepProgressAsync(long cpInstanceId);
     Task<bool> SetFactsAsync(long instanceId, string factsJson, long? actorId = null);
+    Task<bool> ValidateTransitionAsync(string entityType, int currentState, int targetState);
     Task<bool> SetEntityFactsAsync(string entityType, long entityId, string factsJson, long? actorId = null);
     Task<FlowInstanceWithCheckpointsDto?> SyncStageByStatusAsync(string entityType, long entityId, long statusId, long? actorId = null);
 }
@@ -342,6 +343,29 @@ public class FlowEngineClient : IFlowEngineClient
             _logger.LogWarning(ex, "Could not update facts for instance #{InstanceId}.", instanceId);
         }
         return false;
+    }
+
+    public async Task<bool> ValidateTransitionAsync(string entityType, int currentState, int targetState)
+    {
+        try
+        {
+            var payload = new { entityType, currentState, targetState };
+            var response = await _httpClient.PostAsJsonAsync("/api/flow/validate-transition", payload);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var isValid = await response.Content.ReadFromJsonAsync<bool>();
+                return isValid;
+            }
+            
+            _logger.LogWarning("FlowEngine ValidateTransition returned status code {StatusCode}.", response.StatusCode);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not validate transition for {EntityType} with FlowEngine.", entityType);
+            throw; 
+        }
     }
 
     public async Task<bool> SetEntityFactsAsync(string entityType, long entityId, string factsJson, long? actorId = null)

@@ -250,47 +250,40 @@ p, .lead { font-size: 0.8rem; color: var(--text-muted); }
     padding: 14px 16px;
 }
 
-/* Compact Forms overrides matching the clean light theme */
+/* Compact Forms overrides matching the new theme */
 .form-control, .form-select {
-    font-size: 0.82rem;
-    padding: 7px 12px;
-    border: 1px solid #CBD5E1;
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     background-color: #ffffff;
-    color: #0F172A !important;
+    color: var(--text-main);
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.01);
     transition: all 0.2s ease;
     height: auto;
 }
 
-.form-control::placeholder, input::placeholder, textarea::placeholder {
-    color: #64748B !important;
-    opacity: 1 !important;
-    font-weight: 400;
-}
-
 .form-control:focus, .form-select:focus {
-    border-color: #2563EB;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-    background-color: #ffffff;
-    color: #0F172A !important;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(28, 30, 33, 0.05);
+    background-color: var(--surface);
     outline: none;
 }
 
 .form-label {
-    font-weight: 600;
+    font-weight: 500;
     font-size: 0.775rem;
-    color: #334155;
+    color: var(--text-muted);
     margin-bottom: 3px;
 }
 
-/* Compact Pill Buttons with high contrast */
+/* Compact Pill Buttons using the Neon Accent color */
 .btn {
     font-size: 0.775rem;
     font-weight: 600;
     padding: 6px 14px;
     border-radius: var(--radius-pill);
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -298,91 +291,43 @@ p, .lead { font-size: 0.8rem; color: var(--text-muted); }
 }
 
 .btn-primary {
-    background-color: #2563EB !important;
-    border-color: #2563EB !important;
-    color: #FFFFFF !important;
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+    background-color: var(--neon) !important;
+    border-color: var(--neon) !important;
+    color: var(--text-main) !important;
+    box-shadow: 0 4px 12px rgba(212, 249, 83, 0.25);
 }
 
 .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
-    background-color: #1D4ED8 !important;
-    border-color: #1D4ED8 !important;
-    color: #FFFFFF !important;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    background-color: var(--neon-hover) !important;
+    border-color: var(--neon-hover) !important;
+    color: var(--text-main) !important;
+    box-shadow: 0 6px 18px rgba(212, 249, 83, 0.4);
     transform: translateY(-1px);
 }
 
 .btn-secondary, .btn-light {
     background-color: #ffffff;
-    border: 1px solid #CBD5E1;
-    color: #334155;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
 }
 
 .btn-secondary:hover, .btn-light:hover {
-    background-color: #F1F5F9 !important;
-    border-color: #94A3B8 !important;
-    color: #0F172A !important;
+    background-color: #fafafa !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-main) !important;
     transform: translateY(-1px);
 }
 
 .btn-outline-primary {
-    border: 1px solid #2563EB !important;
-    color: #2563EB !important;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
     background-color: transparent;
 }
 
 .btn-outline-primary:hover {
-    background-color: #2563EB !important;
-    border-color: #2563EB !important;
-    color: #FFFFFF !important;
-}
-
-.btn-outline-secondary {
-    border: 1px solid #CBD5E1 !important;
-    color: #334155 !important;
-    background-color: transparent;
-}
-
-.btn-outline-secondary:hover {
-    background-color: #334155 !important;
-    border-color: #334155 !important;
-    color: #FFFFFF !important;
-}
-
-.btn-outline-danger {
-    border: 1px solid #EF4444 !important;
-    color: #DC2626 !important;
-    background-color: transparent;
-}
-
-.btn-outline-danger:hover {
-    background-color: #DC2626 !important;
-    border-color: #DC2626 !important;
-    color: #FFFFFF !important;
-}
-
-.btn-outline-warning {
-    border: 1px solid #F59E0B !important;
-    color: #B45309 !important;
-    background-color: transparent;
-}
-
-.btn-outline-warning:hover {
-    background-color: #D97706 !important;
-    border-color: #D97706 !important;
-    color: #FFFFFF !important;
-}
-
-.btn-outline-success {
-    border: 1px solid #10B981 !important;
-    color: #059669 !important;
-    background-color: transparent;
-}
-
-.btn-outline-success:hover {
-    background-color: #059669 !important;
-    border-color: #059669 !important;
-    color: #FFFFFF !important;
+    background-color: rgba(0, 0, 0, 0.04) !important;
+    border-color: var(--primary) !important;
+    color: var(--primary) !important;
 }
 
 /* Badges */
@@ -589,72 +534,113 @@ p, .lead { font-size: 0.8rem; color: var(--text-muted); }
 
 /* ============================================================ */
 /* ACCESSIBILITY PALETTES (DALTONISMO & ALTO CONTRASTE)       */
+/* ONLY DESIGN COLORS — TEXT IS NEVER MODIFIED                */
 /* ============================================================ */
 
 /* 1. Protanopía / Deuteranopía (Adaptación Rojo-Verde) */
 body.theme-protanopia {
-    --bg-main: #F8FAFC;
-    --text-main: #0F172A;
-    --accent-blue: #1D4ED8;
-    --accent-gold: #D97706;
+    --primary: #1D4ED8;
+    --primary-hover: #1E40AF;
+    --secondary: #D97706;
+    --neon: #DBEAFE;
+    --neon-hover: #BFDBFE;
+}
+[data-theme="dark"] body.theme-protanopia {
+    --primary: #3B82F6;
+    --primary-hover: #60A5FA;
+    --secondary: #F59E0B;
+    --neon: #1E3A8A;
+    --neon-hover: #1E40AF;
 }
 
-body.theme-protanopia .badge-status,
-body.theme-protanopia .badge-success,
-body.theme-protanopia .text-success {
-    color: #1D4ED8 !important;
-    background-color: rgba(29, 78, 216, 0.12) !important;
-}
+body.theme-protanopia .btn-primary { background-color: var(--primary) !important; border-color: var(--primary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-protanopia .btn-primary { color: #0F172A !important; }
+body.theme-protanopia .btn-primary:hover { background-color: var(--primary-hover) !important; border-color: var(--primary-hover) !important; }
+body.theme-protanopia .form-control:focus, body.theme-protanopia .form-select:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.25) !important; }
+body.theme-protanopia .btn-outline-primary { border-color: var(--primary) !important; color: var(--primary) !important; }
+body.theme-protanopia .btn-outline-primary:hover { background-color: var(--primary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-protanopia .btn-outline-primary:hover { color: #0F172A !important; }
 
-body.theme-protanopia .badge-danger,
-body.theme-protanopia .text-danger {
-    color: #D97706 !important;
-    background-color: rgba(217, 119, 6, 0.12) !important;
-}
+body.theme-protanopia .badge-success, body.theme-protanopia .bg-success-subtle { background-color: rgba(29, 78, 216, 0.12) !important; color: var(--primary) !important; }
+body.theme-protanopia .badge-danger, body.theme-protanopia .bg-danger-subtle { background-color: rgba(217, 119, 6, 0.12) !important; color: var(--secondary) !important; }
+body.theme-protanopia .btn-success { background-color: var(--primary) !important; border-color: var(--primary) !important; color: #ffffff !important; }
+body.theme-protanopia .btn-danger { background-color: var(--secondary) !important; border-color: var(--secondary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-protanopia .btn-success { color: #0F172A !important; }
+[data-theme="dark"] body.theme-protanopia .btn-danger { color: #0F172A !important; }
+
+body.theme-protanopia .galaxy-nav-item.active { border-left-color: var(--primary) !important; background: rgba(29, 78, 216, 0.1) !important; }
+body.theme-protanopia ::-webkit-scrollbar-thumb { background: var(--primary) !important; }
+body.theme-protanopia .theme-card.active { border-color: var(--primary) !important; background: var(--neon) !important; }
 
 /* 2. Tritanopía (Adaptación Azul-Amarillo) */
 body.theme-tritanopia {
-    --bg-main: #F1F5F9;
-    --text-main: #1E293B;
-    --accent-red: #DC2626;
-    --accent-teal: #0D9488;
+    --primary: #DC2626;
+    --primary-hover: #B91C1C;
+    --secondary: #0D9488;
+    --neon: #FEE2E2;
+    --neon-hover: #FECACA;
+}
+[data-theme="dark"] body.theme-tritanopia {
+    --primary: #F87171;
+    --primary-hover: #FCA5A5;
+    --secondary: #2DD4BF;
+    --neon: #7F1D1D;
+    --neon-hover: #991B1B;
 }
 
-body.theme-tritanopia .badge-status,
-body.theme-tritanopia .badge-primary,
-body.theme-tritanopia .text-primary {
-    color: #DC2626 !important;
-    background-color: rgba(220, 38, 38, 0.12) !important;
-}
+body.theme-tritanopia .btn-primary { background-color: var(--primary) !important; border-color: var(--primary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-tritanopia .btn-primary { color: #0F172A !important; }
+body.theme-tritanopia .btn-primary:hover { background-color: var(--primary-hover) !important; border-color: var(--primary-hover) !important; }
+body.theme-tritanopia .form-control:focus, body.theme-tritanopia .form-select:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25) !important; }
+body.theme-tritanopia .btn-outline-primary { border-color: var(--primary) !important; color: var(--primary) !important; }
+body.theme-tritanopia .btn-outline-primary:hover { background-color: var(--primary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-tritanopia .btn-outline-primary:hover { color: #0F172A !important; }
 
-body.theme-tritanopia .badge-info,
-body.theme-tritanopia .text-info {
-    color: #0D9488 !important;
-    background-color: rgba(13, 148, 136, 0.12) !important;
-}
+body.theme-tritanopia .badge-primary, body.theme-tritanopia .bg-primary-subtle { background-color: rgba(220, 38, 38, 0.12) !important; color: var(--primary) !important; }
+body.theme-tritanopia .badge-info, body.theme-tritanopia .bg-info-subtle { background-color: rgba(13, 148, 136, 0.12) !important; color: var(--secondary) !important; }
+body.theme-tritanopia .btn-info { background-color: var(--secondary) !important; border-color: var(--secondary) !important; color: #ffffff !important; }
+[data-theme="dark"] body.theme-tritanopia .btn-info { color: #0F172A !important; }
 
-/* 3. Alto Contraste Neutro / Heterocromía (Anti-Fatiga Visual) */
+body.theme-tritanopia .galaxy-nav-item.active { border-left-color: var(--primary) !important; background: rgba(220, 38, 38, 0.1) !important; }
+body.theme-tritanopia ::-webkit-scrollbar-thumb { background: var(--primary) !important; }
+body.theme-tritanopia .theme-card.active { border-color: var(--primary) !important; background: var(--neon) !important; }
+
+/* 3. Alto Contraste (Se adapta a Claro y Oscuro) */
 body.theme-high-contrast {
-    background-color: #0F172A !important;
-    color: #F8FAFC !important;
+    --hc-border: #000000;
+    --hc-btn-bg: #000000;
+    --hc-btn-text: #FFFFFF;
+    --hc-focus: #000000;
+    --neon: #E5E5E5;
+}
+[data-theme="dark"] body.theme-high-contrast {
+    --hc-border: #FFFFFF;
+    --hc-btn-bg: #FFFFFF;
+    --hc-btn-text: #000000;
+    --hc-focus: #FFFFFF;
+    --neon: #1E293B;
 }
 
-body.theme-high-contrast .custom-sidebar,
 body.theme-high-contrast .card,
 body.theme-high-contrast .panel,
-body.theme-high-contrast .mod-card,
-body.theme-high-contrast .stat-card,
-body.theme-high-contrast .modal-content {
-    background-color: #1E293B !important;
-    color: #F8FAFC !important;
-    border: 1px solid #334155 !important;
+body.theme-high-contrast .modal-content,
+body.theme-high-contrast .theme-card,
+body.theme-high-contrast .form-control,
+body.theme-high-contrast .form-select,
+body.theme-high-contrast .custom-sidebar {
+    border: 2px solid var(--hc-border) !important;
 }
 
-body.theme-high-contrast .text-muted {
-    color: #94A3B8 !important;
-}
+body.theme-high-contrast .theme-card:hover { border-color: var(--hc-border) !important; box-shadow: 4px 4px 0 var(--hc-border) !important; }
+body.theme-high-contrast .theme-card.active { background-color: var(--neon) !important; border-width: 3px !important; }
 
-body.theme-high-contrast a,
-body.theme-high-contrast .nav-link {
-    color: #38BDF8 !important;
-}
+body.theme-high-contrast .btn-primary { background-color: var(--hc-btn-bg) !important; border: 2px solid var(--hc-btn-bg) !important; color: var(--hc-btn-text) !important; font-weight: 900 !important; }
+body.theme-high-contrast .btn-primary:hover { background-color: transparent !important; color: var(--hc-border) !important; border: 2px solid var(--hc-border) !important; }
+
+body.theme-high-contrast .btn-secondary, body.theme-high-contrast .btn-light { border: 2px solid var(--hc-border) !important; color: var(--hc-border) !important; font-weight: 700 !important; background-color: transparent !important; }
+body.theme-high-contrast .btn-secondary:hover, body.theme-high-contrast .btn-light:hover { background-color: var(--hc-btn-bg) !important; color: var(--hc-btn-text) !important; }
+
+body.theme-high-contrast .form-control:focus, body.theme-high-contrast .form-select:focus { border-color: var(--hc-focus) !important; box-shadow: 0 0 0 3px var(--hc-focus) !important; }
+
+body.theme-high-contrast .galaxy-nav-item.active { border-left: 4px solid var(--hc-border) !important; background: var(--neon) !important; font-weight: 900 !important; }
+body.theme-high-contrast ::-webkit-scrollbar-thumb { background: var(--hc-border) !important; }
